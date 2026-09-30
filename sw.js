@@ -1,15 +1,13 @@
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open('meteo-monteros-v1').then((cache) => {
-      return cache.addAll(['./index.html', './manifest.json', './logo.png', './logo_inta.png', './fondo.jpg']);
-    })
-  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(clients.claim());
 });
 
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
-    })
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });
