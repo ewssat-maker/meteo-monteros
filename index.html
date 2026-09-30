@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteo Monteros - IMONTE1127</title>
+    <!-- Tailwind CSS para un diseño moderno y minimalista -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="theme-color" content="#0f172a">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
+
+    <!-- Header -->
+    <header class="p-4 text-center border-b border-slate-800 bg-slate-900/50 backdrop-blur">
+        <h1 class="text-xl font-bold tracking-wide">🌤️ Meteo Monteros</h1>
+        <p class="text-xs text-slate-400 mt-1">Est. IMONTE1127 | En Vivo</p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="p-4 max-w-md mx-auto w-full space-y-4">
+        
+        <!-- Estado de Conexión -->
+        <div id="status-box" class="text-xs text-center text-emerald-400 bg-emerald-950/40 border border-emerald-900/50 py-1.5 px-3 rounded-full">
+            <i class="fa-solid fa-circle-dot animate-pulse mr-1"></i> Conectando con la estación...
+        </div>
+
+        <!-- Tarjetas Principales (Grid 2x2) -->
+        <div class="grid grid-cols-2 gap-3">
+            <!-- Temperatura -->
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
+                    <span>TEMPERATURA</span>
+                    <i class="fa-solid fa-temperature-high text-sky-400"></i>
+                </div>
+                <div class="my-3">
+                    <span id="val-temp" class="text-3xl font-extrabold tracking-tight">--</span>
+                    <span class="text-lg text-slate-400">°C</span>
+                </div>
+                <div id="temp-delta" class="text-[11px] text-slate-500">Actualizado recién</div>
+            </div>
+
+            <!-- Humedad -->
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
+                    <span>HUMEDAD</span>
+                    <i class="fa-solid fa-droplet text-blue-400"></i>
+                </div>
+                <div class="my-3">
+                    <span id="val-hum" class="text-3xl font-extrabold tracking-tight">--</span>
+                    <span class="text-lg text-slate-400">%</span>
+                </div>
+                <div class="text-[11px] text-slate-500">Relativa ambiente</div>
+            </div>
+
+            <!-- Presión -->
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
+                    <span>PRESIÓN</span>
+                    <i class="fa-solid fa-gauge text-indigo-400"></i>
+                </div>
+                <div class="my-3">
+                    <span id="val-pres" class="text-2xl font-extrabold tracking-tight">--</span>
+                    <span class="text-sm text-slate-400">hPa</span>
+                </div>
+                <div class="text-[11px] text-slate-500">Nivel del mar</div>
+            </div>
+
+            <!-- Viento -->
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
+                    <span>VIENTO</span>
+                    <i class="fa-solid fa-wind text-teal-400"></i>
+                </div>
+                <div class="my-3">
+                    <span id="val-wind" class="text-2xl font-extrabold tracking-tight">--</span>
+                    <span class="text-sm text-slate-400">km/h</span>
+                </div>
+                <div id="val-winddir" class="text-[11px] text-slate-400 font-medium">Dir: --</div>
+            </div>
+        </div>
+
+        <!-- Tarjeta de Precipitación (Ancho Completo) -->
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex items-center justify-between">
+            <div>
+                <div class="text-slate-400 text-xs font-medium">PRECIPITACIÓN ACUMULADA (DÍA)</div>
+                <div class="text-2xl font-extrabold mt-1"><span id="val-precip">--</span> <span class="text-sm text-slate-400 font-normal">mm</span></div>
+            </div>
+            <div class="bg-slate-800 p-3 rounded-xl text-sky-400 text-xl">
+                <i class="fa-solid fa-cloud-rain"></i>
+            </div>
+        </div>
+
+        <!-- Botón de Actualizar Manual -->
+        <button onclick="cargarDatos()" class="w-full bg-sky-600 hover:bg-sky-500 active:scale-[0.98] transition font-medium text-sm py-3 rounded-xl shadow-lg flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-rotate-right"></i>
+            <span>Actualizar Datos</span>
+        </button>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="p-4 text-center text-xs text-slate-500 border-t border-slate-800">
+        Monteros, Tucumán • Desarrollado con Estilo Minimalista
+    </footer>
+
+    <!-- Lógica JavaScript para consumir la estación -->
+    <script>
+        async function cargarDatos() {
+            const statusBox = document.getElementById('status-box');
+            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Actualizando...';
+            
+            // Usamos un proxy CORS público liviano o fetch directo si Weather Underground lo permite
+            const url = "https://api.weather.com/v2/pws/observations/current?stationId=IMONTE1127&format=json&units=m&apiKey=e1f10a1e78da46f5b10a1e78da96f525";
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Error de red');
+                const data = await response.json();
+                const obs = data.observations[0];
+                const metric = obs.metric;
+
+                // Inyectar datos en el HTML
+                document.getElementById('val-temp').innerText = metric.temp;
+                document.getElementById('val-hum').innerText = obs.humidity;
+                document.getElementById('val-pres').innerText = metric.pressure;
+                document.getElementById('val-wind').innerText = metric.windSpeed;
+                document.getElementById('val-winddir').innerText = `Dir: ${obs.winddir}°`;
+                document.getElementById('val-precip').innerText = metric.precipTotal;
+
+                statusBox.className = "text-xs text-center text-emerald-400 bg-emerald-950/40 border border-emerald-900/50 py-1.5 px-3 rounded-full";
+                statusBox.innerHTML = `<i class="fa-solid fa-circle-dot mr-1"></i> En línea • ${obs.obsTimeLocal}`;
+            } catch (error) {
+                console.error(error);
+                statusBox.className = "text-xs text-center text-amber-400 bg-amber-950/40 border border-amber-900/50 py-1.5 px-3 rounded-full";
+                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Modo simulación / Fallo de red`;
+                
+                // Valores simulados de emergencia para que la interfaz no quede vacía
+                document.getElementById('val-temp').innerText = "23.4";
+                document.getElementById('val-hum').innerText = "65";
+                document.getElementById('val-pres').innerText = "1014.2";
+                document.getElementById('val-wind').innerText = "8.5";
+                document.getElementById('val-winddir').innerText = "Dir: SE";
+                document.getElementById('val-precip').innerText = "0.0";
+            }
+        }
+
+        // Cargar al iniciar la página
+        cargarDatos();
+    </script>
+</body>
+</html>
