@@ -152,6 +152,7 @@
         Monteros, Tucumán • Red Agrometeorológica INTA
     </footer>
 
+    <!-- Lógica de Datos con Forzado Absoluto de Decimales -->
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -175,8 +176,9 @@
                 const obs = data.observations[0];
                 const metric = obs.metric;
 
-                // CORRECCIÓN: metric.temp ya trae el decimal exacto de WU (ej. 16.5) sin redondear
-                document.getElementById('val-temp').innerText = metric.temp;
+                // Forzamos la conversión estricta a número con 1 decimal exacto
+                let tempVal = Number(metric.temp);
+                document.getElementById('val-temp').innerText = !isNaN(tempVal) ? tempVal.toFixed(1) : metric.temp;
                 
                 document.getElementById('val-hum').innerText = obs.humidity;
                 document.getElementById('val-pres').innerText = metric.pressure;
