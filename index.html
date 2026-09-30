@@ -12,24 +12,19 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
 
-    <!-- Header con Logotipos Institucionales -->
-    <header class="p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur flex items-center justify-between">
-        <!-- Logo Izquierdo (Sistema de Alerta Temprana) -->
-        <div class="flex items-center space-x-2">
-            <img src="logo.png" alt="Logo Alerta" class="w-10 h-10 object-contain rounded-full border border-slate-700">
-        </div>
+    <!-- Header Compacto y Unificado al Centro -->
+    <header class="p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur flex items-center justify-center space-x-3">
+        <!-- Logo Izquierdo -->
+        <img src="logo.png" alt="Logo Alerta" class="w-9 h-9 object-contain rounded-full border border-slate-700">
 
-        <!-- Título Central -->
+        <!-- Títulos Centrales -->
         <div class="text-center">
-            <h1 class="text-base font-bold tracking-wide">🌤️ Meteo Monteros</h1>
-            <p class="text-[11px] text-slate-400">Est. IMONTE1127 | En Vivo</p>
+            <h1 class="text-base font-bold tracking-wide leading-tight">🌤️ Meteo Monteros</h1>
+            <p class="text-[10px] text-slate-400">Est. IMONTE1127 | En Vivo</p>
         </div>
 
-        <!-- Logo Derecho (INTA Monteros / Espacio institucional) -->
-        <div class="flex items-center space-x-2">
-            <!-- Reemplaza 'logo_inta.png' por el archivo de imagen de INTA cuando lo subas al repositorio -->
-            <img src="logo_inta.png" alt="INTA Monteros" class="w-10 h-10 object-contain rounded-full border border-slate-700 bg-slate-800" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'55%\' font-size=\'10\' fill=\'%2394a3b8\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\'>INTA</text></svg>'">
-        </div>
+        <!-- Logo Derecho -->
+        <img src="logo_inta.png" alt="INTA Monteros" class="w-9 h-9 object-contain rounded-full border border-slate-700 bg-slate-800" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'55%\' font-size=\'9\' fill=\'%2394a3b8\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\'>INTA</text></svg>'">
     </header>
 
     <!-- Main Content -->
@@ -150,10 +145,7 @@
             }
         }
 
-        // Cargar al iniciar
         cargarDatos();
-
-        // Opcional: Actualizar automáticamente cada 5 minutos (300000 ms)
         setInterval(cargarDatos, 300000);
     </script>
 </body>
