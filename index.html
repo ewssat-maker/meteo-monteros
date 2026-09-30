@@ -8,25 +8,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Manifiesto PWA para forzar pantalla completa nativa -->
+    <!-- PWA Config -->
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#022c22">
     <style>
-        /* Fondo AgTech utilizando la imagen local 'fondo.jpg' */
         body {
             background: linear-gradient(rgba(2, 44, 34, 0.85), rgba(3, 7, 18, 0.95)), 
                         url('fondo.jpg') no-repeat center center fixed;
             background-size: cover;
             min-height: 100vh;
-            min-height: -webkit-fill-available;
         }
-        html {
-            height: -webkit-fill-available;
-        }
-        /* Efecto Glassmorphism / Paneles Transparentes con desenfoque */
         .glass-panel {
             background: rgba(15, 23, 42, 0.75);
             backdrop-filter: blur(16px);
@@ -34,7 +28,6 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }
-        /* Pantalla de Carga / Presentación Previa (Splash Screen) */
         #splash-screen {
             position: fixed;
             inset: 0;
@@ -50,7 +43,7 @@
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col justify-between font-sans antialiased">
 
-    <!-- 1. PRESENTACIÓN PREVIA (Splash Screen) -->
+    <!-- Pantalla de Bienvenida (Splash Screen) -->
     <div id="splash-screen">
         <div class="flex items-center space-x-4 mb-4">
             <img src="logo.png" alt="Alerta" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 shadow-2xl animate-pulse">
@@ -60,7 +53,7 @@
         <p class="text-xs text-slate-400 mt-1">Cargando plataforma AgTech...</p>
     </div>
 
-    <!-- 2. HEADER INSTITUCIONAL -->
+    <!-- Header -->
     <header class="p-4 border-b border-white/10 glass-panel flex flex-col items-center space-y-2.5 sticky top-0 z-50">
         <div class="flex items-center justify-center space-x-4">
             <img src="logo.png" alt="Logo Alerta" class="w-11 h-11 object-contain rounded-full border border-white/20 shadow-md">
@@ -73,15 +66,14 @@
         </div>
     </header>
 
-    <!-- 3. CUERPO PRINCIPAL CON DIFERENTES TAMAÑOS (Estilo Dashboard AgTech) -->
+    <!-- Contenido Principal -->
     <main class="p-4 max-w-md mx-auto w-full space-y-3.5 my-auto">
         
-        <!-- Estado de Conexión en Vivo -->
         <div id="status-box" class="text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md">
-            <i class="fa-solid fa-satellite-dish animate-pulse mr-1"></i> Conectando con estación remota...
+            <i class="fa-solid fa-satellite-dish animate-pulse mr-1"></i> Sincronizando...
         </div>
 
-        <!-- TARJETA PRINCIPAL DESTACADA: TEMPERATURA (Con Decimales) -->
+        <!-- Temperatura -->
         <div class="glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
             <div>
                 <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Temperatura Ambiente</span>
@@ -96,9 +88,8 @@
             </div>
         </div>
 
-        <!-- GRILLA DE MÉTRICAS -->
+        <!-- Grilla de Métricas -->
         <div class="grid grid-cols-2 gap-3">
-            <!-- Humedad -->
             <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-blue-500">
                 <div class="text-blue-400 text-[11px] font-bold uppercase flex items-center justify-between">
                     <span>Humedad</span>
@@ -111,7 +102,6 @@
                 <span class="text-[10px] text-slate-400">Relativa ambiente</span>
             </div>
 
-            <!-- Presión -->
             <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-indigo-400">
                 <div class="text-indigo-300 text-[11px] font-bold uppercase flex items-center justify-between">
                     <span>Presión Atmos.</span>
@@ -125,9 +115,7 @@
             </div>
         </div>
 
-        <!-- TARJETA DOBLE: VIENTO Y PRECIPITACIÓN -->
         <div class="grid grid-cols-2 gap-3">
-            <!-- Viento -->
             <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-teal-400">
                 <div class="text-teal-300 text-[11px] font-bold uppercase flex items-center justify-between">
                     <span>Viento</span>
@@ -140,7 +128,6 @@
                 <span id="val-winddir" class="text-[10px] text-teal-200 font-semibold">Dir: --</span>
             </div>
 
-            <!-- Precipitación -->
             <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-cyan-400">
                 <div class="text-cyan-300 text-[11px] font-bold uppercase flex items-center justify-between">
                     <span>Lluvia Día</span>
@@ -154,7 +141,6 @@
             </div>
         </div>
 
-        <!-- Botón de Sincronización Táctil -->
         <button onclick="cargarDatos()" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] transition font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-emerald-400/40 text-white">
             <i class="fa-solid fa-rotate-right"></i>
             <span>Sincronizar Estación</span>
@@ -162,12 +148,11 @@
 
     </main>
 
-    <!-- Footer Institucional -->
     <footer class="p-3 text-center text-[11px] text-slate-400 border-t border-white/10 glass-panel">
         Monteros, Tucumán • Red Agrometeorológica INTA
     </footer>
 
-    <!-- Script de Datos con Decimales y Animación de Carga -->
+    <!-- Lógica de Datos con Decimales Forzados -->
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -191,8 +176,10 @@
                 const obs = data.observations[0];
                 const metric = obs.metric;
 
-                // Mantiene el valor exacto con decimales proporcionado por la estación
-                document.getElementById('val-temp').innerText = Number(metric.temp).toFixed(1);
+                // Forzar lectura exacta con un decimal obligatoriamente
+                const tempValor = parseFloat(metric.temp);
+                document.getElementById('val-temp').innerText = isNaN(tempValor) ? metric.temp : tempValor.toFixed(1);
+                
                 document.getElementById('val-hum').innerText = obs.humidity;
                 document.getElementById('val-pres').innerText = metric.pressure;
                 document.getElementById('val-wind').innerText = metric.windSpeed;
@@ -209,19 +196,11 @@
         }
 
         setInterval(cargarDatos, 300000);
-    </script>
 
-    <!-- Script para registrar el Service Worker (Modo App Nativa Automática) -->
-    <script>
+        // Registrar Service Worker para eliminar bordes de navegador
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then((reg) => console.log('Service Worker registrado con éxito:', reg.scope))
-                    .catch((err) => console.log('Error al registrar Service Worker:', err));
-            });
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
         }
     </script>
-</body>
-</html>
 </body>
 </html>
