@@ -2,23 +2,29 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Meteo Monteros - AgTech</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Manifiesto PWA -->
+    <!-- Manifiesto PWA para forzar pantalla completa nativa -->
     <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#022c22">
     <style>
-        /* Fondo AgTech utilizando la imagen local 'fondo.jpg' que subiste al repositorio */
+        /* Fondo AgTech utilizando la imagen local 'fondo.jpg' */
         body {
-            background: linear-gradient(rgba(2, 44, 34, 0.82), rgba(3, 7, 18, 0.94)), 
+            background: linear-gradient(rgba(2, 44, 34, 0.85), rgba(3, 7, 18, 0.95)), 
                         url('fondo.jpg') no-repeat center center fixed;
             background-size: cover;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+        html {
+            height: -webkit-fill-available;
         }
         /* Efecto Glassmorphism / Paneles Transparentes con desenfoque */
         .glass-panel {
@@ -75,7 +81,7 @@
             <i class="fa-solid fa-satellite-dish animate-pulse mr-1"></i> Conectando con estación remota...
         </div>
 
-        <!-- TARJETA PRINCIPAL DESTACADA: TEMPERATURA -->
+        <!-- TARJETA PRINCIPAL DESTACADA: TEMPERATURA (Con Decimales) -->
         <div class="glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
             <div>
                 <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Temperatura Ambiente</span>
@@ -161,7 +167,7 @@
         Monteros, Tucumán • Red Agrometeorológica INTA
     </footer>
 
-    <!-- Script de Datos y Animación de Carga -->
+    <!-- Script de Datos con Decimales y Animación de Carga -->
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -185,7 +191,8 @@
                 const obs = data.observations[0];
                 const metric = obs.metric;
 
-                document.getElementById('val-temp').innerText = metric.temp;
+                // Mantiene el valor exacto con decimales proporcionado por la estación
+                document.getElementById('val-temp').innerText = Number(metric.temp).toFixed(1);
                 document.getElementById('val-hum').innerText = obs.humidity;
                 document.getElementById('val-pres').innerText = metric.pressure;
                 document.getElementById('val-wind').innerText = metric.windSpeed;
