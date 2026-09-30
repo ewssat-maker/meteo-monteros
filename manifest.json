@@ -1,15 +1,25 @@
 {
+  "id": "/meteo-monteros/",
   "name": "Meteo Monteros AgTech",
   "short_name": "Meteo Monteros",
+  "description": "Dashboard agrometeorológico de la estación IMONTE1127",
   "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#022c22",
   "theme_color": "#022c22",
   "icons": [
     {
       "src": "logo_inta.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
