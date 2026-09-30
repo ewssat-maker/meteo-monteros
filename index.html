@@ -2,124 +2,178 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meteo Monteros - IMONTE1127</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meteo Monteros - AgTech</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome para iconos -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <meta name="theme-color" content="#0f172a">
+    <!-- Meta para pantalla completa tipo App Nativa en Celular -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#022c22">
+    <style>
+        /* Fondo AgTech con textura de alta calidad y gradiente agrícola */
+        body {
+            background: linear-gradient(rgba(2, 44, 34, 0.75), rgba(3, 7, 18, 0.90)), 
+                        url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1000&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+        }
+        /* Efecto Glassmorphism / Panels Transparentes */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* Pantalla de Carga / Presentación Previa (Splash Screen) */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            background: #022c22;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
+<body class="text-slate-100 min-h-screen flex flex-col justify-between font-sans antialiased">
 
-    <!-- Header: Logotipos arriba y Título grande abajo sin icono -->
-    <header class="p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur flex flex-col items-center space-y-2.5">
-        <!-- Fila superior: Logotipos centrados -->
-        <div class="flex items-center justify-center space-x-4">
-            <img src="logo.png" alt="Logo Alerta" class="w-11 h-11 object-contain rounded-full border border-slate-700 shadow-md">
-            <div class="h-6 w-px bg-slate-800"></div>
-            <img src="logo_inta.png" alt="INTA Monteros" class="w-11 h-11 object-contain rounded-full border border-slate-700 bg-slate-800 shadow-md" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'44\' height=\'44\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'55%\' font-size=\'10\' fill=\'%2394a3b8\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\'>INTA</text></svg>'">
+    <!-- 1. PRESENTACIÓN PREVIA (Splash Screen tipo App) -->
+    <div id="splash-screen">
+        <div class="flex items-center space-x-4 mb-4">
+            <img src="logo.png" alt="Alerta" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 shadow-2xl animate-pulse">
+            <img src="logo_inta.png" alt="INTA" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 bg-slate-900 shadow-2xl" onerror="this.style.display='none'">
         </div>
+        <h2 class="text-xl font-black tracking-wider text-emerald-400">METEO MONTEROS</h2>
+        <p class="text-xs text-slate-400 mt-1">Cargando plataforma AgTech...</p>
+    </div>
 
-        <!-- Fila inferior: Título al doble de tamaño y sin icono -->
+    <!-- 2. HEADER INSTITUCIONAL CON TRANSPARENCIA -->
+    <header class="p-4 border-b border-white/10 glass-panel flex flex-col items-center space-y-2.5 sticky top-0 z-50">
+        <div class="flex items-center justify-center space-x-3">
+            <img src="logo.png" alt="Logo Alerta" class="w-10 h-10 object-contain rounded-full border border-white/20 shadow-md">
+            <div class="h-5 w-px bg-white/20"></div>
+            <img src="logo_inta.png" alt="INTA" class="w-10 h-10 object-contain rounded-full border border-white/20 bg-slate-900/80 shadow-md" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'><rect width=\'100%\' height=\'100%\' fill=\'%23064e3b\'/><text x=\'50%\' y=\'55%\' font-size=\'9\' fill=\'%236ee7b7\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\'>INTA</text></svg>'">
+        </div>
         <div class="text-center">
-            <h1 class="text-2xl font-extrabold tracking-tight leading-tight">Meteo Monteros</h1>
-            <p class="text-xs text-slate-400 mt-0.5">Est. IMONTE1127 | En Vivo</p>
+            <h1 class="text-2xl font-black tracking-tight text-white drop-shadow-md">Meteo Monteros</h1>
+            <p class="text-[11px] text-emerald-300 font-medium tracking-wide uppercase">Est. IMONTE1127 • Monitoreo Agrometeorológico</p>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="p-4 max-w-md mx-auto w-full space-y-4">
+    <!-- 3. CUERPO PRINCIPAL CON DIFERENTES TAMAÑOS (Estilo Dashboard AgTech) -->
+    <main class="p-4 max-w-md mx-auto w-full space-y-3.5 my-auto">
         
-        <!-- Estado de Conexión -->
-        <div id="status-box" class="text-xs text-center text-emerald-400 bg-emerald-950/40 border border-emerald-900/50 py-1.5 px-3 rounded-full">
-            <i class="fa-solid fa-circle-dot animate-pulse mr-1"></i> Conectando con la estación...
+        <!-- Estado de Conexión en Vivo -->
+        <div id="status-box" class="text-xs text-center text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 py-1.5 px-3 rounded-xl shadow-lg backdrop-blur-md">
+            <i class="fa-solid fa-satellite-dish animate-pulse mr-1"></i> Conectando con estación remota...
         </div>
 
-        <!-- Tarjetas Principales (Grid 2x2) -->
-        <div class="grid grid-cols-2 gap-3">
-            <!-- Temperatura -->
-            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
-                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
-                    <span>TEMPERATURA</span>
-                    <i class="fa-solid fa-temperature-high text-sky-400"></i>
+        <!-- TARJETA PRINCIPAL DESTACADA: TEMPERATURA (Ancho completo con tamaño grande) -->
+        <div class="glass-panel p-5 rounded-3xl shadow-2xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
+            <div>
+                <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Temperatura Ambiente</span>
+                <div class="flex items-baseline space-x-2 mt-1">
+                    <span id="val-temp" class="text-5xl font-black tracking-tighter">--</span>
+                    <span class="text-2xl text-slate-300 font-semibold">°C</span>
                 </div>
-                <div class="my-3">
-                    <span id="val-temp" class="text-3xl font-extrabold tracking-tight">--</span>
-                    <span class="text-lg text-slate-400">°C</span>
-                </div>
-                <div id="temp-delta" class="text-[11px] text-slate-500">Actualizado recién</div>
+                <span class="text-[11px] text-slate-400 mt-1 block">Sensor térmico de alta precisión</span>
             </div>
+            <div class="bg-sky-500/20 p-4 rounded-2xl text-sky-400 text-3xl border border-sky-500/30">
+                <i class="fa-solid fa-temperature-arrow-up"></i>
+            </div>
+        </div>
 
+        <!-- GRILLA DE MÉTRICAS (Tamaños medianos y compactos) -->
+        <div class="grid grid-cols-2 gap-3">
             <!-- Humedad -->
-            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
-                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
-                    <span>HUMEDAD</span>
-                    <i class="fa-solid fa-droplet text-blue-400"></i>
+            <div class="glass-panel p-4 rounded-2xl shadow-xl flex flex-col justify-between border-l-4 border-l-blue-500">
+                <div class="text-blue-400 text-[11px] font-bold uppercase flex items-center justify-between">
+                    <span>Humedad</span>
+                    <i class="fa-solid fa-droplet"></i>
                 </div>
-                <div class="my-3">
+                <div class="my-2">
                     <span id="val-hum" class="text-3xl font-extrabold tracking-tight">--</span>
-                    <span class="text-lg text-slate-400">%</span>
+                    <span class="text-sm text-slate-300">%</span>
                 </div>
-                <div class="text-[11px] text-slate-500">Relativa ambiente</div>
+                <span class="text-[10px] text-slate-400">Relativa ambiente</span>
             </div>
 
             <!-- Presión -->
-            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
-                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
-                    <span>PRESIÓN</span>
-                    <i class="fa-solid fa-gauge text-indigo-400"></i>
+            <div class="glass-panel p-4 rounded-2xl shadow-xl flex flex-col justify-between border-l-4 border-l-indigo-400">
+                <div class="text-indigo-300 text-[11px] font-bold uppercase flex items-center justify-between">
+                    <span>Presión Atmos.</span>
+                    <i class="fa-solid fa-gauge-high"></i>
                 </div>
-                <div class="my-3">
+                <div class="my-2">
                     <span id="val-pres" class="text-2xl font-extrabold tracking-tight">--</span>
-                    <span class="text-sm text-slate-400">hPa</span>
+                    <span class="text-xs text-slate-300">hPa</span>
                 </div>
-                <div class="text-[11px] text-slate-500">Nivel del mar</div>
+                <span class="text-[10px] text-slate-400">Nivel del mar</span>
             </div>
+        </div>
 
+        <!-- TARJETA DOBLE: VIENTO Y PRECIPITACIÓN -->
+        <div class="grid grid-cols-2 gap-3">
             <!-- Viento -->
-            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
-                <div class="text-slate-400 text-xs font-medium flex items-center justify-between">
-                    <span>VIENTO</span>
-                    <i class="fa-solid fa-wind text-teal-400"></i>
+            <div class="glass-panel p-4 rounded-2xl shadow-xl flex flex-col justify-between border-l-4 border-l-teal-400">
+                <div class="text-teal-300 text-[11px] font-bold uppercase flex items-center justify-between">
+                    <span>Viento</span>
+                    <i class="fa-solid fa-wind"></i>
                 </div>
-                <div class="my-3">
+                <div class="my-2">
                     <span id="val-wind" class="text-2xl font-extrabold tracking-tight">--</span>
-                    <span class="text-sm text-slate-400">km/h</span>
+                    <span class="text-xs text-slate-300">km/h</span>
                 </div>
-                <div id="val-winddir" class="text-[11px] text-slate-400 font-medium">Dir: --</div>
+                <span id="val-winddir" class="text-[10px] text-teal-200 font-semibold">Dir: --</span>
+            </div>
+
+            <!-- Precipitación -->
+            <div class="glass-panel p-4 rounded-2xl shadow-xl flex flex-col justify-between border-l-4 border-l-cyan-400">
+                <div class="text-cyan-300 text-[11px] font-bold uppercase flex items-center justify-between">
+                    <span>Lluvia Día</span>
+                    <i class="fa-solid fa-cloud-rain"></i>
+                </div>
+                <div class="my-2">
+                    <span id="val-precip" class="text-2xl font-extrabold tracking-tight">--</span>
+                    <span class="text-xs text-slate-300">mm</span>
+                </div>
+                <span class="text-[10px] text-slate-400">Acumulado diario</span>
             </div>
         </div>
 
-        <!-- Tarjeta de Precipitación (Ancho Completo) -->
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex items-center justify-between">
-            <div>
-                <div class="text-slate-400 text-xs font-medium">PRECIPITACIÓN ACUMULADA (DÍA)</div>
-                <div class="text-2xl font-extrabold mt-1"><span id="val-precip">--</span> <span class="text-sm text-slate-400 font-normal">mm</span></div>
-            </div>
-            <div class="bg-slate-800 p-3 rounded-xl text-sky-400 text-xl">
-                <i class="fa-solid fa-cloud-rain"></i>
-            </div>
-        </div>
-
-        <!-- Botón de Actualizar Manual -->
-        <button onclick="cargarDatos()" class="w-full bg-sky-600 hover:bg-sky-500 active:scale-[0.98] transition font-medium text-sm py-3 rounded-xl shadow-lg flex items-center justify-center space-x-2">
+        <!-- Botón de Actualización AgTech Táctil -->
+        <button onclick="cargarDatos()" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] transition font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-emerald-400/40">
             <i class="fa-solid fa-rotate-right"></i>
-            <span>Actualizar Datos</span>
+            <span>Sincronizar Estación</span>
         </button>
 
     </main>
 
-    <!-- Footer -->
-    <footer class="p-4 text-center text-xs text-slate-500 border-t border-slate-800">
-        Monteros, Tucumán • Sistema de Alerta Temprana & INTA
+    <!-- Footer Institucional -->
+    <footer class="p-3 text-center text-[11px] text-slate-400 border-t border-white/10 glass-panel">
+        Monteros, Tucumán • Red Agrometeorológica INTA
     </footer>
 
-    <!-- Lógica JavaScript -->
+    <!-- Script de Datos y Animación de Carga -->
     <script>
+        // Ocultar pantalla de presentación previa a los 1.5 segundos
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                splash.style.opacity = '0';
+                setTimeout(() => splash.remove(), 500);
+            }, 1200);
+            cargarDatos();
+        });
+
         async function cargarDatos() {
             const statusBox = document.getElementById('status-box');
-            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Actualizando...';
+            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Sincronizando datos...';
             
             const url = "https://api.weather.com/v2/pws/observations/current?stationId=IMONTE1127&format=json&units=m&apiKey=e1f10a1e78da46f5b10a1e78da96f525";
 
@@ -137,16 +191,15 @@
                 document.getElementById('val-winddir').innerText = `Dir: ${obs.winddir}°`;
                 document.getElementById('val-precip').innerText = metric.precipTotal;
 
-                statusBox.className = "text-xs text-center text-emerald-400 bg-emerald-950/40 border border-emerald-900/50 py-1.5 px-3 rounded-full";
-                statusBox.innerHTML = `<i class="fa-solid fa-circle-dot mr-1"></i> En línea • ${obs.obsTimeLocal}`;
+                statusBox.className = "text-xs text-center text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 py-1.5 px-3 rounded-xl shadow-lg backdrop-blur-md";
+                statusBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i> En línea • ${obs.obsTimeLocal}`;
             } catch (error) {
                 console.error(error);
-                statusBox.className = "text-xs text-center text-amber-400 bg-amber-950/40 border border-amber-900/50 py-1.5 px-3 rounded-full";
-                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Modo simulación / Fallo de red`;
+                statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/60 border border-amber-500/30 py-1.5 px-3 rounded-xl shadow-lg backdrop-blur-md";
+                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Modo simulación / Enlace intermitente`;
             }
         }
 
-        cargarDatos();
         setInterval(cargarDatos, 300000);
     </script>
 </body>
