@@ -210,5 +210,18 @@
 
         setInterval(cargarDatos, 300000);
     </script>
+
+    <!-- Script para registrar el Service Worker (Modo App Nativa Automática) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((reg) => console.log('Service Worker registrado con éxito:', reg.scope))
+                    .catch((err) => console.log('Error al registrar Service Worker:', err));
+            });
+        }
+    </script>
+</body>
+</html>
 </body>
 </html>
