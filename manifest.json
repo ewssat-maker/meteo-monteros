@@ -1,8 +1,8 @@
 {
-  "id": "/meteo-monteros/",
-  "name": "Meteo Monteros AgTech",
-  "short_name": "Meteo Monteros",
-  "description": "Dashboard agrometeorológico de la estación IMONTE1127",
+  "id": "/MetricPoint datos/",
+  "name": "MetricPoint AgTech",
+  "short_name": "MetricPoint live",
+  "description": "Dashboard informacion en tiempo real para Tucumán",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -10,7 +10,7 @@
   "theme_color": "#022c22",
   "icons": [
     {
-      "src": "logo_inta.png",
+      "src": "logo_metric.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
