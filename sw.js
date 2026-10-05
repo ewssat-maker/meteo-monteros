@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meteo-monteros-v2';
+const CACHE_NAME = 'meteo-monteros-v3';
 
 // Instala el Service Worker y fuerza a que tome el control inmediatamente
 self.addEventListener('install', (e) => {
