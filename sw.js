@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metricpoint-live-v2';
+const CACHE_NAME = 'metricpoint-live-v3';
 
 // Instala el Service Worker y fuerza a que tome el control inmediatamente
 self.addEventListener('install', (e) => {
