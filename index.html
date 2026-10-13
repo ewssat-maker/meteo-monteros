@@ -8,6 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet para el Mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <!-- PWA Config -->
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
@@ -39,6 +43,10 @@
             justify-content: center;
             transition: opacity 0.5s ease;
         }
+
+        /* Estilos para que el popup del mapa se adapte al tema oscuro */
+        .leaflet-popup-content-wrapper { background: #0f172a; color: #34d399; border: 1px solid #059669; border-radius: 8px; font-family: monospace; font-weight: bold; text-align: center; }
+        .leaflet-popup-tip { background: #0f172a; }
     </style>
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col justify-between font-sans antialiased">
@@ -162,11 +170,35 @@
             </div>
         </div>
 
-        <!-- PRONÓSTICO EXTENDIDO -->
+        <!-- RADAR Y MAPA EN TIEMPO REAL -->
         <div class="mt-4 border-t border-emerald-500/20 pt-4">
-            <h3 class="text-[10px] font-bold tracking-widest uppercase text-emerald-400 mb-3 text-center">Pronóstico a 3 días</h3>
-            <div id="forecast-container" class="grid grid-cols-3 gap-2">
-                <div class="glass-panel p-3 rounded-2xl text-center text-xs text-slate-400 col-span-3">Cargando pronóstico...</div>
+            <h3 class="text-[10px] font-bold tracking-widest uppercase text-emerald-400 mb-3 text-center">Radar y Mapa en Tiempo Real</h3>
+            
+            <!-- Controles de Radar -->
+            <div class="glass-panel p-3 rounded-2xl mb-3 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                        <input type="checkbox" id="chk-RMA11" onchange="toggleRadar('RMA11', this.checked)" class="accent-emerald-400 w-4 h-4">
+                        <span class="font-bold">RMA11</span><span class="text-slate-400 text-[10px]">Termas de Río Hondo</span>
+                    </label>
+                    <span id="rad-estado-RMA11" class="text-[9px] font-mono text-slate-400"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                        <input type="checkbox" id="chk-RMA20" onchange="toggleRadar('RMA20', this.checked)" class="accent-emerald-400 w-4 h-4">
+                        <span class="font-bold">RMA20</span><span class="text-slate-400 text-[10px]">Las Lajitas</span>
+                    </label>
+                    <span id="rad-estado-RMA20" class="text-[9px] font-mono text-slate-400"></span>
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">Opacidad</span>
+                    <input type="range" min="20" max="100" value="70" oninput="cambiarOpacidadRadar(this.value)" class="flex-1 accent-emerald-400">
+                </div>
+            </div>
+
+            <!-- Contenedor del Mapa -->
+            <div class="glass-panel rounded-2xl overflow-hidden h-64 relative border border-emerald-500/30">
+                <div id="mapaCentral" class="w-full h-full bg-black z-0"></div>
             </div>
         </div>
 
@@ -182,8 +214,133 @@
         Red Agrometeorológica • MetricPoint
     </footer>
 
-    <!-- Scripts de Datos en Tiempo Real y Pronóstico -->
+    <!-- Scripts (Leaflet y Lógica) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // ==========================================
+        // 1. CONFIGURACIÓN DEL MAPA
+        // ==========================================
+        const mapForecast = L.map('mapaCentral', { zoomControl: false }).setView([-26.83, -65.20], 8);
+        L.control.zoom({ position: 'bottomright' }).addTo(mapForecast);
+        
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18, attribution: 'Tiles &copy; Esri'
+        }).addTo(mapForecast);
+
+        mapForecast.createPane('radarPane').style.zIndex = 250;
+        mapForecast.createPane('labelsPane').style.zIndex = 300;
+        mapForecast.getPane('labelsPane').style.pointerEvents = 'none';
+
+        L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18, pane: 'labelsPane'
+        }).addTo(mapForecast);
+
+        let marcadorActual = null;
+
+        // ==========================================
+        // 2. MOTOR DE RADARES
+        // ==========================================
+        const RADAR_WEBMET = 'https://webmet.ohmc.ar';
+        const RADAR_PROXY = 'https://metricmoisture-backend.onrender.com/api/radar';
+        const RADAR_REFRESCO_MS = 5 * 60 * 1000;
+        const RADAR_ATRASO_MIN = 30;
+        const RADAR_MAX_NATIVE_ZOOM = 10;
+        let radarOpacidad = 0.7;
+
+        const RADARES = {
+            RMA11: { capa: null, registro: null, activo: false },
+            RMA20: { capa: null, registro: null, activo: false }
+        };
+
+        async function pedirUltimoRadar(code) {
+            const qs = `radar_code=${code}&product_key=COLMAX&vol_nr=01&vol_nr=02&strategy=0315`;
+            try {
+                const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`);
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return await r.json();
+            } catch (errDirecto) {
+                console.warn(`Radar ${code}: consulta directa falló. Probando proxy...`);
+                const r2 = await fetch(`${RADAR_PROXY}/${code}/latest`);
+                if (!r2.ok) throw new Error('HTTP ' + r2.status);
+                return await r2.json();
+            }
+        }
+
+        function estadoRadar(code, texto, nivel) {
+            const el = document.getElementById(`rad-estado-${code}`);
+            if (!el) return;
+            el.textContent = texto;
+            const color = nivel === 'error' ? 'text-red-400' : (nivel === 'aviso' ? 'text-amber-400' : 'text-slate-400');
+            el.className = `text-[9px] font-mono ${color}`;
+        }
+
+        function describirObservacion(iso) {
+            const f = new Date(iso);
+            if (isNaN(f)) return { texto: 'Hora desconocida', nivel: 'aviso' };
+            const min = Math.max(0, Math.round((Date.now() - f.getTime()) / 60000));
+            const hora = f.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' });
+            const atrasado = min > RADAR_ATRASO_MIN;
+            return { texto: `${hora} (-${min}m)${atrasado ? ' ⚠' : ''}`, nivel: atrasado ? 'aviso' : 'ok' };
+        }
+
+        async function actualizarRadar(code) {
+            const r = RADARES[code];
+            const reg = await pedirUltimoRadar(code);
+            if (!r.activo) return;
+
+            const obs = describirObservacion(reg.observation_time);
+            estadoRadar(code, obs.texto, obs.nivel);
+            if (r.registro && r.registro.id === reg.id) return;
+
+            const bb = reg.bbox;
+            const bounds = L.latLngBounds([bb.min_lat, bb.min_lon], [bb.max_lat, bb.max_lon]);
+            const url = reg.tile_url.startsWith('http') ? reg.tile_url : RADAR_WEBMET + reg.tile_url;
+
+            const nueva = L.tileLayer(url, {
+                pane: 'radarPane', bounds: bounds, opacity: radarOpacidad,
+                minZoom: 4, maxNativeZoom: RADAR_MAX_NATIVE_ZOOM, maxZoom: 18
+            }).addTo(mapForecast);
+            
+            if (r.capa) mapForecast.removeLayer(r.capa);
+            r.capa = nueva;
+            r.registro = reg;
+        }
+
+        async function toggleRadar(code, activo) {
+            const r = RADARES[code];
+            r.activo = activo;
+            if (!activo) {
+                if (r.capa) mapForecast.removeLayer(r.capa);
+                r.capa = null; r.registro = null;
+                estadoRadar(code, '');
+                return;
+            }
+            estadoRadar(code, 'Cargando…');
+            try {
+                await actualizarRadar(code);
+            } catch (e) {
+                console.error(`Radar ${code}:`, e);
+                estadoRadar(code, 'No disponible', 'error');
+            }
+        }
+
+        function cambiarOpacidadRadar(valor) {
+            radarOpacidad = valor / 100;
+            Object.values(RADARES).forEach(r => { if (r.capa) r.capa.setOpacity(radarOpacidad); });
+        }
+
+        async function refrescarRadares() {
+            for (const code of Object.keys(RADARES)) {
+                if (!RADARES[code].activo) continue;
+                try { await actualizarRadar(code); }
+                catch (e) { console.error(`Radar ${code}:`, e); estadoRadar(code, 'No disponible', 'error'); }
+            }
+        }
+        setInterval(refrescarRadares, RADAR_REFRESCO_MS);
+
+        // ==========================================
+        // 3. SINCRONIZACIÓN Y TELEMETRÍA (Modificado)
+        // ==========================================
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
@@ -197,14 +354,23 @@
             const selector = document.getElementById('stationSelector');
             const data = selector.value.split('|');
             const stationId = data[0];
-            const lat = data[1];
-            const lon = data[2];
+            const lat = parseFloat(data[1]);
+            const lon = parseFloat(data[2]);
             const nombreEstacion = data[3];
 
             document.getElementById('header-subtitle').innerText = `Est. ${stationId} • ${nombreEstacion}`;
 
             cargarDatosActuales(stationId);
-            cargarPronostico(lat, lon);
+            
+            // Actualizar Marcador y mover la vista del mapa
+            mapForecast.flyTo([lat, lon], 10, { duration: 1.5 });
+            if (marcadorActual) mapForecast.removeLayer(marcadorActual);
+            marcadorActual = L.circleMarker([lat, lon], {
+                radius: 10, fillColor: "#10b981", color: "#ffffff", weight: 2, fillOpacity: 0.8
+            }).addTo(mapForecast).bindPopup(`ACTIVO:<br>${nombreEstacion}`).openPopup();
+            
+            // Refrescar tamaño del mapa al recargar (evita bugs de Leaflet en contenedores dinámicos)
+            setTimeout(() => mapForecast.invalidateSize(), 500);
         }
 
         async function cargarDatosActuales(stationId) {
@@ -250,53 +416,9 @@
             }
         }
 
-        async function cargarPronostico(lat, lon) {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FArgentina%2FTucuman&forecast_days=3`;
-            
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                const container = document.getElementById('forecast-container');
-                container.innerHTML = ''; 
-
-                const dias = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
-
-                for(let i = 0; i < 3; i++) {
-                    const dateObj = new Date(data.daily.time[i] + 'T12:00:00'); 
-                    const diaSemana = (i === 0) ? 'HOY' : dias[dateObj.getDay()];
-                    
-                    const tMax = Math.round(data.daily.temperature_2m_max[i]);
-                    const tMin = Math.round(data.daily.temperature_2m_min[i]);
-                    const pop = data.daily.precipitation_probability_max[i];
-                    const wcode = data.daily.weathercode[i];
-
-                    let iconClass = 'fa-sun text-yellow-400';
-                    if (wcode >= 1 && wcode <= 3) iconClass = 'fa-cloud-sun text-slate-300';
-                    if (wcode >= 45 && wcode <= 48) iconClass = 'fa-smog text-slate-400';
-                    if (wcode >= 51 && wcode <= 67) iconClass = 'fa-cloud-rain text-sky-400';
-                    if (wcode >= 71 && wcode <= 77) iconClass = 'fa-snowflake text-white';
-                    if (wcode >= 95) iconClass = 'fa-cloud-bolt text-indigo-400';
-
-                    container.innerHTML += `
-                        <div class="glass-panel p-3 rounded-2xl flex flex-col items-center justify-center text-center space-y-1.5 shadow-lg border-t-2 border-t-emerald-500/30">
-                            <span class="text-[11px] font-bold text-slate-300 tracking-wider">${diaSemana}</span>
-                            <i class="fa-solid ${iconClass} text-2xl my-1 drop-shadow-md"></i>
-                            <div class="flex space-x-2 text-xs mt-1">
-                                <span class="font-black text-white" title="Máxima">${tMax}°</span>
-                                <span class="text-slate-400" title="Mínima">${tMin}°</span>
-                            </div>
-                            <span class="text-[10px] text-sky-300 font-medium bg-sky-900/40 px-1.5 py-0.5 rounded border border-sky-700/50 mt-1"><i class="fa-solid fa-droplet text-[8px]"></i> ${pop}%</span>
-                        </div>
-                    `;
-                }
-            } catch(error) {
-                console.error("Error cargando pronóstico:", error);
-                document.getElementById('forecast-container').innerHTML = '<div class="glass-panel p-3 rounded-2xl text-center text-xs text-red-400 col-span-3">No se pudo cargar el pronóstico</div>';
-            }
-        }
-
         setInterval(sincronizarTodo, 300000);
 
+        // Registro de Service Worker para la PWA
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
         }
