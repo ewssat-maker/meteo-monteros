@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Meteo NOA - AgTech Panel</title>
+    <title>MetricPoint - live</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
@@ -41,21 +41,13 @@
         .fade-in { animation: fadeIn 0.4s ease forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Scroll horizontal visible y amigable para móviles */
-        .chip-container {
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
+        /* Scroll horizontal forzado y amigable para móviles */
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
-        .chip-container::-webkit-scrollbar {
-            height: 4px;
-        }
-        .chip-container::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.5);
-            border-radius: 4px;
-        }
-        .chip-container::-webkit-scrollbar-thumb {
-            background: rgba(16, 185, 129, 0.5);
-            border-radius: 4px;
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
         }
     </style>
 </head>
@@ -66,7 +58,8 @@
             <img src="logo.png" alt="Alerta" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 shadow-2xl animate-pulse">
             <img src="logo_metric.png" alt="INTA" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 bg-slate-900 shadow-2xl" onerror="this.style.display='none'">
         </div>
-        <h2 class="text-xl font-black tracking-wider text-emerald-400">METEO NOA</h2>
+        <h2 class="text-xl font-black tracking-wider text-emerald-400">MetricPoint - live</h2>
+        <p class="text-xs text-slate-400 mt-1">Inicializando Terminal AgTech...</p>
     </div>
 
     <header class="p-4 border-b border-white/10 glass-panel flex flex-col items-center space-y-2.5 shrink-0 z-50">
@@ -76,7 +69,7 @@
             <img src="logo_metric.png" alt="INTA" class="w-11 h-11 object-contain rounded-full border border-white/20 bg-slate-900/80 shadow-md">
         </div>
         <div class="text-center">
-            <h1 class="text-2xl font-black tracking-tight text-white">Meteo NOA</h1>
+            <h1 class="text-2xl font-black tracking-tight text-white">MetricPoint - live</h1>
             <p id="header-subtitle" class="text-[11px] text-emerald-400 font-semibold tracking-wide uppercase mt-0.5">Terminal Central</p>
         </div>
     </header>
@@ -112,8 +105,13 @@
             </div>
 
             <!-- CHIPS CON SCROLL REPARADO -->
-            <div id="chip-container" class="flex flex-nowrap gap-2 overflow-x-auto chip-container py-2 px-1">
-                <!-- JavaScript inyecta los botones aquí -->
+            <div class="w-full relative">
+                <!-- Capa indicadora de scroll -->
+                <div class="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#020617] to-transparent z-10 pointer-events-none rounded-r-lg"></div>
+                <!-- Contenedor flex con ancho 100% y scroll auto -->
+                <div id="chip-container" class="flex flex-row overflow-x-auto gap-2 py-1 px-1 w-full hide-scrollbar snap-x">
+                    <!-- JavaScript inyecta los botones aquí -->
+                </div>
             </div>
 
             <div id="status-box" class="text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md">
@@ -151,7 +149,7 @@
                 </div>
             </div>
 
-            <button onclick="sincronizarTelemetria()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-emerald-400/40 text-white mt-2">
+            <button onclick="sincronizarTelemetria()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-emerald-400/40 text-white mt-2 cursor-pointer">
                 <i class="fa-solid fa-rotate-right"></i><span>Actualizar Telemetría</span>
             </button>
         </div>
@@ -254,8 +252,8 @@
             
             estacionesData[prov].forEach((est, index) => {
                 const btn = document.createElement('button');
-                btn.className = "chip flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border whitespace-nowrap bg-slate-800/80 border-slate-600 text-slate-400 hover:text-white hover:border-emerald-500/50 shadow-sm cursor-pointer";
-                btn.style.scrollSnapAlign = "center";
+                // Clases corregidas para asegurar que no se aplasten (shrink-0)
+                btn.className = "chip shrink-0 snap-center px-4 py-2 rounded-full text-xs font-bold border whitespace-nowrap bg-slate-800/80 border-slate-600 text-slate-400 hover:text-white hover:border-emerald-500/50 shadow-sm cursor-pointer";
                 btn.textContent = est.txt;
                 btn.onclick = () => seleccionarEstacion(est.val, est.txt, btn);
                 container.appendChild(btn);
