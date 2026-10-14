@@ -14,7 +14,6 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#022c22">
 
-    <!-- Forzar limpieza de caché PWA general -->
     <script>
         if ('caches' in window) {
             caches.keys().then((names) => { names.forEach(name => caches.delete(name)); });
@@ -27,7 +26,8 @@
     </script>
 
     <style>
-        body {
+        /* El fondo ahora se aplica directamente y permite el scroll natural */
+        html, body {
             background: linear-gradient(rgba(2, 44, 34, 0.85), rgba(3, 7, 18, 0.95)), 
                         url('fondo.jpg') no-repeat center center fixed;
             background-size: cover;
@@ -53,7 +53,8 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col justify-between font-sans antialiased overflow-hidden">
+<!-- ELIMINADO EL overflow-hidden DEL BODY PARA PERMITIR SCROLL NATURAL -->
+<body class="text-slate-100 font-sans antialiased flex flex-col min-h-screen">
 
     <div id="splash-screen">
         <div class="flex items-center space-x-4 mb-4">
@@ -64,7 +65,8 @@
         <p class="text-xs text-slate-400 mt-1">Sincronizando Módulos...</p>
     </div>
 
-    <header class="p-4 border-b border-white/10 glass-panel flex flex-col items-center space-y-2.5 shrink-0 z-50">
+    <!-- Header Fijo para que no desaparezca al bajar -->
+    <header class="sticky top-0 p-4 border-b border-white/10 glass-panel flex flex-col items-center space-y-2.5 z-[500]">
         <div class="flex items-center justify-center space-x-4">
             <img src="logo.png" alt="Logo Alerta" class="w-11 h-11 object-contain rounded-full border border-white/20 shadow-md">
             <div class="h-6 w-px bg-white/20"></div>
@@ -76,10 +78,10 @@
         </div>
     </header>
 
-    <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col overflow-y-auto">
+    <!-- ELIMINADO EL overflow-y-auto DEL MAIN, EL SCROLL AHORA ES NATIVO -->
+    <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col pb-12">
         
-        <!-- VISTA 0: MENÚ -->
-        <div id="vista-menu" class="flex-1 flex flex-col justify-center space-y-4 fade-in">
+        <div id="vista-menu" class="flex flex-col justify-center space-y-4 fade-in mt-4">
             <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400">
                 <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30"><i class="fa-solid fa-satellite-dish"></i></div>
                 <div><h3 class="text-lg font-black text-white uppercase">Tiempo Real</h3><p class="text-[11px] text-slate-400">Selección interactiva en mapa y datos vivos</p></div>
@@ -94,20 +96,18 @@
             </button>
         </div>
 
-        <!-- VISTA 1: TELEMETRÍA -->
-        <div id="vista-telemetria" class="hidden flex-col space-y-3.5 fade-in pb-4">
-            <button onclick="volverMenu()" class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center self-start bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30 mb-1 hover:bg-emerald-800/50">
+        <div id="vista-telemetria" class="hidden flex-col space-y-3.5 fade-in">
+            <button onclick="volverMenu()" class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center self-start bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30 mb-1 mt-2 hover:bg-emerald-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
             </button>
 
-            <!-- Pestañas Provincias -->
             <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-emerald-500/30 shadow-lg">
                 <button id="tab-tucuman" onclick="cambiarProvincia('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all">Tucumán</button>
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- Mapa Selector de Estaciones -->
-            <div class="relative w-full min-h-[50vh] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
+            <!-- Mapa Selector: Altura reducida a h-[40vh] (aprox 40% de pantalla) para garantizar que los paneles inferiores asomen y puedas hacer scroll ahí -->
+            <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
                 <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
                 <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
                     <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Estándar (WU)</span></div>
@@ -150,13 +150,12 @@
                 </div>
             </div>
 
-            <button onclick="sincronizarTelemetria()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-emerald-400/40 text-white mt-2 cursor-pointer">
+            <button onclick="sincronizarTelemetria()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-emerald-400/40 text-white mt-2 mb-4 cursor-pointer">
                 <i class="fa-solid fa-rotate-right"></i><span>Actualizar Telemetría</span>
             </button>
         </div>
 
-        <!-- VISTA 2: RADAR -->
-        <div id="vista-radar" class="hidden flex-col flex-1 pb-2 fade-in">
+        <div id="vista-radar" class="hidden flex-col flex-1 pb-2 fade-in mt-2">
             <div class="flex justify-between items-center mb-3">
                 <button onclick="volverMenu()" class="text-[11px] font-bold text-sky-400 uppercase tracking-widest flex items-center bg-sky-900/30 px-3 py-1.5 rounded-lg border border-sky-500/30 hover:bg-sky-800/50 transition">
                     <i class="fa-solid fa-chevron-left mr-2"></i> Volver
@@ -186,14 +185,13 @@
                 </div>
             </div>
 
-            <!-- Mapa Radar -->
+            <!-- Mapa Radar: Mantiene 50vh de altura -->
             <div class="flex-1 min-h-[50vh] relative border-2 border-sky-500/40 rounded-2xl overflow-hidden glass-panel shadow-[0_0_20px_rgba(2,132,199,0.15)] z-0">
                 <div id="mapaRadar" class="absolute inset-0 bg-[#0a0a0a]"></div>
             </div>
         </div>
 
-        <!-- VISTA 3: PRONÓSTICO -->
-        <div id="vista-pronostico" class="hidden flex-col h-full flex-1 fade-in">
+        <div id="vista-pronostico" class="hidden flex-col h-full flex-1 fade-in mt-4">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-amber-400 uppercase tracking-widest flex items-center self-start bg-amber-900/30 px-3 py-1.5 rounded-lg border border-amber-500/30 mb-auto hover:bg-amber-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver
             </button>
@@ -244,7 +242,6 @@
         let mapRadar = null;
         let telemetriaMarkers = [];
 
-        // Aseguramos que la pantalla de inicio desaparezca de forma segura e independiente
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
@@ -329,9 +326,7 @@
             if(telemetriaMarkers.length > 0) {
                 try {
                     mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8});
-                } catch(e) {
-                    // Ignora el error de Leaflet si la vista está oculta temporalmente
-                }
+                } catch(e) {}
             }
         }
 
@@ -416,10 +411,12 @@
         function cambiarVista(idVista) {
             document.getElementById('vista-menu').classList.add('hidden');
             document.getElementById('vista-menu').classList.remove('flex');
+            
             ['vista-telemetria', 'vista-radar', 'vista-pronostico'].forEach(vista => {
                 document.getElementById(vista).classList.add('hidden');
                 document.getElementById(vista).classList.remove('flex');
             });
+            
             document.getElementById(idVista).classList.remove('hidden');
             document.getElementById(idVista).classList.add('flex');
             
