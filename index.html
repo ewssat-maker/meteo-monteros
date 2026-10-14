@@ -4,13 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>MetricPoint - live</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Leaflet para el Mapa -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#022c22">
 
@@ -73,7 +69,6 @@
 
     <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col overflow-y-auto">
         
-        <!-- VISTA 0: MENÚ -->
         <div id="vista-menu" class="flex-1 flex flex-col justify-center space-y-4 fade-in">
             <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400">
                 <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30"><i class="fa-solid fa-satellite-dish"></i></div>
@@ -89,22 +84,19 @@
             </button>
         </div>
 
-        <!-- VISTA 1: TELEMETRÍA CON MAPA INTERACTIVO -->
         <div id="vista-telemetria" class="hidden flex-col space-y-3.5 fade-in pb-4">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center self-start bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30 mb-1 hover:bg-emerald-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
             </button>
 
-            <!-- Pestañas Provincias -->
             <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-emerald-500/30 shadow-lg">
                 <button id="tab-tucuman" onclick="cambiarProvincia('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all">Tucumán</button>
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- MAPA SELECTOR -->
+            <!-- Mapa Selector de Estaciones -->
             <div class="relative w-full min-h-[50vh] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
                 <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
-                <!-- Leyenda flotante del mapa -->
                 <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
                     <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Estándar (WU)</span></div>
                     <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Oficial (SNIH)</span></div>
@@ -115,7 +107,6 @@
                 <i class="fa-solid fa-hand-pointer animate-bounce mr-1"></i> Selecciona un punto en el mapa
             </div>
 
-            <!-- PANELES DE DATOS -->
             <div class="glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
                 <div>
                     <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Temperatura Ambiente</span>
@@ -152,7 +143,6 @@
             </button>
         </div>
 
-        <!-- VISTA 2: RADAR -->
         <div id="vista-radar" class="hidden flex-col flex-1 pb-2 fade-in">
             <div class="flex justify-between items-center mb-3">
                 <button onclick="volverMenu()" class="text-[11px] font-bold text-sky-400 uppercase tracking-widest flex items-center bg-sky-900/30 px-3 py-1.5 rounded-lg border border-sky-500/30 hover:bg-sky-800/50 transition">
@@ -183,13 +173,12 @@
                 </div>
             </div>
 
-            <!-- Mapa dedicado exclusivamente a Radar -->
+            <!-- Mapa Radar -->
             <div class="flex-1 min-h-[50vh] relative border-2 border-sky-500/40 rounded-2xl overflow-hidden glass-panel shadow-[0_0_20px_rgba(2,132,199,0.15)] z-0">
                 <div id="mapaRadar" class="absolute inset-0 bg-[#0a0a0a]"></div>
             </div>
         </div>
 
-        <!-- VISTA 3: PRONÓSTICO -->
         <div id="vista-pronostico" class="hidden flex-col h-full flex-1 fade-in">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-amber-400 uppercase tracking-widest flex items-center self-start bg-amber-900/30 px-3 py-1.5 rounded-lg border border-amber-500/30 mb-auto hover:bg-amber-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver
@@ -205,9 +194,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ==============================================================
-        // DATA DE ESTACIONES
-        // ==============================================================
         const estacionesData = {
             tucuman: [
                 { val: "IMONTE1127|-27.17|-65.50|Monteros (INTA)|WU", txt: "Monteros" },
@@ -239,36 +225,25 @@
             ]
         };
 
-        // Variables Globales
         let estacionActualVal = null;
         let mapTelemetria = null;
         let mapRadar = null;
         let telemetriaMarkers = [];
 
-        // ==============================================================
-        // INICIALIZACIÓN DE MAPAS INDEPENDIENTES
-        // ==============================================================
         function inicializarMapas() {
             if (!mapTelemetria) {
-                // Mapa interactivo restaurado (se puede mover y hacer zoom)
-                mapTelemetria = L.map('mapaTelemetria', { 
-                    zoomControl: false, 
-                    attributionControl: false 
-                }).setView([-26.83, -65.20], 8);
-                
+                mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false }).setView([-26.83, -65.20], 8);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapTelemetria);
                 
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
                 
                 mapTelemetria.createPane('labelsPane').style.zIndex = 300;
                 mapTelemetria.getPane('labelsPane').style.pointerEvents = 'none';
-                
                 L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { 
                     maxZoom: 18, 
                     pane: 'labelsPane' 
                 }).addTo(mapTelemetria);
             }
-
             if (!mapRadar) {
                 mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
@@ -280,31 +255,6 @@
             }
         }
 
-            if (!mapRadar) {
-                mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
-                L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapRadar);
-                mapRadar.createPane('radarPane').style.zIndex = 250;
-                mapRadar.createPane('labelsPane').style.zIndex = 300;
-                mapRadar.getPane('labelsPane').style.pointerEvents = 'none';
-                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapRadar);
-            }
-        }
-            
-            if (!mapRadar) {
-                mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
-                L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapRadar);
-                mapRadar.createPane('radarPane').style.zIndex = 250;
-                mapRadar.createPane('labelsPane').style.zIndex = 300;
-                mapRadar.getPane('labelsPane').style.pointerEvents = 'none';
-                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapRadar);
-            }
-        }
-
-        // ==============================================================
-        // LÓGICA DEL MAPA SELECTOR
-        // ==============================================================
         function cambiarProvincia(prov) {
             const btnTuc = document.getElementById('tab-tucuman');
             const btnSal = document.getElementById('tab-salta');
@@ -317,7 +267,6 @@
                 btnTuc.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
             }
 
-            // Limpiar marcadores viejos
             telemetriaMarkers.forEach(item => mapTelemetria.removeLayer(item.marker));
             telemetriaMarkers = [];
             
@@ -336,7 +285,6 @@
 
                 marker.bindTooltip(est.txt, {direction: 'top', offset: [0, -10], className: 'text-xs font-bold'});
 
-                // Al tocar un marcador, se selecciona suavemente sin romper la vista
                 marker.on('click', () => seleccionarEstacion(est.val, marker, false));
 
                 telemetriaMarkers.push({ marker: marker, val: est.val });
@@ -347,7 +295,6 @@
                 }
             });
 
-            // Auto-encuadre para mostrar todos los puntos de la provincia
             if(telemetriaMarkers.length > 0) {
                 mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8});
             }
@@ -356,7 +303,6 @@
         function seleccionarEstacion(val, markerLayer, isInitial) {
             estacionActualVal = val;
 
-            // Apagar brillo de todos los marcadores
             telemetriaMarkers.forEach(item => {
                 const isSNIH = item.val.includes('|SNIH');
                 const color = isSNIH ? '#f59e0b' : '#3b82f6';
@@ -364,12 +310,10 @@
                 item.marker.setRadius(7);
             });
 
-            // Encender el seleccionado (Borde verde neón, más grande)
             if(markerLayer) {
                 markerLayer.setStyle({ fillColor: '#10b981', weight: 3, color: '#ffffff', fillOpacity: 1 });
                 markerLayer.setRadius(10);
                 
-                // Si el usuario lo tocó manualmente, la cámara lo centra
                 if(!isInitial) {
                     mapTelemetria.flyTo(markerLayer.getLatLng(), 8, {duration: 0.5});
                 }
@@ -378,9 +322,6 @@
             sincronizarTelemetria();
         }
 
-        // ==============================================================
-        // ENRUTADOR INTELIGENTE DE DATOS
-        // ==============================================================
         function sincronizarTelemetria() {
             if(!estacionActualVal) return;
             const data = estacionActualVal.split('|');
@@ -437,9 +378,6 @@
         
         setInterval(sincronizarTelemetria, 300000);
 
-        // ==============================================================
-        // NAVEGACIÓN Y RADARES
-        // ==============================================================
         function cambiarVista(idVista) {
             document.getElementById('vista-menu').classList.add('hidden');
             document.getElementById('vista-menu').classList.remove('flex');
@@ -540,7 +478,6 @@
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
                 for(let registration of registrations) { registration.unregister(); }
             });
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
         }
     </script>
 </body>
