@@ -8,11 +8,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <!-- Leaflet para el Mapa -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- PWA Config -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#022c22">
 
@@ -48,20 +46,6 @@
         .leaflet-popup-tip { background: #0f172a; }
         .fade-in { animation: fadeIn 0.4s ease forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Scroll horizontal forzado y amigable para móviles */
-        .scroll-container {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 8px;
-            margin-top: 8px;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .scroll-container::-webkit-scrollbar {
-            display: none;
-        }
     </style>
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col justify-between font-sans antialiased overflow-hidden">
@@ -93,7 +77,7 @@
         <div id="vista-menu" class="flex-1 flex flex-col justify-center space-y-4 fade-in">
             <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400">
                 <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30"><i class="fa-solid fa-satellite-dish"></i></div>
-                <div><h3 class="text-lg font-black text-white uppercase">Tiempo Real</h3><p class="text-[11px] text-slate-400">Telemetría viva de estaciones zonales</p></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Tiempo Real</h3><p class="text-[11px] text-slate-400">Selección interactiva en mapa y datos vivos</p></div>
             </button>
             <button onclick="cambiarVista('vista-radar')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-sky-400">
                 <div class="bg-sky-500/20 p-4 rounded-2xl text-sky-400 text-2xl border border-sky-500/30"><i class="fa-solid fa-satellite"></i></div>
@@ -105,7 +89,7 @@
             </button>
         </div>
 
-        <!-- VISTA 1: TELEMETRÍA -->
+        <!-- VISTA 1: TELEMETRÍA CON MAPA INTERACTIVO -->
         <div id="vista-telemetria" class="hidden flex-col space-y-3.5 fade-in pb-4">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center self-start bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30 mb-1 hover:bg-emerald-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
@@ -117,17 +101,21 @@
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- CHIPS CON SCROLL -->
-            <div class="scroll-container relative">
-                <div id="chip-container" class="flex flex-nowrap gap-2 w-max px-1">
-                    <!-- Los botones se inyectarán aquí -->
+            <!-- MAPA SELECTOR (Reemplaza a los botones y listas) -->
+            <div class="relative w-full h-48 rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
+                <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
+                <!-- Leyenda flotante del mapa -->
+                <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Estándar (WU)</span></div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Oficial (SNIH)</span></div>
                 </div>
             </div>
 
             <div id="status-box" class="text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md">
-                <i class="fa-solid fa-satellite-dish animate-pulse mr-1"></i> Sincronizando...
+                <i class="fa-solid fa-hand-pointer animate-bounce mr-1"></i> Selecciona un punto en el mapa
             </div>
 
+            <!-- PANELES DE DATOS -->
             <div class="glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
                 <div>
                     <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Temperatura Ambiente</span>
@@ -195,8 +183,9 @@
                 </div>
             </div>
 
-            <div class="flex-1 min-h-[50vh] relative border-2 border-sky-500/40 rounded-2xl overflow-hidden glass-panel shadow-[0_0_20px_rgba(2,132,199,0.15)]">
-                <div id="mapaCentral" class="absolute inset-0 bg-[#0a0a0a] z-0"></div>
+            <!-- Mapa dedicado exclusivamente a Radar -->
+            <div class="flex-1 min-h-[50vh] relative border-2 border-sky-500/40 rounded-2xl overflow-hidden glass-panel shadow-[0_0_20px_rgba(2,132,199,0.15)] z-0">
+                <div id="mapaRadar" class="absolute inset-0 bg-[#0a0a0a]"></div>
             </div>
         </div>
 
@@ -217,26 +206,26 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ==============================================================
-        // TODAS LAS ESTACIONES RESTAURADAS
+        // TODAS LAS ESTACIONES CON ETIQUETAS (|WU o |SNIH)
         // ==============================================================
         const estacionesData = {
             tucuman: [
-                { val: "IMONTE1127|-27.17|-65.50|Monteros (INTA)|WU", txt: "Monteros (INTA)" },
-                { val: "220274|-27.63|-65.25|Lamadrid (SNIH)|SNIH", txt: "Lamadrid (Oficial)" },
-                { val: "ISARGE7|-26.83|-65.20|Sargento Moya - Monteros|WU", txt: "Sargento Moya" },
-                { val: "ISANMI169|-26.83|-65.20|Barrio Norte - SMT|WU", txt: "Barrio Norte" },
-                { val: "ISANMI87|-26.83|-65.20|Centro - SMT|WU", txt: "Centro SMT" },
-                { val: "IBARRI105|-26.83|-65.20|Barrio San Jose (SMT)|WU", txt: "Barrio San José" },
-                { val: "IVILLA1124|-26.80|-65.25|El Puestito - Burruyacu|WU", txt: "El Puestito" },
-                { val: "IDEABR3|-26.84|-65.16|7 de Abril - Burruyacu|WU", txt: "7 de Abril" },
-                { val: "IBURRU13|-26.50|-64.74|Santa Rosa - Burruyacú|WU", txt: "Santa Rosa" },
-                { val: "IESCUE2|-26.83|-65.20|Gobrnador Garmendia|WU", txt: "Garmendia" },
-                { val: "IYERBA8|-26.81|-65.32|Praderas - Yerba Buena|WU", txt: "Praderas YB" },
-                { val: "IYERBA10|-26.81|-65.32|Jumbo - Yerba Buena|WU", txt: "Jumbo YB" },
-                { val: "IYERBA5|-26.81|-65.29|Colinas - Yerba Buena|WU", txt: "Colinas YB" },
+                { val: "IMONTE1127|-27.17|-65.50|Monteros|WU", txt: "Monteros" },
+                { val: "220274|-27.63|-65.25|Lamadrid|SNIH", txt: "Lamadrid (Oficial)" },
+                { val: "ISARGE7|-26.83|-65.20|Sargento Moya|WU", txt: "Sargento Moya" },
+                { val: "ISANMI169|-26.83|-65.20|Barrio Norte|WU", txt: "Barrio Norte" },
+                { val: "ISANMI87|-26.83|-65.20|Centro SMT|WU", txt: "Centro SMT" },
+                { val: "IBARRI105|-26.83|-65.20|Barrio San José|WU", txt: "Barrio San José" },
+                { val: "IVILLA1124|-26.80|-65.25|El Puestito|WU", txt: "El Puestito" },
+                { val: "IDEABR3|-26.84|-65.16|7 de Abril|WU", txt: "7 de Abril" },
+                { val: "IBURRU13|-26.50|-64.74|Santa Rosa|WU", txt: "Santa Rosa" },
+                { val: "IESCUE2|-26.83|-65.20|Gob. Garmendia|WU", txt: "Garmendia" },
+                { val: "IYERBA8|-26.81|-65.32|Praderas YB|WU", txt: "Praderas YB" },
+                { val: "IYERBA10|-26.81|-65.32|Jumbo YB|WU", txt: "Jumbo YB" },
+                { val: "IYERBA5|-26.81|-65.29|Colinas YB|WU", txt: "Colinas YB" },
                 { val: "ICONCE101|-27.34|-65.59|Concepción|WU", txt: "Concepción" },
-                { val: "ILEALE3|-27.19|-65.30|Mujer Muerta - Leales|WU", txt: "Mujer Muerta" },
-                { val: "ILEALE2|-27.19|-65.30|Tacanas - Leales|WU", txt: "Tacanas" }
+                { val: "ILEALE3|-27.19|-65.30|Mujer Muerta|WU", txt: "Mujer Muerta" },
+                { val: "ILEALE2|-27.19|-65.30|Tacanas|WU", txt: "Tacanas" }
             ],
             salta: [
                 { val: "ISALTA44|-24.78|-65.41|Salta Capital|WU", txt: "Salta Capital" },
@@ -246,9 +235,38 @@
             ]
         };
 
+        // Variables Globales
         let estacionActualVal = null;
-        let estacionActualNombre = null;
+        let mapTelemetria = null;
+        let mapRadar = null;
+        let telemetriaMarkers = [];
 
+        // ==============================================================
+        // INICIALIZACIÓN DE MAPAS INDEPENDIENTES
+        // ==============================================================
+        function inicializarMapas() {
+            // Mapa 1: Selector de Telemetría
+            if (!mapTelemetria) {
+                mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false }).setView([-26.83, -65.20], 8);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
+            }
+
+            // Mapa 2: Módulo Radar
+            if (!mapRadar) {
+                mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapRadar);
+                mapRadar.createPane('radarPane').style.zIndex = 250;
+                mapRadar.createPane('labelsPane').style.zIndex = 300;
+                mapRadar.getPane('labelsPane').style.pointerEvents = 'none';
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapRadar);
+            }
+        }
+
+        // ==============================================================
+        // LÓGICA DEL MAPA SELECTOR (Reemplaza a los chips)
+        // ==============================================================
         function cambiarProvincia(prov) {
             const btnTuc = document.getElementById('tab-tucuman');
             const btnSal = document.getElementById('tab-salta');
@@ -261,39 +279,125 @@
                 btnTuc.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
             }
 
-            const container = document.getElementById('chip-container');
-            container.innerHTML = "";
+            // Limpiar marcadores viejos
+            telemetriaMarkers.forEach(m => mapTelemetria.removeLayer(m));
+            telemetriaMarkers = [];
             
+            let bounds = L.latLngBounds();
+
             estacionesData[prov].forEach((est, index) => {
-                const btn = document.createElement('button');
-                btn.className = "chip flex-none px-4 py-2 rounded-full text-xs font-bold border bg-slate-800/80 border-slate-600 text-slate-400 hover:text-white hover:border-emerald-500/50 shadow-sm cursor-pointer";
-                btn.textContent = est.txt;
+                const data = est.val.split('|');
+                const lat = parseFloat(data[1]);
+                const lon = parseFloat(data[2]);
+                const isSNIH = est.val.includes('|SNIH');
                 
-                if(est.val.includes('|SNIH')) {
-                    btn.classList.add('border-amber-500/30');
-                    btn.innerHTML = `<i class="fa-solid fa-building-columns text-[10px] mr-1 text-amber-500/70"></i> ${est.txt}`;
-                }
+                // Color: Azul para WU, Dorado para SNIH
+                const color = isSNIH ? '#f59e0b' : '#3b82f6'; 
 
-                btn.onclick = () => seleccionarEstacion(est.val, est.txt, btn);
-                container.appendChild(btn);
+                const marker = L.circleMarker([lat, lon], {
+                    radius: 7, fillColor: color, color: "#ffffff", weight: 2, fillOpacity: 0.8
+                }).addTo(mapTelemetria);
 
-                if(index === 0) seleccionarEstacion(est.val, est.txt, btn);
+                marker.bindTooltip(est.txt, {direction: 'top', offset: [0, -10], className: 'text-xs font-bold'});
+
+                marker.on('click', () => seleccionarEstacion(est.val, marker));
+
+                telemetriaMarkers.push(marker);
+                bounds.extend([lat, lon]);
+
+                // Auto-seleccionar la primera estación
+                if(index === 0) seleccionarEstacion(est.val, marker);
             });
+
+            // Ajustar cámara para ver todos los puntos
+            if(telemetriaMarkers.length > 0) {
+                mapTelemetria.fitBounds(bounds, {padding: [20, 20]});
+            }
         }
 
-        function seleccionarEstacion(val, txt, chipBtn) {
+        function seleccionarEstacion(val, markerLayer) {
             estacionActualVal = val;
-            estacionActualNombre = txt;
-            document.querySelectorAll('.chip').forEach(c => {
-                c.classList.remove('bg-emerald-500/20', 'border-emerald-400', 'text-emerald-300');
-                c.classList.add('bg-slate-800/80', 'border-slate-600', 'text-slate-400');
+
+            // Apagar brillo de todos los marcadores
+            telemetriaMarkers.forEach(m => {
+                m.setStyle({ weight: 2, color: '#ffffff', fillOpacity: 0.5 });
+                m.setRadius(7);
             });
-            chipBtn.classList.remove('bg-slate-800/80', 'border-slate-600', 'text-slate-400');
-            chipBtn.classList.add('bg-emerald-500/20', 'border-emerald-400', 'text-emerald-300');
-            chipBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+            // Encender el seleccionado (Borde verde neón, más grande)
+            if(markerLayer) {
+                markerLayer.setStyle({ weight: 3, color: '#10b981', fillOpacity: 1 });
+                markerLayer.setRadius(10);
+                mapTelemetria.flyTo(markerLayer.getLatLng(), 10, {duration: 0.5});
+            }
+
             sincronizarTelemetria();
         }
 
+        // ==============================================================
+        // ENRUTADOR INTELIGENTE DE DATOS
+        // ==============================================================
+        function sincronizarTelemetria() {
+            if(!estacionActualVal) return;
+            
+            const data = estacionActualVal.split('|');
+            const stationId = data[0];
+            const nombre = data[3];
+            const fuente = data[4] || 'WU';
+
+            cargarDatosActuales(stationId, fuente, nombre);
+        }
+
+        async function cargarDatosActuales(stationId, fuente, nombreEstacion) {
+            const statusBox = document.getElementById('status-box');
+            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Sincronizando...';
+            
+            try {
+                if (fuente === 'SNIH') {
+                    const response = await fetch(`https://metricmoisture-backend.onrender.com/api/snih/${stationId}`);
+                    if (!response.ok) throw new Error('Error Red SNIH');
+                    const data = await response.json();
+                    if (data.status === 'offline') throw new Error('SNIH Caído');
+
+                    document.getElementById('val-temp').innerText = data.temp !== '--' ? parseFloat(data.temp).toFixed(1) : '--';
+                    document.getElementById('val-hum').innerText = data.humedad !== '--' ? Math.round(data.humedad) : '--';
+                    document.getElementById('val-pres').innerText = data.presion !== '--' ? parseFloat(data.presion).toFixed(1) : '--';
+                    document.getElementById('val-wind').innerText = data.viento !== '--' ? parseFloat(data.viento).toFixed(1) : '--';
+                    document.getElementById('val-winddir').innerText = `Dir: --`; 
+                    document.getElementById('val-precip').innerText = data.lluvia !== '--' ? parseFloat(data.lluvia).toFixed(1) : '--';
+                    
+                    statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                    statusBox.innerHTML = `<i class="fa-solid fa-building-columns mr-1"></i> <b>${nombreEstacion}</b> • SNIH Oficial • ${data.hora}`;
+
+                } else {
+                    const response = await fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=e1f10a1e78da46f5b10a1e78da96f525`);
+                    if (!response.ok) throw new Error('Error Red WU');
+                    const obs = (await response.json()).observations[0];
+                    
+                    document.getElementById('val-temp').innerText = ((obs.imperial.temp - 32) * 5 / 9).toFixed(1);
+                    document.getElementById('val-hum').innerText = obs.humidity;
+                    document.getElementById('val-pres').innerText = (obs.imperial.pressure * 33.8639).toFixed(1);
+                    document.getElementById('val-wind').innerText = (obs.imperial.windSpeed * 1.60934).toFixed(1);
+                    document.getElementById('val-winddir').innerText = `Dir: ${obs.winddir}°`;
+                    document.getElementById('val-precip').innerText = (obs.imperial.precipTotal * 25.4).toFixed(1);
+                    
+                    statusBox.className = "text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                    statusBox.innerHTML = `<i class="fa-solid fa-satellite-dish mr-1"></i> <b>${nombreEstacion}</b> • En línea (WU) • ${obs.obsTimeLocal}`;
+                }
+
+            } catch (error) {
+                statusBox.className = "text-xs text-center text-red-300 bg-red-950/80 border border-red-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> <b>${nombreEstacion}</b> • Sensor Offline`;
+                ['val-temp', 'val-hum', 'val-pres', 'val-wind', 'val-precip'].forEach(id => document.getElementById(id).innerText = '--');
+                document.getElementById('val-winddir').innerText = `Dir: --`;
+            }
+        }
+        
+        setInterval(sincronizarTelemetria, 300000);
+
+        // ==============================================================
+        // NAVEGACIÓN Y RADARES (Sin cambios)
+        // ==============================================================
         function cambiarVista(idVista) {
             document.getElementById('vista-menu').classList.add('hidden');
             document.getElementById('vista-menu').classList.remove('flex');
@@ -303,9 +407,15 @@
             });
             document.getElementById(idVista).classList.remove('hidden');
             document.getElementById(idVista).classList.add('flex');
+            
             const titulos = { 'vista-telemetria': 'Módulo: Tiempo Real', 'vista-radar': 'Módulo: Satélite & Radar', 'vista-pronostico': 'Módulo: Pronóstico Extendido' };
             document.getElementById('header-subtitle').innerText = titulos[idVista] || 'Terminal Central';
-            if(idVista === 'vista-radar') setTimeout(() => { if(mapForecast) mapForecast.invalidateSize(); }, 300);
+            
+            // Reparar mapas ocultos en Leaflet
+            setTimeout(() => { 
+                if(idVista === 'vista-telemetria' && mapTelemetria) mapTelemetria.invalidateSize();
+                if(idVista === 'vista-radar' && mapRadar) mapRadar.invalidateSize();
+            }, 300);
         }
 
         function volverMenu() {
@@ -319,6 +429,7 @@
         }
 
         window.addEventListener('load', () => {
+            inicializarMapas();
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 splash.style.opacity = '0';
@@ -327,15 +438,6 @@
             cambiarProvincia('tucuman'); 
         });
 
-        const mapForecast = L.map('mapaCentral', { zoomControl: false }).setView([-26.83, -65.20], 8);
-        L.control.zoom({ position: 'bottomright' }).addTo(mapForecast);
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapForecast);
-        mapForecast.createPane('radarPane').style.zIndex = 250;
-        mapForecast.createPane('labelsPane').style.zIndex = 300;
-        mapForecast.getPane('labelsPane').style.pointerEvents = 'none';
-        L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapForecast);
-
-        let marcadorActual = null;
         const RADAR_WEBMET = 'https://webmet.ohmc.ar';
         const RADAR_PROXY = 'https://metricmoisture-backend.onrender.com/api/radar';
         let radarOpacidad = 0.7;
@@ -367,15 +469,15 @@
             const bb = reg.bbox;
             const bounds = L.latLngBounds([bb.min_lat, bb.min_lon], [bb.max_lat, bb.max_lon]);
             const url = reg.tile_url.startsWith('http') ? reg.tile_url : RADAR_WEBMET + reg.tile_url;
-            const nueva = L.tileLayer(url, { pane: 'radarPane', bounds: bounds, opacity: radarOpacidad, minZoom: 4, maxZoom: 18 }).addTo(mapForecast);
-            if (r.capa) mapForecast.removeLayer(r.capa);
+            const nueva = L.tileLayer(url, { pane: 'radarPane', bounds: bounds, opacity: radarOpacidad, minZoom: 4, maxZoom: 18 }).addTo(mapRadar);
+            if (r.capa) mapRadar.removeLayer(r.capa);
             r.capa = nueva; r.registro = reg;
         }
 
         async function toggleRadar(code, activo) {
             const r = RADARES[code]; r.activo = activo;
             if (!activo) {
-                if (r.capa) mapForecast.removeLayer(r.capa);
+                if (r.capa) mapRadar.removeLayer(r.capa);
                 r.capa = null; r.registro = null; estadoRadar(code, 'Inactivo'); return;
             }
             estadoRadar(code, 'Cargando…', 'ok');
@@ -386,80 +488,16 @@
             radarOpacidad = valor / 100;
             Object.values(RADARES).forEach(r => { if (r.capa) r.capa.setOpacity(radarOpacidad); });
         }
-
-        // ==============================================================
-        // ENRUTADOR INTELIGENTE DE DATOS
-        // ==============================================================
-        function sincronizarTelemetria() {
-            if(!estacionActualVal) return;
-            
-            const data = estacionActualVal.split('|');
-            const stationId = data[0];
-            const lat = parseFloat(data[1]);
-            const lon = parseFloat(data[2]);
-            const nombre = data[3];
-            const fuente = data[4] || 'WU'; // Por defecto asume WU
-
-            cargarDatosActuales(stationId, fuente);
-            
-            mapForecast.flyTo([lat, lon], 10, { duration: 1.5 });
-            if (marcadorActual) mapForecast.removeLayer(marcadorActual);
-            marcadorActual = L.circleMarker([lat, lon], { radius: 10, fillColor: "#10b981", color: "#ffffff", weight: 2, fillOpacity: 0.8 }).addTo(mapForecast).bindPopup(`ACTIVO:<br>${nombre}`).openPopup();
-        }
-
-        async function cargarDatosActuales(stationId, fuente) {
-            const statusBox = document.getElementById('status-box');
-            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Sincronizando...';
-            
-            try {
-                if (fuente === 'SNIH') {
-                    const response = await fetch(`https://metricmoisture-backend.onrender.com/api/snih/${stationId}`);
-                    if (!response.ok) throw new Error('Error Red SNIH');
-                    const data = await response.json();
-                    
-                    if (data.status === 'offline') throw new Error('SNIH Caído');
-
-                    document.getElementById('val-temp').innerText = data.temp !== '--' ? parseFloat(data.temp).toFixed(1) : '--';
-                    document.getElementById('val-hum').innerText = data.humedad !== '--' ? Math.round(data.humedad) : '--';
-                    document.getElementById('val-pres').innerText = data.presion !== '--' ? parseFloat(data.presion).toFixed(1) : '--';
-                    document.getElementById('val-wind').innerText = data.viento !== '--' ? parseFloat(data.viento).toFixed(1) : '--';
-                    document.getElementById('val-winddir').innerText = `Dir: --`; 
-                    document.getElementById('val-precip').innerText = data.lluvia !== '--' ? parseFloat(data.lluvia).toFixed(1) : '--';
-                    
-                    statusBox.className = "text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg transition";
-                    statusBox.innerHTML = `<i class="fa-solid fa-building-columns text-emerald-400 mr-1"></i> Datos SNIH Oficiales • ${data.hora}`;
-
-                } else {
-                    const response = await fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=e1f10a1e78da46f5b10a1e78da96f525`);
-                    if (!response.ok) throw new Error('Error Red WU');
-                    const obs = (await response.json()).observations[0];
-                    
-                    document.getElementById('val-temp').innerText = ((obs.imperial.temp - 32) * 5 / 9).toFixed(1);
-                    document.getElementById('val-hum').innerText = obs.humidity;
-                    document.getElementById('val-pres').innerText = (obs.imperial.pressure * 33.8639).toFixed(1);
-                    document.getElementById('val-wind').innerText = (obs.imperial.windSpeed * 1.60934).toFixed(1);
-                    document.getElementById('val-winddir').innerText = `Dir: ${obs.winddir}°`;
-                    document.getElementById('val-precip').innerText = (obs.imperial.precipTotal * 25.4).toFixed(1);
-                    
-                    statusBox.className = "text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg transition";
-                    statusBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i> En línea (WU) • ${obs.obsTimeLocal}`;
-                }
-
-            } catch (error) {
-                statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
-                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Sensor Offline`;
-                ['val-temp', 'val-hum', 'val-pres', 'val-wind', 'val-precip'].forEach(id => document.getElementById(id).innerText = '--');
-                document.getElementById('val-winddir').innerText = `Dir: --`;
-            }
-        }
         
-        setInterval(sincronizarTelemetria, 300000);
+        setInterval(() => {
+            Object.keys(RADARES).forEach(async code => {
+                if (RADARES[code].activo) { try { await actualizarRadar(code); } catch(e){} }
+            });
+        }, 300000);
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) {
-                    registration.unregister();
-                }
+                for(let registration of registrations) { registration.unregister(); }
             });
             navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
         }
