@@ -10,7 +10,6 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#022c22">
     
-    <!-- Script temporal para matar la caché vieja de la PWA y forzar la actualización -->
     <script>
         if ('caches' in window) {
             caches.keys().then((names) => { names.forEach(name => caches.delete(name)); });
@@ -43,14 +42,12 @@
         .fade-in { animation: fadeIn 0.4s ease forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Estructura infalible para el scroll horizontal en móviles */
         .scroll-container {
             width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             padding-bottom: 8px;
             margin-top: 8px;
-            /* Ocultar barra de scroll nativa para mayor elegancia */
             scrollbar-width: none;
             -ms-overflow-style: none;
         }
@@ -84,7 +81,6 @@
 
     <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col overflow-y-auto">
         
-        <!-- VISTA 0: MENÚ -->
         <div id="vista-menu" class="flex-1 flex flex-col justify-center space-y-4 fade-in">
             <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400">
                 <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30"><i class="fa-solid fa-satellite-dish"></i></div>
@@ -100,23 +96,18 @@
             </button>
         </div>
 
-        <!-- VISTA 1: TELEMETRÍA -->
         <div id="vista-telemetria" class="hidden flex-col space-y-3.5 fade-in pb-4">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center self-start bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30 mb-1 hover:bg-emerald-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
             </button>
 
-            <!-- Pestañas Provincias -->
             <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-emerald-500/30 shadow-lg">
                 <button id="tab-tucuman" onclick="cambiarProvincia('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all">Tucumán</button>
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- CHIPS: ESTRUCTURA INFALIBLE -->
             <div class="scroll-container relative">
-                <!-- w-max asegura que el contenedor mida exactamente lo que miden todos sus hijos sumados -->
                 <div id="chip-container" class="flex flex-nowrap gap-2 w-max px-1">
-                    <!-- Los botones se inyectarán aquí -->
                 </div>
             </div>
 
@@ -160,7 +151,6 @@
             </button>
         </div>
 
-        <!-- VISTA 2: RADAR -->
         <div id="vista-radar" class="hidden flex-col flex-1 pb-2 fade-in">
             <div class="flex justify-between items-center mb-3">
                 <button onclick="volverMenu()" class="text-[11px] font-bold text-sky-400 uppercase tracking-widest flex items-center bg-sky-900/30 px-3 py-1.5 rounded-lg border border-sky-500/30 hover:bg-sky-800/50 transition">
@@ -196,7 +186,6 @@
             </div>
         </div>
 
-        <!-- VISTA 3: PRONÓSTICO -->
         <div id="vista-pronostico" class="hidden flex-col h-full flex-1 fade-in">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-amber-400 uppercase tracking-widest flex items-center self-start bg-amber-900/30 px-3 py-1.5 rounded-lg border border-amber-500/30 mb-auto hover:bg-amber-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver
@@ -212,12 +201,8 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ==============================================================
-        // ETIQUETAS AÑADIDAS: Nota el "|WU" o el "|SNIH" al final 
-        // ==============================================================
         const estacionesData = {
             tucuman: [
-                { val: "IMONTE1127|-27.17|-65.50|Monteros|WU", txt: "Monteros" },
                 { val: "220274|-27.63|-65.25|Lamadrid (SNIH)|SNIH", txt: "Lamadrid (Oficial)" },
                 { val: "ISARGE7|-26.83|-65.20|Sargento Moya - Monteros|WU", txt: "Sargento Moya" },
                 { val: "ISANMI169|-26.83|-65.20|Barrio Norte - SMT|WU", txt: "Barrio Norte" },
@@ -262,7 +247,6 @@
             
             estacionesData[prov].forEach((est, index) => {
                 const btn = document.createElement('button');
-                // IMPORTANTE: flex-none asegura que el botón no se encoja jamás
                 btn.className = "chip flex-none px-4 py-2 rounded-full text-xs font-bold border bg-slate-800/80 border-slate-600 text-slate-400 hover:text-white hover:border-emerald-500/50 shadow-sm cursor-pointer";
                 btn.textContent = est.txt;
                 
@@ -384,9 +368,6 @@
             Object.values(RADARES).forEach(r => { if (r.capa) r.capa.setOpacity(radarOpacidad); });
         }
 
-        // ==============================================================
-        // ENRUTADOR INTELIGENTE DE DATOS
-        // ==============================================================
         function sincronizarTelemetria() {
             if(!estacionActualVal) return;
             
@@ -395,7 +376,7 @@
             const lat = parseFloat(data[1]);
             const lon = parseFloat(data[2]);
             const nombre = data[3];
-            const fuente = data[4] || 'WU'; // Por defecto asume WU
+            const fuente = data[4] || 'WU';
 
             cargarDatosActuales(stationId, fuente);
             
@@ -452,7 +433,6 @@
         
         setInterval(sincronizarTelemetria, 300000);
 
-        // Forzar limpieza total de la caché de la PWA
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
                 for(let registration of registrations) {
