@@ -4,17 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>MetricPoint - live</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Leaflet para el Mapa -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-    <!-- PWA Config -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#022c22">
+    
+    <!-- Script temporal para matar la caché vieja de la PWA y forzar la actualización -->
+    <script>
+        if ('caches' in window) {
+            caches.keys().then((names) => { names.forEach(name => caches.delete(name)); });
+        }
+    </script>
+
     <style>
         body {
             background: linear-gradient(rgba(2, 44, 34, 0.85), rgba(3, 7, 18, 0.95)), 
@@ -41,12 +43,18 @@
         .fade-in { animation: fadeIn 0.4s ease forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Scroll horizontal forzado y oculto (VERSIÓN QUE FUNCIONÓ) */
-        .hide-scrollbar {
-            -ms-overflow-style: none;
+        /* Estructura infalible para el scroll horizontal en móviles */
+        .scroll-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 8px;
+            margin-top: 8px;
+            /* Ocultar barra de scroll nativa para mayor elegancia */
             scrollbar-width: none;
+            -ms-overflow-style: none;
         }
-        .hide-scrollbar::-webkit-scrollbar {
+        .scroll-container::-webkit-scrollbar {
             display: none;
         }
     </style>
@@ -59,7 +67,7 @@
             <img src="logo_metric.png" alt="INTA" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 bg-slate-900 shadow-2xl" onerror="this.style.display='none'">
         </div>
         <h2 class="text-xl font-black tracking-wider text-emerald-400">MetricPoint - live</h2>
-        <p class="text-xs text-slate-400 mt-1">Inicializando Terminal AgTech...</p>
+        <p class="text-xs text-slate-400 mt-1">Sincronizando Módulos...</p>
     </div>
 
     <header class="p-4 border-b border-white/10 glass-panel flex flex-col items-center space-y-2.5 shrink-0 z-50">
@@ -104,13 +112,11 @@
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- CHIPS CON SCROLL (VERSIÓN QUE FUNCIONÓ) -->
-            <div class="w-full relative mt-1">
-                <!-- Capa indicadora de scroll (sombra derecha) -->
-                <div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#020617] to-transparent z-10 pointer-events-none rounded-r-lg"></div>
-                <!-- Contenedor flex con ancho 100% y scroll auto -->
-                <div id="chip-container" class="flex flex-row overflow-x-auto gap-2 py-2 px-1 w-full hide-scrollbar snap-x">
-                    <!-- JavaScript inyecta los botones aquí -->
+            <!-- CHIPS: ESTRUCTURA INFALIBLE -->
+            <div class="scroll-container relative">
+                <!-- w-max asegura que el contenedor mida exactamente lo que miden todos sus hijos sumados -->
+                <div id="chip-container" class="flex flex-nowrap gap-2 w-max px-1">
+                    <!-- Los botones se inyectarán aquí -->
                 </div>
             </div>
 
@@ -256,8 +262,8 @@
             
             estacionesData[prov].forEach((est, index) => {
                 const btn = document.createElement('button');
-                // Clases corregidas: shrink-0 evita que el navegador aplaste el botón
-                btn.className = "chip shrink-0 snap-center px-4 py-2 rounded-full text-xs font-bold border whitespace-nowrap bg-slate-800/80 border-slate-600 text-slate-400 hover:text-white hover:border-emerald-500/50 shadow-sm cursor-pointer";
+                // IMPORTANTE: flex-none asegura que el botón no se encoja jamás
+                btn.className = "chip flex-none px-4 py-2 rounded-full text-xs font-bold border bg-slate-800/80 border-slate-600 text-slate-400 hover:text-white hover:border-emerald-500/50 shadow-sm cursor-pointer";
                 btn.textContent = est.txt;
                 
                 if(est.val.includes('|SNIH')) {
@@ -445,6 +451,16 @@
         }
         
         setInterval(sincronizarTelemetria, 300000);
+
+        // Forzar limpieza total de la caché de la PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
+        }
     </script>
 </body>
 </html>
