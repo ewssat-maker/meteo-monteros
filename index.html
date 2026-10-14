@@ -102,7 +102,7 @@
             </div>
 
             <!-- MAPA SELECTOR -->
-            <div class="relative w-full h-48 rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
+            <div class="relative w-full min-h-[50vh] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
                 <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
                 <!-- Leyenda flotante del mapa -->
                 <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
@@ -251,8 +251,8 @@
         function inicializarMapas() {
             if (!mapTelemetria) {
                 mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false }).setView([-26.83, -65.20], 8);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapTelemetria);
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
-                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
             }
             if (!mapRadar) {
                 mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
@@ -312,7 +312,7 @@
 
             // Auto-encuadre para mostrar todos los puntos de la provincia
             if(telemetriaMarkers.length > 0) {
-                mapTelemetria.fitBounds(bounds, {padding: [20, 20]});
+                mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8});
             }
         }
 
@@ -334,7 +334,7 @@
                 
                 // Si el usuario lo tocó manualmente, la cámara lo centra
                 if(!isInitial) {
-                    mapTelemetria.flyTo(markerLayer.getLatLng(), 10, {duration: 0.5});
+                    mapTelemetria.flyTo(markerLayer.getLatLng(), 8, {duration: 0.5});
                 }
             }
 
