@@ -26,12 +26,19 @@
     </script>
 
     <style>
-        /* El fondo ahora se aplica directamente y permite el scroll natural */
-        html, body {
-            background: linear-gradient(rgba(2, 44, 34, 0.85), rgba(3, 7, 18, 0.95)), 
-                        url('fondo.jpg') no-repeat center center fixed;
+        /* FIX SCROLL: el fondo ya NO usa "background-attachment: fixed" (traba el scroll en celulares).
+           Se dibuja en un pseudo-elemento fijo detrás del contenido. */
+        html { background-color: #030712; }
+        body { background: transparent; min-height: 100vh; }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: linear-gradient(rgba(2, 44, 34, 0.85), rgba(3, 7, 18, 0.95)),
+                        url('fondo.jpg') no-repeat center center;
             background-size: cover;
-            min-height: 100vh;
+            pointer-events: none;
         }
         .glass-panel {
             background: rgba(15, 23, 42, 0.75);
@@ -53,7 +60,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<!-- ELIMINADO EL overflow-hidden DEL BODY PARA PERMITIR SCROLL NATURAL -->
+<!-- Sin overflow-hidden en el body: el scroll es nativo -->
 <body class="text-slate-100 font-sans antialiased flex flex-col min-h-screen">
 
     <div id="splash-screen">
@@ -78,7 +85,7 @@
         </div>
     </header>
 
-    <!-- ELIMINADO EL overflow-y-auto DEL MAIN, EL SCROLL AHORA ES NATIVO -->
+    <!-- El scroll es nativo (sin overflow en main) -->
     <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col pb-12">
         
         <div id="vista-menu" class="flex flex-col justify-center space-y-4 fade-in mt-4">
@@ -106,7 +113,7 @@
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- Mapa Selector: Altura reducida a h-[40vh] (aprox 40% de pantalla) para garantizar que los paneles inferiores asomen y puedas hacer scroll ahí -->
+            <!-- Mapa Selector: altura 40vh para que los paneles inferiores asomen -->
             <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
                 <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
                 <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
@@ -119,7 +126,7 @@
                 <i class="fa-solid fa-hand-pointer animate-bounce mr-1"></i> Selecciona un punto en el mapa
             </div>
 
-            <div class="glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
+            <div id="panel-datos" class="scroll-mt-40 glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
                 <div>
                     <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Temperatura Ambiente</span>
                     <div class="flex items-baseline space-x-2 mt-1">
@@ -185,7 +192,7 @@
                 </div>
             </div>
 
-            <!-- Mapa Radar: Mantiene 50vh de altura -->
+            <!-- Mapa Radar: mantiene 50vh de altura -->
             <div class="flex-1 min-h-[50vh] relative border-2 border-sky-500/40 rounded-2xl overflow-hidden glass-panel shadow-[0_0_20px_rgba(2,132,199,0.15)] z-0">
                 <div id="mapaRadar" class="absolute inset-0 bg-[#0a0a0a]"></div>
             </div>
@@ -261,7 +268,13 @@
 
         function inicializarMapas() {
             if (!mapTelemetria) {
-                mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false }).setView([-26.83, -65.20], 8);
+                // FIX SCROLL: en celular un dedo desplaza la página; el mapa se acerca/aleja con dos dedos.
+                mapTelemetria = L.map('mapaTelemetria', {
+                    zoomControl: false,
+                    attributionControl: false,
+                    dragging: !L.Browser.mobile,
+                    tap: false
+                }).setView([-26.83, -65.20], 8);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapTelemetria);
                 
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
@@ -274,7 +287,11 @@
                 }).addTo(mapTelemetria);
             }
             if (!mapRadar) {
-                mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
+                mapRadar = L.map('mapaRadar', {
+                    zoomControl: false,
+                    dragging: !L.Browser.mobile,
+                    tap: false
+                }).setView([-26.83, -65.20], 7);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapRadar);
                 mapRadar.createPane('radarPane').style.zIndex = 250;
@@ -350,6 +367,14 @@
             }
 
             sincronizarTelemetria();
+
+            // FIX SCROLL: al tocar una estación, bajar solo a los datos (no en la carga inicial)
+            if (!isInitial) {
+                setTimeout(() => {
+                    const panel = document.getElementById('panel-datos');
+                    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 250);
+            }
         }
 
         function sincronizarTelemetria() {
@@ -409,6 +434,9 @@
         setInterval(sincronizarTelemetria, 300000);
 
         function cambiarVista(idVista) {
+            // FIX SCROLL: entrar siempre desde arriba
+            window.scrollTo(0, 0);
+
             document.getElementById('vista-menu').classList.add('hidden');
             document.getElementById('vista-menu').classList.remove('flex');
             
@@ -437,6 +465,7 @@
         }
 
         function volverMenu() {
+            window.scrollTo(0, 0);
             ['vista-telemetria', 'vista-radar', 'vista-pronostico'].forEach(vista => {
                 document.getElementById(vista).classList.add('hidden');
                 document.getElementById(vista).classList.remove('flex');
