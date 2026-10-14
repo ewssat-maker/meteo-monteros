@@ -250,22 +250,34 @@
         // ==============================================================
         function inicializarMapas() {
             if (!mapTelemetria) {
-                mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false }).setView([-26.83, -65.20], 8);
+                mapTelemetria = L.map('mapaTelemetria', { 
+                    zoomControl: false, 
+                    attributionControl: false 
+                }).setView([-26.83, -65.20], 8);
+                
                 L.control.zoom({ position: 'bottomright' }).addTo(mapTelemetria);
                 
-                // 1. Capa Satelital de Fondo
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
                 
-                // 2. Creamos un cristal invisible (zIndex 300) para que los nombres floten sobre todo
                 mapTelemetria.createPane('labelsPane').style.zIndex = 300;
                 mapTelemetria.getPane('labelsPane').style.pointerEvents = 'none';
                 
-                // 3. Capa de Nombres, Rutas y Límites Políticos
                 L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { 
                     maxZoom: 18, 
                     pane: 'labelsPane' 
                 }).addTo(mapTelemetria);
             }
+
+            if (!mapRadar) {
+                mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapRadar);
+                mapRadar.createPane('radarPane').style.zIndex = 250;
+                mapRadar.createPane('labelsPane').style.zIndex = 300;
+                mapRadar.getPane('labelsPane').style.pointerEvents = 'none';
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapRadar);
+            }
+        }
             
             if (!mapRadar) {
                 mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
