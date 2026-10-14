@@ -14,7 +14,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#022c22">
 
-    <!-- Forzar limpieza de caché -->
+    <!-- Forzar limpieza de caché PWA -->
     <script>
         if ('caches' in window) {
             caches.keys().then((names) => { names.forEach(name => caches.delete(name)); });
@@ -101,7 +101,7 @@
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- MAPA SELECTOR (Reemplaza a los botones y listas) -->
+            <!-- MAPA SELECTOR -->
             <div class="relative w-full h-48 rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
                 <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
                 <!-- Leyenda flotante del mapa -->
@@ -206,12 +206,12 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ==============================================================
-        // TODAS LAS ESTACIONES CON ETIQUETAS (|WU o |SNIH)
+        // DATA DE ESTACIONES
         // ==============================================================
         const estacionesData = {
             tucuman: [
-                { val: "IMONTE1127|-27.17|-65.50|Monteros|WU", txt: "Monteros" },
-                { val: "220274|-27.63|-65.25|Lamadrid|SNIH", txt: "Lamadrid (Oficial)" },
+                { val: "IMONTE1127|-27.17|-65.50|Monteros (INTA)|WU", txt: "Monteros" },
+                { val: "220274|-27.63|-65.25|Lamadrid (SNIH)|SNIH", txt: "Lamadrid (Oficial)" },
                 { val: "ISARGE7|-26.83|-65.20|Sargento Moya|WU", txt: "Sargento Moya" },
                 { val: "ISANMI169|-26.83|-65.20|Barrio Norte|WU", txt: "Barrio Norte" },
                 { val: "ISANMI87|-26.83|-65.20|Centro SMT|WU", txt: "Centro SMT" },
@@ -245,14 +245,11 @@
         // INICIALIZACIÓN DE MAPAS INDEPENDIENTES
         // ==============================================================
         function inicializarMapas() {
-            // Mapa 1: Selector de Telemetría
             if (!mapTelemetria) {
                 mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false }).setView([-26.83, -65.20], 8);
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
                 L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
             }
-
-            // Mapa 2: Módulo Radar
             if (!mapRadar) {
                 mapRadar = L.map('mapaRadar', { zoomControl: false }).setView([-26.83, -65.20], 7);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
@@ -265,7 +262,7 @@
         }
 
         // ==============================================================
-        // LÓGICA DEL MAPA SELECTOR (Reemplaza a los chips)
+        // LÓGICA DEL MAPA SELECTOR
         // ==============================================================
         function cambiarProvincia(prov) {
             const btnTuc = document.getElementById('tab-tucuman');
@@ -280,7 +277,7 @@
             }
 
             // Limpiar marcadores viejos
-            telemetriaMarkers.forEach(m => mapTelemetria.removeLayer(m));
+            telemetriaMarkers.forEach(item => mapTelemetria.removeLayer(item.marker));
             telemetriaMarkers = [];
             
             let bounds = L.latLngBounds();
@@ -290,8 +287,6 @@
                 const lat = parseFloat(data[1]);
                 const lon = parseFloat(data[2]);
                 const isSNIH = est.val.includes('|SNIH');
-                
-                // Color: Azul para WU, Dorado para SNIH
                 const color = isSNIH ? '#f59e0b' : '#3b82f6'; 
 
                 const marker = L.circleMarker([lat, lon], {
@@ -300,35 +295,43 @@
 
                 marker.bindTooltip(est.txt, {direction: 'top', offset: [0, -10], className: 'text-xs font-bold'});
 
-                marker.on('click', () => seleccionarEstacion(est.val, marker));
+                // Al tocar un marcador, se selecciona suavemente sin romper la vista
+                marker.on('click', () => seleccionarEstacion(est.val, marker, false));
 
-                telemetriaMarkers.push(marker);
+                telemetriaMarkers.push({ marker: marker, val: est.val });
                 bounds.extend([lat, lon]);
 
-                // Auto-seleccionar la primera estación
-                if(index === 0) seleccionarEstacion(est.val, marker);
+                if(index === 0) {
+                    seleccionarEstacion(est.val, marker, true);
+                }
             });
 
-            // Ajustar cámara para ver todos los puntos
+            // Auto-encuadre para mostrar todos los puntos de la provincia
             if(telemetriaMarkers.length > 0) {
                 mapTelemetria.fitBounds(bounds, {padding: [20, 20]});
             }
         }
 
-        function seleccionarEstacion(val, markerLayer) {
+        function seleccionarEstacion(val, markerLayer, isInitial) {
             estacionActualVal = val;
 
             // Apagar brillo de todos los marcadores
-            telemetriaMarkers.forEach(m => {
-                m.setStyle({ weight: 2, color: '#ffffff', fillOpacity: 0.5 });
-                m.setRadius(7);
+            telemetriaMarkers.forEach(item => {
+                const isSNIH = item.val.includes('|SNIH');
+                const color = isSNIH ? '#f59e0b' : '#3b82f6';
+                item.marker.setStyle({ fillColor: color, weight: 2, color: '#ffffff', fillOpacity: 0.8 });
+                item.marker.setRadius(7);
             });
 
             // Encender el seleccionado (Borde verde neón, más grande)
             if(markerLayer) {
-                markerLayer.setStyle({ weight: 3, color: '#10b981', fillOpacity: 1 });
+                markerLayer.setStyle({ fillColor: '#10b981', weight: 3, color: '#ffffff', fillOpacity: 1 });
                 markerLayer.setRadius(10);
-                mapTelemetria.flyTo(markerLayer.getLatLng(), 10, {duration: 0.5});
+                
+                // Si el usuario lo tocó manualmente, la cámara lo centra
+                if(!isInitial) {
+                    mapTelemetria.flyTo(markerLayer.getLatLng(), 10, {duration: 0.5});
+                }
             }
 
             sincronizarTelemetria();
@@ -339,12 +342,10 @@
         // ==============================================================
         function sincronizarTelemetria() {
             if(!estacionActualVal) return;
-            
             const data = estacionActualVal.split('|');
             const stationId = data[0];
             const nombre = data[3];
             const fuente = data[4] || 'WU';
-
             cargarDatosActuales(stationId, fuente, nombre);
         }
 
@@ -396,7 +397,7 @@
         setInterval(sincronizarTelemetria, 300000);
 
         // ==============================================================
-        // NAVEGACIÓN Y RADARES (Sin cambios)
+        // NAVEGACIÓN Y RADARES
         // ==============================================================
         function cambiarVista(idVista) {
             document.getElementById('vista-menu').classList.add('hidden');
@@ -411,7 +412,6 @@
             const titulos = { 'vista-telemetria': 'Módulo: Tiempo Real', 'vista-radar': 'Módulo: Satélite & Radar', 'vista-pronostico': 'Módulo: Pronóstico Extendido' };
             document.getElementById('header-subtitle').innerText = titulos[idVista] || 'Terminal Central';
             
-            // Reparar mapas ocultos en Leaflet
             setTimeout(() => { 
                 if(idVista === 'vista-telemetria' && mapTelemetria) mapTelemetria.invalidateSize();
                 if(idVista === 'vista-radar' && mapRadar) mapRadar.invalidateSize();
