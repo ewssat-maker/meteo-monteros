@@ -26,8 +26,6 @@
     </script>
 
     <style>
-        /* FIX SCROLL: el fondo ya NO usa "background-attachment: fixed" (traba el scroll en celulares).
-           Se dibuja en un pseudo-elemento fijo detrás del contenido. */
         html { background-color: #030712; }
         body { background: transparent; min-height: 100vh; }
         body::before {
@@ -60,7 +58,6 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<!-- Sin overflow-hidden en el body: el scroll es nativo -->
 <body class="text-slate-100 font-sans antialiased flex flex-col min-h-screen">
 
     <div id="splash-screen">
@@ -72,33 +69,27 @@
         <p class="text-xs text-slate-400 mt-1">Sincronizando Módulos...</p>
     </div>
 
-    <!-- Header Fijo para que no desaparezca al bajar -->
-    <header class="sticky top-0 p-4 border-b border-white/10 glass-panel flex flex-col items-center space-y-2.5 z-[500]">
-        <div class="flex items-center justify-center space-x-4">
-            <img src="logo.png" alt="Logo Alerta" class="w-11 h-11 object-contain rounded-full border border-white/20 shadow-md">
-            <div class="h-6 w-px bg-white/20"></div>
-            <img src="logo_metric.png" alt="INTA" class="w-11 h-11 object-contain rounded-full border border-white/20 bg-slate-900/80 shadow-md">
-        </div>
+    <!-- Header Fijo simplificado (Sin logos) -->
+    <header class="sticky top-0 p-4 border-b border-white/10 glass-panel flex flex-col items-center justify-center z-[500]">
         <div class="text-center">
             <h1 class="text-2xl font-black tracking-tight text-white">MetricPoint - live</h1>
             <p id="header-subtitle" class="text-[11px] text-emerald-400 font-semibold tracking-wide uppercase mt-0.5">Terminal Central</p>
         </div>
     </header>
 
-    <!-- El scroll es nativo (sin overflow en main) -->
-    <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col pb-12">
+    <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col pb-6">
         
         <div id="vista-menu" class="flex flex-col justify-center space-y-4 fade-in mt-4">
-            <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400">
-                <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30"><i class="fa-solid fa-satellite-dish"></i></div>
+            <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400 w-full text-left">
+                <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30 shrink-0"><i class="fa-solid fa-satellite-dish"></i></div>
                 <div><h3 class="text-lg font-black text-white uppercase">Tiempo Real</h3><p class="text-[11px] text-slate-400">Selección interactiva en mapa y datos vivos</p></div>
             </button>
-            <button onclick="cambiarVista('vista-radar')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-sky-400">
-                <div class="bg-sky-500/20 p-4 rounded-2xl text-sky-400 text-2xl border border-sky-500/30"><i class="fa-solid fa-satellite"></i></div>
+            <button onclick="cambiarVista('vista-radar')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-sky-400 w-full text-left">
+                <div class="bg-sky-500/20 p-4 rounded-2xl text-sky-400 text-2xl border border-sky-500/30 shrink-0"><i class="fa-solid fa-satellite"></i></div>
                 <div><h3 class="text-lg font-black text-white uppercase">Imagen Radar</h3><p class="text-[11px] text-slate-400">Mapeo satelital y celdas de tormenta</p></div>
             </button>
-            <button onclick="cambiarVista('vista-pronostico')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-amber-400 opacity-80">
-                <div class="bg-amber-500/20 p-4 rounded-2xl text-amber-400 text-2xl border border-amber-500/30"><i class="fa-solid fa-chart-line"></i></div>
+            <button onclick="cambiarVista('vista-pronostico')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-amber-400 opacity-80 w-full text-left">
+                <div class="bg-amber-500/20 p-4 rounded-2xl text-amber-400 text-2xl border border-amber-500/30 shrink-0"><i class="fa-solid fa-chart-line"></i></div>
                 <div><h3 class="text-lg font-black text-white uppercase">Pronóstico</h3><p class="text-[11px] text-slate-400">Modelos predictivos a 72hs</p></div>
             </button>
         </div>
@@ -113,7 +104,6 @@
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
 
-            <!-- Mapa Selector: altura 40vh para que los paneles inferiores asomen -->
             <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
                 <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
                 <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
@@ -185,14 +175,6 @@
                     </label>
                     <span id="rad-estado-RMA20" class="text-[9px] font-mono text-slate-400">Inactivo</span>
                 </div>
-                <div class="mt-1 border-t border-slate-700/50 pt-2">
-                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1.5">Vista del radar</span>
-                    <div class="grid grid-cols-2 gap-1 bg-slate-900/80 p-1 rounded-lg border border-sky-500/30">
-                        <button id="btn-campo-COLMAX" onclick="cambiarCampoRadar('COLMAX')" class="py-2 text-[11px] uppercase tracking-wide rounded-md bg-sky-500 text-slate-900 font-black transition-all">Máx. columna</button>
-                        <button id="btn-campo-DBZH" onclick="cambiarCampoRadar('DBZH')" class="py-2 text-[11px] uppercase tracking-wide rounded-md text-slate-400 font-bold transition-all">Z @ 0,5°</button>
-                    </div>
-                    <p id="radar-campo-desc" class="text-[10px] leading-snug text-slate-400 mt-1.5"></p>
-                </div>
                 <div class="mt-1 flex items-center gap-3 border-t border-slate-700/50 pt-2">
                     <i class="fa-solid fa-droplet-slash text-sky-500/50 text-[10px]"></i>
                     <input type="range" min="20" max="100" value="70" oninput="cambiarOpacidadRadar(this.value)" class="flex-1 accent-sky-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
@@ -200,24 +182,9 @@
                 </div>
             </div>
 
-            <!-- Mapa Radar: mantiene 50vh de altura -->
             <div class="flex-1 min-h-[50vh] relative border-2 border-sky-500/40 rounded-2xl overflow-hidden glass-panel shadow-[0_0_20px_rgba(2,132,199,0.15)] z-0">
                 <div id="mapaRadar" class="absolute inset-0 bg-[#0a0a0a]"></div>
             </div>
-
-            <!-- Leyenda del radar (visible solo con algún radar activo) -->
-            <div id="rad-leyenda" class="hidden glass-panel mt-3 px-3 py-2.5 rounded-2xl border-l-4 border-l-sky-500">
-                <div class="flex items-baseline justify-between mb-1.5">
-                    <span id="rad-leyenda-titulo" class="text-[10px] font-black tracking-widest text-sky-400 uppercase">Reflectividad · dBZ</span>
-                    <span class="text-[9px] text-slate-500">escala WebMet</span>
-                </div>
-                <div id="rad-leyenda-barra" class="h-3 rounded-sm border border-slate-600"></div>
-                <div id="rad-leyenda-marcas" class="relative h-4 mt-0.5 text-[9px] font-mono text-slate-300"></div>
-            </div>
-            <p class="text-[9px] leading-snug text-slate-500 mt-3 px-1">
-                Fuente: SMN / SINARAME, vía WebMet (OHMC Córdoba).<br>
-                Información orientativa: requiere interpretación técnica.
-            </p>
         </div>
 
         <div id="vista-pronostico" class="hidden flex-col h-full flex-1 fade-in mt-4">
@@ -231,6 +198,34 @@
             </div>
             <div class="mt-auto"></div>
         </div>
+
+        <!-- FOOTER GLOBAL: Logos y Redes Sociales -->
+        <footer class="mt-auto pt-8 pb-2 flex flex-col items-center space-y-5 fade-in">
+            <!-- Logos reubicados -->
+            <div class="flex items-center justify-center space-x-5">
+                <img src="logo.png" alt="Logo Alerta" class="w-12 h-12 object-contain rounded-full border border-white/20 shadow-lg">
+                <div class="h-8 w-px bg-white/20"></div>
+                <img src="logo_metric.png" alt="INTA" class="w-12 h-12 object-contain rounded-full border border-white/20 bg-slate-900/80 shadow-lg" onerror="this.style.display='none'">
+            </div>
+            
+            <!-- Botonera de Redes Sociales -->
+            <div class="flex space-x-4">
+                <a href="#" target="_blank" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <i class="fa-brands fa-instagram text-lg"></i>
+                </a>
+                <a href="#" target="_blank" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <i class="fa-brands fa-facebook-f text-lg"></i>
+                </a>
+                <a href="#" target="_blank" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <i class="fa-brands fa-whatsapp text-lg"></i>
+                </a>
+                <a href="#" target="_blank" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <i class="fa-solid fa-globe text-lg"></i>
+                </a>
+            </div>
+            <p class="text-[10px] text-slate-500 tracking-wider uppercase">© 2026 MetricPoint AgTech</p>
+        </footer>
+
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -296,7 +291,6 @@
 
         function inicializarMapas() {
             if (!mapTelemetria) {
-                // FIX SCROLL: en celular un dedo desplaza la página; el mapa se acerca/aleja con dos dedos.
                 mapTelemetria = L.map('mapaTelemetria', {
                     zoomControl: false,
                     attributionControl: false,
@@ -396,7 +390,6 @@
 
             sincronizarTelemetria();
 
-            // FIX SCROLL: al tocar una estación, bajar solo a los datos (no en la carga inicial)
             if (!isInitial) {
                 setTimeout(() => {
                     const panel = document.getElementById('panel-datos');
@@ -462,7 +455,6 @@
         setInterval(sincronizarTelemetria, 300000);
 
         function cambiarVista(idVista) {
-            // FIX SCROLL: entrar siempre desde arriba
             window.scrollTo(0, 0);
 
             document.getElementById('vista-menu').classList.add('hidden');
@@ -488,7 +480,7 @@
                         try { mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e){}
                     }
                 }
-                if(idVista === 'vista-radar' && mapRadar) { mapRadar.invalidateSize(); refrescarRadares(); }
+                if(idVista === 'vista-radar' && mapRadar) { mapRadar.invalidateSize(); }
             }, 300);
         }
 
@@ -503,185 +495,62 @@
             document.getElementById('header-subtitle').innerText = 'Terminal Central';
         }
 
-        // ==========================================
-        // RADAR (RMA11 / RMA20) — datos SMN / SINARAME vía WebMet (OHMC Córdoba)
-        // ==========================================
         const RADAR_WEBMET = 'https://webmet.ohmc.ar';
-        // Respaldo por tu backend si el navegador no puede consultar WebMet directo (CORS).
-        // Requiere desplegar modulos/radar_webmet.py (versión con soporte de ?campo=).
         const RADAR_PROXY = 'https://metricmoisture-backend.onrender.com/api/radar';
-        const RADAR_REFRESCO_MS = 5 * 60 * 1000;   // cada 5 min se busca una imagen nueva
-        const RADAR_ATRASO_MIN = 30;               // aviso si la imagen tiene más de 30 min
-        const RADAR_MAX_NATIVE_ZOOM = 10;          // ajustar si los tiles se ven borrosos o faltan
         let radarOpacidad = 0.7;
+        const RADARES = { RMA11: { capa: null, registro: null, activo: false }, RMA20: { capa: null, registro: null, activo: false } };
 
-        // Campos "abiertos" de WebMet medidos en dBZ.
-        const CAMPOS_RADAR = {
-            COLMAX: {
-                leyenda: 'Máx. de columna · dBZ',
-                descripcion: 'Reflectividad máxima de toda la columna de aire (COLMAX).'
-            },
-            DBZH: {
-                leyenda: 'Z@0.5° · dBZ',
-                descripcion: 'Reflectividad a 0,5° de elevación (Z@0.5): el barrido más cercano al suelo.'
-            }
-        };
-        let RADAR_CAMPO = 'COLMAX';
-
-        // Escala de referencia (dBZ → color), muestreada de la leyenda del visor de WebMet
-        // (10–70 dBZ, cada 2,5 dBZ). El campo filtrado de WebMet no trae ecos por debajo de ~11 dBZ.
-        const RADAR_PALETA = [[10,'#439cb3'],[12.5,'#3be580'],[15,'#37dd70'],[17.5,'#2ccc64'],[20,'#22bd5a'],[22.5,'#16ae50'],[25,'#10a144'],[27.5,'#54bc2e'],[30,'#93d61b'],[32.5,'#cbdf0b'],[35,'#f4b701'],[37.5,'#e66003'],[40,'#c72503'],[42.5,'#960701'],[45,'#5d0313'],[47.5,'#650056'],[50,'#9f0089'],[52.5,'#68005b'],[55,'#18586e'],[57.5,'#00c4c4'],[60,'#086a6a'],[62.5,'#7a9e9e'],[65,'#a0a4a4'],[67.5,'#545454'],[70,'#636369']];
-
-        // Por la geometría de sus coberturas: RMA11 = Termas de Río Hondo, RMA20 = Las Lajitas
-        const RADARES = {
-            RMA11: { capa: null, registro: null, activo: false },
-            RMA20: { capa: null, registro: null, activo: false }
-        };
-
-        async function pedirUltimoRadar(code, campo) {
-            const qs = `radar_code=${code}&product_key=${campo}&vol_nr=01&vol_nr=02&strategy=0315`;
+        async function pedirUltimoRadar(code) {
+            const qs = `radar_code=${code}&product_key=COLMAX&vol_nr=01&vol_nr=02&strategy=0315`;
             try {
                 const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`);
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return await r.json();
-            } catch (errDirecto) {
-                console.warn(`Radar ${code}: consulta directa falló (${errDirecto.message}). Probando backend propio...`);
-                const r2 = await fetch(`${RADAR_PROXY}/${code}/latest?campo=${campo}`);
-                if (!r2.ok) throw new Error('HTTP ' + r2.status);
-                return await r2.json();
+                if (!r.ok) throw new Error('HTTP'); return await r.json();
+            } catch (err) {
+                const r2 = await fetch(`${RADAR_PROXY}/${code}/latest`);
+                if (!r2.ok) throw new Error('HTTP'); return await r2.json();
             }
         }
 
-        function estadoRadar(code, texto, nivel) {
+        function estadoRadar(code, txt, nivel) {
             const el = document.getElementById(`rad-estado-${code}`);
-            if (!el) return;
-            el.textContent = texto;
-            const color = nivel === 'error' ? 'text-red-400' : (nivel === 'aviso' ? 'text-amber-400' : 'text-slate-400');
-            el.className = `text-[9px] font-mono ${color}`;
-        }
-
-        function describirObservacion(iso) {
-            const f = new Date(iso);
-            if (isNaN(f)) return { texto: 'Hora desconocida', nivel: 'aviso' };
-            const min = Math.max(0, Math.round((Date.now() - f.getTime()) / 60000));
-            const hora = f.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' });
-            const atrasado = min > RADAR_ATRASO_MIN;
-            return { texto: `${hora} (hace ${min} min)${atrasado ? ' ⚠ atrasado' : ''}`, nivel: atrasado ? 'aviso' : 'ok' };
+            if(!el) return; el.textContent = txt;
+            el.className = `text-[9px] font-mono ${nivel === 'error' ? 'text-red-400' : 'text-slate-400'}`;
         }
 
         async function actualizarRadar(code) {
             const r = RADARES[code];
-            const campo = RADAR_CAMPO;
-            const reg = await pedirUltimoRadar(code, campo);
-            if (!r.activo || campo !== RADAR_CAMPO) return;   // lo apagaron o cambiaron de campo mientras cargaba
-
-            // Defensa: nunca dibujar un dato que no sea del radar y del campo pedidos.
-            if (reg.radar_code !== code || reg.product_key !== campo) {
-                throw new Error(`La API devolvió ${reg.radar_code}/${reg.product_key} en vez de ${code}/${campo}`);
-            }
-
-            const obs = describirObservacion(reg.observation_time);
-            estadoRadar(code, obs.texto, obs.nivel);
-            if (r.registro && r.registro.id === reg.id) return;   // misma imagen, nada que cambiar
-
+            const reg = await pedirUltimoRadar(code);
+            if (!r.activo) return;
+            estadoRadar(code, 'Actualizado', 'ok');
+            if (r.registro && r.registro.id === reg.id) return;
             const bb = reg.bbox;
             const bounds = L.latLngBounds([bb.min_lat, bb.min_lon], [bb.max_lat, bb.max_lon]);
             const url = reg.tile_url.startsWith('http') ? reg.tile_url : RADAR_WEBMET + reg.tile_url;
-
-            const nueva = L.tileLayer(url, {
-                pane: 'radarPane', bounds: bounds, opacity: radarOpacidad,
-                minZoom: 4, maxNativeZoom: RADAR_MAX_NATIVE_ZOOM, maxZoom: 18
-            }).addTo(mapRadar);
-            if (r.capa) mapRadar.removeLayer(r.capa);   // se saca la vieja recién con la nueva ya puesta
-            r.capa = nueva;
-            r.registro = reg;
-        }
-
-        async function cargarRadar(code) {
-            try { await actualizarRadar(code); }
-            catch (e) { console.error(`Radar ${code}:`, e); estadoRadar(code, 'No disponible', 'error'); }
+            const nueva = L.tileLayer(url, { pane: 'radarPane', bounds: bounds, opacity: radarOpacidad, minZoom: 4, maxZoom: 18 }).addTo(mapRadar);
+            if (r.capa) mapRadar.removeLayer(r.capa);
+            r.capa = nueva; r.registro = reg;
         }
 
         async function toggleRadar(code, activo) {
-            const r = RADARES[code];
-            r.activo = activo;
-            actualizarLeyenda();
+            const r = RADARES[code]; r.activo = activo;
             if (!activo) {
                 if (r.capa) mapRadar.removeLayer(r.capa);
-                r.capa = null; r.registro = null;
-                estadoRadar(code, 'Inactivo');
-                return;
+                r.capa = null; r.registro = null; estadoRadar(code, 'Inactivo'); return;
             }
-            estadoRadar(code, 'Cargando…');
-            await cargarRadar(code);
+            estadoRadar(code, 'Cargando…', 'ok');
+            try { await actualizarRadar(code); } catch (e) { estadoRadar(code, 'Fallo', 'error'); }
         }
 
         function cambiarOpacidadRadar(valor) {
             radarOpacidad = valor / 100;
             Object.values(RADARES).forEach(r => { if (r.capa) r.capa.setOpacity(radarOpacidad); });
         }
-
-        async function cambiarCampoRadar(valor) {
-            if (!CAMPOS_RADAR[valor]) return;
-            RADAR_CAMPO = valor;
-            actualizarLeyenda();
-            await Promise.all(Object.keys(RADARES).map(async code => {
-                const r = RADARES[code];
-                if (r.capa) mapRadar.removeLayer(r.capa);   // la capa vieja era de otro campo
-                r.capa = null; r.registro = null;
-                if (!r.activo) return;
-                estadoRadar(code, 'Cargando…');
-                await cargarRadar(code);
-            }));
-        }
-
-        async function refrescarRadares() {
-            // No gastar consultas si el usuario no está mirando la pantalla del radar.
-            if (document.getElementById('vista-radar').classList.contains('hidden')) return;
-            await Promise.all(Object.keys(RADARES)
-                .filter(code => RADARES[code].activo)
-                .map(code => cargarRadar(code)));
-        }
-
-        function construirLeyenda() {
-            const barra = document.getElementById('rad-leyenda-barra');
-            const marcas = document.getElementById('rad-leyenda-marcas');
-            if (!barra || !marcas) return;
-            const min = RADAR_PALETA[0][0];
-            const max = RADAR_PALETA[RADAR_PALETA.length - 1][0];
-            const paradas = RADAR_PALETA.map(([v, c]) => `${c} ${(((v - min) / (max - min)) * 100).toFixed(1)}%`);
-            barra.style.background = `linear-gradient(to right, ${paradas.join(', ')})`;
-            marcas.innerHTML = '';
-            for (let v = min; v <= max; v += 10) {
-                const pos = ((v - min) / (max - min)) * 100;
-                const t = document.createElement('span');
-                t.textContent = v;
-                t.style.position = 'absolute';
-                t.style.left = pos + '%';
-                t.style.transform = pos === 0 ? 'none' : (pos === 100 ? 'translateX(-100%)' : 'translateX(-50%)');
-                marcas.appendChild(t);
-            }
-        }
-
-        function actualizarLeyenda() {
-            const el = document.getElementById('rad-leyenda');
-            if (!el) return;
-            const algunoActivo = Object.values(RADARES).some(r => r.activo);
-            el.classList.toggle('hidden', !algunoActivo);
-            document.getElementById('rad-leyenda-titulo').textContent = CAMPOS_RADAR[RADAR_CAMPO].leyenda;
-            document.getElementById('radar-campo-desc').textContent = CAMPOS_RADAR[RADAR_CAMPO].descripcion;
-            // Botones de las dos vistas
-            Object.keys(CAMPOS_RADAR).forEach(k => {
-                const b = document.getElementById(`btn-campo-${k}`);
-                if (!b) return;
-                const activo = k === RADAR_CAMPO;
-                b.className = `py-2 text-[11px] uppercase tracking-wide rounded-md transition-all ${activo ? 'bg-sky-500 text-slate-900 font-black' : 'text-slate-400 font-bold'}`;
+        
+        setInterval(() => {
+            Object.keys(RADARES).forEach(async code => {
+                if (RADARES[code].activo) { try { await actualizarRadar(code); } catch(e){} }
             });
-        }
-
-        setInterval(refrescarRadares, RADAR_REFRESCO_MS);
-        construirLeyenda();
-        actualizarLeyenda();
+        }, 300000);
     </script>
 </body>
 </html>
