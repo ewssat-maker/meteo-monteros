@@ -69,7 +69,7 @@
         <p class="text-xs text-slate-400 mt-1">Sincronizando Módulos...</p>
     </div>
 
-    <!-- Header Fijo simplificado (Sin logos) -->
+    <!-- Header Fijo simplificado -->
     <header class="sticky top-0 p-4 border-b border-white/10 glass-panel flex flex-col items-center justify-center z-[500]">
         <div class="text-center">
             <h1 class="text-2xl font-black tracking-tight text-white">MetricPoint - live</h1>
@@ -79,21 +79,31 @@
 
     <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col pb-6">
         
+        <!-- VISTA MENÚ PRINCIPAL -->
         <div id="vista-menu" class="flex flex-col justify-center space-y-4 fade-in mt-4">
             <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400 w-full text-left">
                 <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30 shrink-0"><i class="fa-solid fa-satellite-dish"></i></div>
-                <div><h3 class="text-lg font-black text-white uppercase">Tiempo Real</h3><p class="text-[11px] text-slate-400">Selección interactiva en mapa y datos vivos</p></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Tiempo Real</h3><p class="text-[11px] text-slate-400">Telemetría meteorológica viva</p></div>
             </button>
+            
+            <!-- NUEVO MÓDULO: CAUCES DE RÍOS -->
+            <button onclick="cambiarVista('vista-cauces')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-blue-500 w-full text-left">
+                <div class="bg-blue-500/20 p-4 rounded-2xl text-blue-400 text-2xl border border-blue-500/30 shrink-0"><i class="fa-solid fa-water"></i></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Cauces de Ríos</h3><p class="text-[11px] text-slate-400">Monitoreo hidrológico INA</p></div>
+            </button>
+
             <button onclick="cambiarVista('vista-radar')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-sky-400 w-full text-left">
                 <div class="bg-sky-500/20 p-4 rounded-2xl text-sky-400 text-2xl border border-sky-500/30 shrink-0"><i class="fa-solid fa-satellite"></i></div>
                 <div><h3 class="text-lg font-black text-white uppercase">Imagen Radar</h3><p class="text-[11px] text-slate-400">Mapeo satelital y celdas de tormenta</p></div>
             </button>
+            
             <button onclick="cambiarVista('vista-pronostico')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-amber-400 opacity-80 w-full text-left">
                 <div class="bg-amber-500/20 p-4 rounded-2xl text-amber-400 text-2xl border border-amber-500/30 shrink-0"><i class="fa-solid fa-chart-line"></i></div>
                 <div><h3 class="text-lg font-black text-white uppercase">Pronóstico</h3><p class="text-[11px] text-slate-400">Modelos predictivos a 72hs</p></div>
             </button>
         </div>
 
+        <!-- MÓDULO 1: TELEMETRÍA (Sin Cambios) -->
         <div id="vista-telemetria" class="hidden flex-col space-y-3.5 fade-in">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center self-start bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30 mb-1 mt-2 hover:bg-emerald-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
@@ -152,6 +162,56 @@
             </button>
         </div>
 
+        <!-- NUEVO MÓDULO 2: CAUCES DE RÍOS -->
+        <div id="vista-cauces" class="hidden flex-col space-y-3.5 fade-in">
+            <button onclick="volverMenu()" class="text-[11px] font-bold text-blue-400 uppercase tracking-widest flex items-center self-start bg-blue-900/30 px-3 py-1.5 rounded-lg border border-blue-500/30 mb-1 mt-2 hover:bg-blue-800/50">
+                <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
+            </button>
+
+            <!-- Mapa Selector Hidrológico -->
+            <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-blue-500/40 shadow-lg glass-panel z-0">
+                <div id="mapaCauces" class="absolute inset-0 bg-[#0a0a0a]"></div>
+                <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Sensores INA</span></div>
+                </div>
+            </div>
+
+            <div id="status-cauces" class="text-xs text-center text-blue-300 bg-blue-950/80 border border-blue-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md">
+                <i class="fa-solid fa-hand-pointer animate-bounce mr-1"></i> Selecciona un cauce en el mapa
+            </div>
+
+            <!-- Panel de Datos Hidrológicos -->
+            <div id="panel-datos-cauces" class="scroll-mt-40 glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-cyan-400">
+                <div class="w-full">
+                    <div class="flex justify-between items-center w-full">
+                        <span class="text-[10px] font-bold text-cyan-400 tracking-wider uppercase" id="cauce-nombre">Nombre del Río</span>
+                        <span class="text-[9px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-600" id="cauce-fecha">--/--/--</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2 mt-2">
+                        <span id="val-cauce-nivel" class="text-5xl font-black tracking-tighter text-white">--</span>
+                        <span class="text-2xl text-slate-300 font-semibold">m</span>
+                    </div>
+                </div>
+                <div class="bg-cyan-500/20 p-4 rounded-2xl text-cyan-400 text-3xl border border-cyan-500/30 shrink-0 ml-4"><i class="fa-solid fa-water"></i></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-blue-400 shadow-lg">
+                    <div class="text-blue-300 text-[10px] font-bold uppercase flex justify-between"><span>Tendencia</span><i class="fa-solid fa-arrow-trend-up"></i></div>
+                    <div class="my-2"><span id="val-cauce-tendencia" class="text-xl font-extrabold text-white capitalize">--</span></div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-indigo-400 shadow-lg">
+                    <div class="text-indigo-300 text-[10px] font-bold uppercase flex justify-between"><span>Precedente</span><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div class="my-2"><span id="val-cauce-precedente" class="text-xl font-extrabold text-white">--</span><span class="text-xs text-slate-300"> m</span></div>
+                </div>
+            </div>
+
+            <button onclick="sincronizarCauce()" class="w-full bg-blue-600 hover:bg-blue-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-blue-400/40 text-white mt-2 mb-4 cursor-pointer">
+                <i class="fa-solid fa-rotate-right"></i><span>Actualizar Cauce</span>
+            </button>
+        </div>
+
+        <!-- MÓDULO 3: RADAR -->
         <div id="vista-radar" class="hidden flex-col flex-1 pb-2 fade-in mt-2">
             <div class="flex justify-between items-center mb-3">
                 <button onclick="volverMenu()" class="text-[11px] font-bold text-sky-400 uppercase tracking-widest flex items-center bg-sky-900/30 px-3 py-1.5 rounded-lg border border-sky-500/30 hover:bg-sky-800/50 transition">
@@ -187,6 +247,7 @@
             </div>
         </div>
 
+        <!-- MÓDULO 4: PRONÓSTICO -->
         <div id="vista-pronostico" class="hidden flex-col h-full flex-1 fade-in mt-4">
             <button onclick="volverMenu()" class="text-[11px] font-bold text-amber-400 uppercase tracking-widest flex items-center self-start bg-amber-900/30 px-3 py-1.5 rounded-lg border border-amber-500/30 mb-auto hover:bg-amber-800/50">
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver
@@ -201,14 +262,12 @@
 
         <!-- FOOTER GLOBAL: Logos y Redes Sociales -->
         <footer class="mt-auto pt-8 pb-2 flex flex-col items-center space-y-5 fade-in">
-            <!-- Logos reubicados -->
             <div class="flex items-center justify-center space-x-5">
                 <img src="logo.png" alt="Logo Alerta" class="w-12 h-12 object-contain rounded-full border border-white/20 shadow-lg">
                 <div class="h-8 w-px bg-white/20"></div>
                 <img src="logo_metric.png" alt="INTA" class="w-12 h-12 object-contain rounded-full border border-white/20 bg-slate-900/80 shadow-lg" onerror="this.style.display='none'">
             </div>
             
-            <!-- Botonera de Redes Sociales -->
             <div class="flex space-x-4">
                 <a href="#" target="_blank" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
                     <i class="fa-brands fa-instagram text-lg"></i>
@@ -230,6 +289,9 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // ==========================================
+        // DATA DE ESTACIONES METEOROLÓGICAS
+        // ==========================================
         const estacionesData = {
             tucuman: [
                 { val: "IMONTE1127|-27.17|-65.50|Monteros (INTA)|WU", txt: "Monteros" },
@@ -250,7 +312,7 @@
                 { val: "IYERBA8|-26.81|-65.32|Praderas YB|WU", txt: "Praderas YB" },
                 { val: "IYERBA10|-26.81|-65.32|Jumbo YB|WU", txt: "Jumbo YB" },
                 { val: "IYERBA5|-26.81|-65.29|Colinas YB|WU", txt: "Colinas YB" },
-                { val: "ICONCE101|-27.34|-65.59|Concepción|WU", txt: "Concepción" },
+                { val: "ICONCE101|-27.34|-65.59|Concepción|WU", txt: "Concepción (WU)" },
                 { val: "ILEALE3|-27.22|-64.86|Mujer Muerta|WU", txt: "Mujer Muerta" },
                 { val: "ILEALE2|-27.13|-64.81|Tacanas|WU", txt: "Tacanas" }
             ],
@@ -267,10 +329,28 @@
             ]
         };
 
+        // ==========================================
+        // DATA DE CAUCES DE RÍOS (INA)
+        // ==========================================
+        const caucesINA = [
+            { id: 33882, lat: -27.52, lon: -65.27, txt: "Río Chico - RN Nº157" },
+            { id: 32292, lat: -27.35, lon: -65.25, txt: "Río Gastona - RN Nº157" },
+            { id: 32679, lat: -27.27, lon: -65.25, txt: "Río Seco - RN Nº157" },
+            { id: 33520, lat: -27.03, lon: -65.29, txt: "Río Salí - RP Nº323" },
+            { id: 33966, lat: -26.85, lon: -65.17, txt: "Río Salí - Alta Gracia" },
+            { id: 32028, lat: -26.48, lon: -65.32, txt: "Río Vipos - Toma OS" },
+            { id: 32820, lat: -26.29, lon: -64.50, txt: "Río Urueña - 7 de Abril" }
+        ];
+
         let estacionActualVal = null;
+        let cauceActualVal = null;
+        
         let mapTelemetria = null;
+        let mapCauces = null;
         let mapRadar = null;
+        
         let telemetriaMarkers = [];
+        let caucesMarkers = [];
 
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -284,36 +364,36 @@
             try {
                 inicializarMapas();
                 cambiarProvincia('tucuman'); 
+                cargarCauces(); // Cargar los puntos del INA al iniciar
             } catch (e) {
                 console.error("Error al inicializar:", e);
             }
         });
 
         function inicializarMapas() {
+            // Mapa 1: Telemetría
             if (!mapTelemetria) {
-                mapTelemetria = L.map('mapaTelemetria', {
-                    zoomControl: false,
-                    attributionControl: false,
-                    dragging: !L.Browser.mobile,
-                    tap: false
-                }).setView([-26.83, -65.20], 8);
+                mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false, dragging: !L.Browser.mobile, tap: false }).setView([-26.83, -65.20], 8);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapTelemetria);
-                
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
-                
                 mapTelemetria.createPane('labelsPane').style.zIndex = 300;
                 mapTelemetria.getPane('labelsPane').style.pointerEvents = 'none';
-                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { 
-                    maxZoom: 18, 
-                    pane: 'labelsPane' 
-                }).addTo(mapTelemetria);
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapTelemetria);
             }
+            
+            // Mapa 2: Cauces de Ríos
+            if (!mapCauces) {
+                mapCauces = L.map('mapaCauces', { zoomControl: false, attributionControl: false, dragging: !L.Browser.mobile, tap: false }).setView([-26.83, -65.20], 8);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapCauces);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapCauces);
+                mapCauces.createPane('labelsPane').style.zIndex = 300;
+                mapCauces.getPane('labelsPane').style.pointerEvents = 'none';
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapCauces);
+            }
+
+            // Mapa 3: Radar
             if (!mapRadar) {
-                mapRadar = L.map('mapaRadar', {
-                    zoomControl: false,
-                    dragging: !L.Browser.mobile,
-                    tap: false
-                }).setView([-26.83, -65.20], 7);
+                mapRadar = L.map('mapaRadar', { zoomControl: false, dragging: !L.Browser.mobile, tap: false }).setView([-26.83, -65.20], 7);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapRadar);
                 mapRadar.createPane('radarPane').style.zIndex = 250;
@@ -323,6 +403,9 @@
             }
         }
 
+        // ==========================================
+        // LÓGICA DE TELEMETRÍA (Sin Cambios)
+        // ==========================================
         function cambiarProvincia(prov) {
             const btnTuc = document.getElementById('tab-tucuman');
             const btnSal = document.getElementById('tab-salta');
@@ -347,25 +430,17 @@
                 const isSNIH = est.val.includes('|SNIH');
                 const color = isSNIH ? '#f59e0b' : '#3b82f6'; 
 
-                const marker = L.circleMarker([lat, lon], {
-                    radius: 7, fillColor: color, color: "#ffffff", weight: 2, fillOpacity: 0.8
-                }).addTo(mapTelemetria);
-
+                const marker = L.circleMarker([lat, lon], { radius: 7, fillColor: color, color: "#ffffff", weight: 2, fillOpacity: 0.8 }).addTo(mapTelemetria);
                 marker.bindTooltip(est.txt, {direction: 'top', offset: [0, -10], className: 'text-xs font-bold'});
                 marker.on('click', () => seleccionarEstacion(est.val, marker, false));
 
                 telemetriaMarkers.push({ marker: marker, val: est.val });
                 bounds.extend([lat, lon]);
-
-                if(index === 0) {
-                    seleccionarEstacion(est.val, marker, true);
-                }
+                if(index === 0) seleccionarEstacion(est.val, marker, true);
             });
 
             if(telemetriaMarkers.length > 0) {
-                try {
-                    mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8});
-                } catch(e) {}
+                try { mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e) {}
             }
         }
 
@@ -382,10 +457,7 @@
             if(markerLayer) {
                 markerLayer.setStyle({ fillColor: '#10b981', weight: 3, color: '#ffffff', fillOpacity: 1 });
                 markerLayer.setRadius(10);
-                
-                if(!isInitial) {
-                    try { mapTelemetria.flyTo(markerLayer.getLatLng(), 8, {duration: 0.5}); } catch(e){}
-                }
+                if(!isInitial) { try { mapTelemetria.flyTo(markerLayer.getLatLng(), 8, {duration: 0.5}); } catch(e){} }
             }
 
             sincronizarTelemetria();
@@ -401,16 +473,12 @@
         function sincronizarTelemetria() {
             if(!estacionActualVal) return;
             const data = estacionActualVal.split('|');
-            const stationId = data[0];
-            const nombre = data[3];
-            const fuente = data[4] || 'WU';
-            cargarDatosActuales(stationId, fuente, nombre);
+            cargarDatosActuales(data[0], data[4] || 'WU', data[3]);
         }
 
         async function cargarDatosActuales(stationId, fuente, nombreEstacion) {
             const statusBox = document.getElementById('status-box');
             statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Sincronizando...';
-            
             try {
                 if (fuente === 'SNIH') {
                     const response = await fetch(`https://metricmoisture-backend.onrender.com/api/snih/${stationId}`);
@@ -422,12 +490,10 @@
                     document.getElementById('val-hum').innerText = data.humedad !== '--' ? Math.round(data.humedad) : '--';
                     document.getElementById('val-pres').innerText = data.presion !== '--' ? parseFloat(data.presion).toFixed(1) : '--';
                     document.getElementById('val-wind').innerText = data.viento !== '--' ? parseFloat(data.viento).toFixed(1) : '--';
-                    document.getElementById('val-winddir').innerText = `Dir: --`; 
                     document.getElementById('val-precip').innerText = data.lluvia !== '--' ? parseFloat(data.lluvia).toFixed(1) : '--';
                     
                     statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
                     statusBox.innerHTML = `<i class="fa-solid fa-building-columns mr-1"></i> <b>${nombreEstacion}</b> • SNIH Oficial • ${data.hora}`;
-
                 } else {
                     const response = await fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=e1f10a1e78da46f5b10a1e78da96f525`);
                     if (!response.ok) throw new Error('Error Red WU');
@@ -437,30 +503,124 @@
                     document.getElementById('val-hum').innerText = obs.humidity;
                     document.getElementById('val-pres').innerText = (obs.imperial.pressure * 33.8639).toFixed(1);
                     document.getElementById('val-wind').innerText = (obs.imperial.windSpeed * 1.60934).toFixed(1);
-                    document.getElementById('val-winddir').innerText = `Dir: ${obs.winddir}°`;
                     document.getElementById('val-precip').innerText = (obs.imperial.precipTotal * 25.4).toFixed(1);
                     
                     statusBox.className = "text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg transition";
                     statusBox.innerHTML = `<i class="fa-solid fa-satellite-dish mr-1"></i> <b>${nombreEstacion}</b> • En línea (WU) • ${obs.obsTimeLocal}`;
                 }
-
             } catch (error) {
                 statusBox.className = "text-xs text-center text-red-300 bg-red-950/80 border border-red-500/30 py-2 px-3 rounded-xl shadow-lg transition";
                 statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> <b>${nombreEstacion}</b> • Sensor Offline`;
                 ['val-temp', 'val-hum', 'val-pres', 'val-wind', 'val-precip'].forEach(id => document.getElementById(id).innerText = '--');
-                document.getElementById('val-winddir').innerText = `Dir: --`;
             }
         }
-        
         setInterval(sincronizarTelemetria, 300000);
 
+        // ==========================================
+        // LÓGICA DE CAUCES DE RÍOS (NUEVO)
+        // ==========================================
+        function cargarCauces() {
+            let bounds = L.latLngBounds();
+            caucesINA.forEach((cauce, index) => {
+                const marker = L.circleMarker([cauce.lat, cauce.lon], { radius: 7, fillColor: '#22d3ee', color: "#ffffff", weight: 2, fillOpacity: 0.8 }).addTo(mapCauces);
+                marker.bindTooltip(cauce.txt, {direction: 'top', offset: [0, -10], className: 'text-xs font-bold'});
+                marker.on('click', () => seleccionarCauce(cauce, marker, false));
+
+                caucesMarkers.push({ marker: marker, id: cauce.id, txt: cauce.txt });
+                bounds.extend([cauce.lat, cauce.lon]);
+
+                if(index === 0) seleccionarCauce(cauce, marker, true);
+            });
+            if(caucesMarkers.length > 0) {
+                try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e) {}
+            }
+        }
+
+        function seleccionarCauce(cauceObj, markerLayer, isInitial) {
+            cauceActualVal = cauceObj;
+
+            caucesMarkers.forEach(item => {
+                item.marker.setStyle({ fillColor: '#22d3ee', weight: 2, color: '#ffffff', fillOpacity: 0.8 });
+                item.marker.setRadius(7);
+            });
+
+            if(markerLayer) {
+                markerLayer.setStyle({ fillColor: '#10b981', weight: 3, color: '#ffffff', fillOpacity: 1 });
+                markerLayer.setRadius(10);
+                if(!isInitial) { try { mapCauces.flyTo(markerLayer.getLatLng(), 8, {duration: 0.5}); } catch(e){} }
+            }
+
+            sincronizarCauce();
+
+            if (!isInitial) {
+                setTimeout(() => {
+                    const panel = document.getElementById('panel-datos-cauces');
+                    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 250);
+            }
+        }
+
+        function sincronizarCauce() {
+            if(!cauceActualVal) return;
+            document.getElementById('cauce-nombre').innerText = cauceActualVal.txt;
+            fetchCauceData(cauceActualVal.id);
+        }
+
+        async function fetchCauceData(seriesId) {
+            const statusBox = document.getElementById('status-cauces');
+            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Consultando INA...';
+            
+            try {
+                // Cálculo de fechas (Últimos 7 días)
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - 7);
+                const timeEndStr = endDate.toISOString();
+                const timeStartStr = startDate.toISOString();
+
+                // Petición al INA
+                const url = `https://alerta.ina.gob.ar/pub/datos/datos?seriesId=${seriesId}&timeStart=${timeStartStr}&timeEnd=${timeEndStr}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Error INA');
+                
+                const data = await response.json();
+                
+                if (data && data.valor !== undefined) {
+                    document.getElementById('val-cauce-nivel').innerText = parseFloat(data.valor).toFixed(2);
+                    document.getElementById('val-cauce-tendencia').innerText = data.tendencia || '--';
+                    document.getElementById('val-cauce-precedente').innerText = data.valor_precedente ? parseFloat(data.valor_precedente).toFixed(2) : '--';
+                    
+                    // Formatear Fecha
+                    const fechaMed = new Date(data.fecha);
+                    const fechaStr = fechaMed.toLocaleDateString('es-AR') + ' ' + fechaMed.toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+                    document.getElementById('cauce-fecha').innerText = fechaStr;
+
+                    statusBox.className = "text-xs text-center text-cyan-300 bg-cyan-950/80 border border-cyan-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                    statusBox.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> Datos INA Oficiales`;
+                } else {
+                    throw new Error('Sin datos recientes');
+                }
+            } catch (error) {
+                // Si falla (probablemente por CORS de navegadores móviles), muestra error amigable
+                statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Requiere Proxy Backend`;
+                document.getElementById('val-cauce-nivel').innerText = '--';
+                document.getElementById('val-cauce-tendencia').innerText = '--';
+                document.getElementById('val-cauce-precedente').innerText = '--';
+                document.getElementById('cauce-fecha').innerText = '--/--/--';
+            }
+        }
+
+        // ==========================================
+        // NAVEGADOR DE MÓDULOS
+        // ==========================================
         function cambiarVista(idVista) {
             window.scrollTo(0, 0);
 
             document.getElementById('vista-menu').classList.add('hidden');
             document.getElementById('vista-menu').classList.remove('flex');
             
-            ['vista-telemetria', 'vista-radar', 'vista-pronostico'].forEach(vista => {
+            ['vista-telemetria', 'vista-cauces', 'vista-radar', 'vista-pronostico'].forEach(vista => {
                 document.getElementById(vista).classList.add('hidden');
                 document.getElementById(vista).classList.remove('flex');
             });
@@ -468,7 +628,12 @@
             document.getElementById(idVista).classList.remove('hidden');
             document.getElementById(idVista).classList.add('flex');
             
-            const titulos = { 'vista-telemetria': 'Módulo: Tiempo Real', 'vista-radar': 'Módulo: Satélite & Radar', 'vista-pronostico': 'Módulo: Pronóstico Extendido' };
+            const titulos = { 
+                'vista-telemetria': 'Módulo: Tiempo Real', 
+                'vista-cauces': 'Módulo: Cauces de Ríos',
+                'vista-radar': 'Módulo: Satélite & Radar', 
+                'vista-pronostico': 'Módulo: Pronóstico Extendido' 
+            };
             document.getElementById('header-subtitle').innerText = titulos[idVista] || 'Terminal Central';
             
             setTimeout(() => { 
@@ -480,13 +645,21 @@
                         try { mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e){}
                     }
                 }
+                if(idVista === 'vista-cauces' && mapCauces) {
+                    mapCauces.invalidateSize();
+                    if(caucesMarkers.length > 0) {
+                        let bounds = L.latLngBounds();
+                        caucesMarkers.forEach(item => bounds.extend(item.marker.getLatLng()));
+                        try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e){}
+                    }
+                }
                 if(idVista === 'vista-radar' && mapRadar) { mapRadar.invalidateSize(); }
             }, 300);
         }
 
         function volverMenu() {
             window.scrollTo(0, 0);
-            ['vista-telemetria', 'vista-radar', 'vista-pronostico'].forEach(vista => {
+            ['vista-telemetria', 'vista-cauces', 'vista-radar', 'vista-pronostico'].forEach(vista => {
                 document.getElementById(vista).classList.add('hidden');
                 document.getElementById(vista).classList.remove('flex');
             });
@@ -495,6 +668,9 @@
             document.getElementById('header-subtitle').innerText = 'Terminal Central';
         }
 
+        // ==========================================
+        // RADAR (RMA11 / RMA20)
+        // ==========================================
         const RADAR_WEBMET = 'https://webmet.ohmc.ar';
         const RADAR_PROXY = 'https://metricmoisture-backend.onrender.com/api/radar';
         let radarOpacidad = 0.7;
