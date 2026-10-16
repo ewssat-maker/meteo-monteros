@@ -206,6 +206,16 @@
                 </div>
             </div>
 
+            <!-- Gráfico de nivel (últimos 7 días) -->
+            <div class="glass-panel p-4 rounded-3xl border-l-4 border-l-sky-400 shadow-lg">
+                <div class="flex justify-between items-baseline mb-2 gap-2">
+                    <span class="text-[10px] font-bold text-sky-400 tracking-wider uppercase">Nivel · últimos 7 días</span>
+                    <span id="cauce-rango" class="text-[10px] font-mono text-slate-400 text-right"></span>
+                </div>
+                <div id="cauce-grafico" class="w-full"></div>
+                <p id="cauce-grafico-pie" class="text-[9px] leading-snug text-slate-500 mt-1.5"></p>
+            </div>
+
             <button onclick="sincronizarCauce()" class="w-full bg-blue-600 hover:bg-blue-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-blue-400/40 text-white mt-2 mb-4 cursor-pointer">
                 <i class="fa-solid fa-rotate-right"></i><span>Actualizar Cauce</span>
             </button>
@@ -599,6 +609,127 @@
             document.getElementById('val-cauce-tendencia').innerText = '--';
             document.getElementById('val-cauce-precedente').innerText = '--';
             document.getElementById('cauce-fecha').innerText = '--/--/--';
+            renderGraficoCauce(null, null);
+        }
+
+        // ---------- Gráfico de nivel (SVG propio, sin librerías) ----------
+        const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+        const ART_MS = -3 * 3600 * 1000;      // Argentina: UTC-3 todo el año
+        const DIA_MS = 86400000;
+        const pad2 = n => String(n).padStart(2, '0');
+        const fmtDia = ms => { const d = new Date(ms + ART_MS); return `${d.getUTCDate()} ${MESES_CORTOS[d.getUTCMonth()]}`; };
+        const fmtHora = ms => { const d = new Date(ms + ART_MS); return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`; };
+
+        function renderGraficoCauce(serie, niveles) {
+            const cont = document.getElementById('cauce-grafico');
+            const rango = document.getElementById('cauce-rango');
+            const pie = document.getElementById('cauce-grafico-pie');
+            const vacio = (msg) => {
+                cont.innerHTML = `<p class="text-[11px] text-slate-500 text-center py-10">${msg}</p>`;
+                rango.textContent = ''; pie.textContent = '';
+            };
+            if (!Array.isArray(serie) || serie.length < 2) return vacio('Sin serie de datos para graficar');
+
+            const pts = serie.map(([t, v]) => [new Date(t).getTime(), Number(v)]).filter(p => isFinite(p[0]) && isFinite(p[1]));
+            if (pts.length < 2) return vacio('Sin serie de datos para graficar');
+            pts.sort((x, y) => x[0] - y[0]);
+
+            const W = 340, H = 230, m = { l: 40, r: 12, t: 12, b: 30 };
+            const iw = W - m.l - m.r, ih = H - m.t - m.b;
+            const ahora = Date.now();
+            const t0 = pts[0][0], t1 = Math.max(pts[pts.length - 1][0], ahora);
+
+            // Eje Y: rango de los datos con un poco de aire, ticks "redondos"
+            let vmin = Math.min(...pts.map(p => p[1])), vmax = Math.max(...pts.map(p => p[1]));
+            const aire = Math.max(0.05, (vmax - vmin) * 0.12);
+            let y0 = vmin - aire, y1 = vmax + aire;
+            const pasos = [0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100];
+            const paso = pasos.find(p => (y1 - y0) / p <= 5) || 100;
+            const ticksY = [];
+            for (let v = Math.ceil(y0 / paso) * paso; v <= y1 + 1e-9; v += paso) ticksY.push(+v.toFixed(4));
+            const decimales = paso >= 1 ? 0 : (paso >= 0.1 ? 1 : 2);
+
+            // Eje X: una marca por medianoche (hora argentina)
+            const primeraMedianoche = Math.floor((t0 + ART_MS) / DIA_MS) * DIA_MS - ART_MS + DIA_MS;
+            const nDias = Math.floor((t1 - primeraMedianoche) / DIA_MS) + 1;
+            const cadaDias = nDias > 8 ? 2 : 1;
+            const ticksX = [];
+            for (let t = primeraMedianoche; t <= t1; t += DIA_MS * cadaDias) ticksX.push(t);
+
+            const X = t => m.l + ((t - t0) / (t1 - t0)) * iw;
+            const Y = v => m.t + (1 - (v - y0) / (y1 - y0)) * ih;
+
+            const linea = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('');
+            const area = `${linea}L${X(pts[pts.length - 1][0]).toFixed(1)},${m.t + ih}L${X(pts[0][0]).toFixed(1)},${m.t + ih}Z`;
+
+            // Niveles de alerta (solo se dibujan los que caen dentro del rango visible)
+            const defNiveles = [
+                ['alerta', 'Alerta', '#f59e0b'], ['evacuacion', 'Evacuación', '#ef4444'], ['aguas_bajas', 'Aguas bajas', '#60a5fa']
+            ].map(([k, nombre, color]) => ({ nombre, color, valor: niveles && niveles[k] != null ? Number(niveles[k]) : null }))
+             .filter(n => n.valor != null && isFinite(n.valor));
+            const lineasNivel = defNiveles.filter(n => n.valor >= y0 && n.valor <= y1).map(n =>
+                `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(n.valor)}" y2="${Y(n.valor)}" stroke="${n.color}" stroke-width="1" stroke-dasharray="5 3"/>
+                 <text x="${W - m.r - 2}" y="${Y(n.valor) - 3}" text-anchor="end" font-size="8" fill="${n.color}">${n.nombre} ${n.valor.toFixed(2)} m</text>`).join('');
+
+            const grillaY = ticksY.map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#94a3b8" stroke-opacity="0.15"/>
+                <text x="${m.l - 5}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="#94a3b8">${v.toFixed(decimales)}</text>`).join('');
+            const grillaX = ticksX.map(t => `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t + ih}" y2="${m.t + ih + 4}" stroke="#94a3b8" stroke-opacity="0.6"/>
+                <text x="${X(t)}" y="${m.t + ih + 16}" text-anchor="middle" font-size="9" fill="#94a3b8">${fmtDia(t)}</text>`).join('');
+
+            const xAhora = X(ahora);
+            const lineaAhora = (ahora >= t0 && ahora <= t1) ? `<line x1="${xAhora}" x2="${xAhora}" y1="${m.t}" y2="${m.t + ih}" stroke="#cbd5e1" stroke-opacity="0.6" stroke-dasharray="3 3"/>
+                <text transform="translate(${xAhora - 3},${m.t + 4}) rotate(-90)" text-anchor="end" font-size="8" fill="#cbd5e1">ahora</text>` : '';
+
+            cont.innerHTML = `
+              <svg id="cauce-svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;touch-action:pan-y;max-width:100%;height:auto" role="img" aria-label="Gráfico del nivel del río en los últimos 7 días">
+                <defs><linearGradient id="cauceGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02"/></linearGradient></defs>
+                ${grillaY}${grillaX}
+                <line x1="${m.l}" x2="${W - m.r}" y1="${m.t + ih}" y2="${m.t + ih}" stroke="#94a3b8" stroke-opacity="0.6"/>
+                ${lineasNivel}
+                <path d="${area}" fill="url(#cauceGrad)"/>
+                <path d="${linea}" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                ${lineaAhora}
+                <circle cx="${X(pts[pts.length - 1][0])}" cy="${Y(pts[pts.length - 1][1])}" r="3.5" fill="#38bdf8" stroke="#fff" stroke-width="1.5"/>
+                <g id="cauce-cursor" style="display:none;pointer-events:none">
+                  <line id="cauce-cursor-x" y1="${m.t}" y2="${m.t + ih}" stroke="#e2e8f0" stroke-opacity="0.5"/>
+                  <circle id="cauce-cursor-pt" r="4" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+                  <g id="cauce-tip"><rect id="cauce-tip-bg" rx="4" height="26" fill="#0f172a" fill-opacity="0.92" stroke="#38bdf8" stroke-opacity="0.6"/>
+                    <text id="cauce-tip-v" font-size="10" font-weight="700" fill="#fff"></text>
+                    <text id="cauce-tip-t" font-size="8" fill="#94a3b8"></text></g>
+                </g>
+                <rect id="cauce-capa" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/>
+              </svg>`;
+
+            // Valor al tocar / pasar el mouse. touch-action:pan-y deja que la página siga scrolleando en vertical.
+            const svg = document.getElementById('cauce-svg');
+            const cursor = document.getElementById('cauce-cursor');
+            const mostrar = (ev) => {
+                const r = svg.getBoundingClientRect();
+                const xs = (ev.clientX - r.left) * (W / r.width);
+                const t = t0 + ((xs - m.l) / iw) * (t1 - t0);
+                let mejor = pts[0], d = Infinity;
+                for (const p of pts) { const dd = Math.abs(p[0] - t); if (dd < d) { d = dd; mejor = p; } }
+                const cx = X(mejor[0]), cy = Y(mejor[1]);
+                document.getElementById('cauce-cursor-x').setAttribute('x1', cx);
+                document.getElementById('cauce-cursor-x').setAttribute('x2', cx);
+                const c = document.getElementById('cauce-cursor-pt'); c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+                const v = document.getElementById('cauce-tip-v'), tt = document.getElementById('cauce-tip-t'), bg = document.getElementById('cauce-tip-bg');
+                v.textContent = `${mejor[1].toFixed(2)} m`; tt.textContent = fmtHora(mejor[0]);
+                const ancho = 62, bx = Math.min(Math.max(cx - ancho / 2, m.l), W - m.r - ancho), by = m.t + 2;
+                bg.setAttribute('x', bx); bg.setAttribute('y', by); bg.setAttribute('width', ancho);
+                v.setAttribute('x', bx + 6); v.setAttribute('y', by + 11); tt.setAttribute('x', bx + 6); tt.setAttribute('y', by + 21);
+                cursor.style.display = '';
+            };
+            const capa = document.getElementById('cauce-capa');
+            capa.addEventListener('pointermove', mostrar);
+            capa.addEventListener('pointerdown', mostrar);
+            capa.addEventListener('pointerleave', () => { cursor.style.display = 'none'; });
+
+            rango.textContent = `Máx ${vmax.toFixed(2)} · Mín ${vmin.toFixed(2)} m`;
+            pie.textContent = defNiveles.length
+                ? 'Niveles INA: ' + defNiveles.map(n => `${n.nombre} ${n.valor.toFixed(2)} m`).join(' · ')
+                : 'El INA no informa niveles de alerta para esta estación. Tocá el gráfico para ver cada valor.';
         }
 
         async function fetchCauceData(seriesId) {
@@ -628,6 +759,7 @@
                 document.getElementById('cauce-fecha').innerText = fechaValida
                     ? fecha.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' })
                     : '--/--/--';
+                renderGraficoCauce(data.serie, data.niveles);
 
                 const atrasado = horas !== null && horas > CAUCE_ATRASO_HORAS;
                 statusBox.className = atrasado
