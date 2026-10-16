@@ -579,7 +579,7 @@
                 const timeStartStr = startDate.toISOString();
 
                 // Petición al INA
-                const url = `https://alerta.ina.gob.ar/pub/datos/datos?seriesId=${seriesId}&timeStart=${timeStartStr}&timeEnd=${timeEndStr}`;
+                const url = `https://metricmoisture-backend.onrender.com/api/ina/${seriesId}?timeStart=${timeStartStr}&timeEnd=${timeEndStr}`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Error INA');
                 
