@@ -206,10 +206,10 @@
                 </div>
             </div>
 
-            <!-- Gráfico de nivel (últimos 7 días) -->
+            <!-- Gráfico de nivel (últimos 10 días) -->
             <div class="glass-panel p-4 rounded-3xl border-l-4 border-l-sky-400 shadow-lg">
                 <div class="flex justify-between items-baseline mb-2 gap-2">
-                    <span class="text-[10px] font-bold text-sky-400 tracking-wider uppercase">Nivel · últimos 7 días</span>
+                    <span class="text-[10px] font-bold text-sky-400 tracking-wider uppercase">Nivel · últimos 10 días</span>
                     <span id="cauce-rango" class="text-[10px] font-mono text-slate-400 text-right"></span>
                 </div>
                 <div id="cauce-grafico" class="w-full"></div>
@@ -328,13 +328,13 @@
             tucuman: [
                 { val: "IMONTE1127|-27.17|-65.50|Monteros (INTA)|WU", txt: "Monteros" },
                 { val: "220274|-27.63|-65.25|Lamadrid (SNIH)|SNIH", txt: "Lamadrid (Oficial)" },
+                { val: "10419|-26.20|-65.20|El Brete (SNIH)|SNIH", txt: "El Brete (Oficial)" },
+                { val: "280488|-27.30|-65.70|Las Lenguas (RMET)|SNIH", txt: "Las Lenguas (Oficial)" },
                 { val: "220273|-27.33|-65.57|Concepción (SNIH)|SNIH", txt: "Concepción (Oficial)" },
                 { val: "220278|-26.84|-65.21|SMT UNT (SNIH)|SNIH", txt: "SMT UNT (Oficial)" },
                 { val: "280489|-26.42|-64.98|Río Nío (RMET)|SNIH", txt: "Río Nío (Oficial)" },
                 { val: "280485|-26.74|-65.77|Infiernillo (RMET)|SNIH", txt: "Infiernillo (Oficial)" },
                 { val: "280486|-27.32|-65.81|Toma Los Reales (RMET)|SNIH", txt: "T. Los Reales (Oficial)" },
-                { val: "10419|-26.20|-65.20|El Brete (SNIH)|SNIH", txt: "El Brete (Oficial)" },
-                { val: "280488|-27.30|-65.70|Las Lenguas (RMET)|SNIH", txt: "Las Lenguas (Oficial)" },
                 { val: "ISARGE7|-27.23|-65.65|Sargento Moya|WU", txt: "Sargento Moya" },
                 { val: "ISANMI169|-26.82|-65.20|Barrio Norte|WU", txt: "Barrio Norte" },
                 { val: "ISANMI87|-26.83|-65.20|Centro SMT|WU", txt: "Centro SMT" },
@@ -688,7 +688,7 @@
                 <text transform="translate(${xAhora - 3},${m.t + 4}) rotate(-90)" text-anchor="end" font-size="8" fill="#cbd5e1">ahora</text>` : '';
 
             cont.innerHTML = `
-              <svg id="cauce-svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;touch-action:pan-y;max-width:100%;height:auto" role="img" aria-label="Gráfico del nivel del río en los últimos 7 días">
+              <svg id="cauce-svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;touch-action:pan-y;max-width:100%;height:auto" role="img" aria-label="Gráfico del nivel del río en los últimos 10 días">
                 <defs><linearGradient id="cauceGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02"/></linearGradient></defs>
                 ${grillaY}${grillaX}
@@ -747,7 +747,7 @@
 
             try {
                 const fin = new Date();
-                const ini = new Date(fin.getTime() - 7 * 24 * 3600 * 1000);   // últimos 7 días
+                const ini = new Date(fin.getTime() - 10 * 24 * 3600 * 1000);   // últimos 10 días
                 const url = esSNIH ? `${CAUCES_SNIH_API}/${seriesId}`
                     : `${CAUCES_API}/${seriesId}?timeStart=${encodeURIComponent(ini.toISOString())}&timeEnd=${encodeURIComponent(fin.toISOString())}`;
                 const response = await fetch(url);
@@ -760,7 +760,7 @@
                 const fecha = data.fecha ? new Date(data.fecha) : null;
                 const fechaValida = fecha && !isNaN(fecha);
                 const horas = fechaValida ? (Date.now() - fecha.getTime()) / 3600000 : null;
-                const iconos = { creciente: '▲ Creciente', descendente: '▼ Descendente', estable: '■ Estable' };
+                const iconos = { ascendente: '▲ Ascendente', creciente: '▲ Ascendente', descendente: '▼ Descendente', estable: '■ Estable' };
 
                 document.getElementById('val-cauce-nivel').innerText = parseFloat(data.valor).toFixed(2);
                 document.getElementById('val-cauce-tendencia').innerText = iconos[data.tendencia] || data.tendencia || '--';
