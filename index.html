@@ -372,7 +372,9 @@
             { id: 33520, lat: -27.1333, lon: -65.3156, txt: "Río Salí - RP Nº323" },
             { id: 33966, lat: -26.7192, lon: -65.1619, txt: "Río Salí - Alta Gracia" },
             { id: 32028, lat: -26.4775, lon: -65.3164, txt: "Río Vipos - Toma OS" },
-            { id: 32820, lat: -26.2189, lon: -64.5119, txt: "Río Urueña - 7 de Abril" }
+            { id: 32820, lat: -26.2189, lon: -64.5119, txt: "Río Urueña - 7 de Abril" },
+            // Estaciones hidrológicas del SNIH (fuente: "SNIH"). Posición aproximada: ajustar si hace falta.
+            { id: 10474, fuente: "SNIH", lat: -27.64, lon: -65.25, txt: "La Madrid - Est. 10474" }
         ];
 
         let estacionActualVal = null;
@@ -599,10 +601,11 @@
         function sincronizarCauce() {
             if(!cauceActualVal) return;
             document.getElementById('cauce-nombre').innerText = cauceActualVal.txt;
-            fetchCauceData(cauceActualVal.id);
+            fetchCauceData(cauceActualVal.id, cauceActualVal.fuente);
         }
 
         const CAUCES_API = 'https://metricmoisture-backend.onrender.com/api/ina';
+        const CAUCES_SNIH_API = 'https://metricmoisture-backend.onrender.com/api/snih_nivel';
         const CAUCE_ATRASO_HORAS = 6;   // aviso si el último dato del INA tiene más de 6 h
 
         function limpiarPanelCauce() {
@@ -733,15 +736,17 @@
                 : 'El INA no informa niveles de alerta para esta estación. Tocá el gráfico para ver cada valor.';
         }
 
-        async function fetchCauceData(seriesId) {
+        async function fetchCauceData(seriesId, fuente) {
+            const esSNIH = fuente === 'SNIH', etiqueta = esSNIH ? 'SNIH' : 'INA';
             const statusBox = document.getElementById('status-cauces');
             statusBox.className = "text-xs text-center text-blue-300 bg-blue-950/80 border border-blue-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md";
-            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Consultando INA...';
+            statusBox.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Consultando ${etiqueta}...`;
 
             try {
                 const fin = new Date();
                 const ini = new Date(fin.getTime() - 7 * 24 * 3600 * 1000);   // últimos 7 días
-                const url = `${CAUCES_API}/${seriesId}?timeStart=${encodeURIComponent(ini.toISOString())}&timeEnd=${encodeURIComponent(fin.toISOString())}`;
+                const url = esSNIH ? `${CAUCES_SNIH_API}/${seriesId}`
+                    : `${CAUCES_API}/${seriesId}?timeStart=${encodeURIComponent(ini.toISOString())}&timeEnd=${encodeURIComponent(fin.toISOString())}`;
                 const response = await fetch(url);
                 const data = await response.json().catch(() => ({}));
                 if (!cauceActualVal || cauceActualVal.id !== seriesId) return;   // ya eligieron otro río
@@ -767,7 +772,7 @@
                     ? "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition"
                     : "text-xs text-center text-cyan-300 bg-cyan-950/80 border border-cyan-500/30 py-2 px-3 rounded-xl shadow-lg transition";
                 const edad = horas === null ? '' : ` • hace ${horas < 1 ? Math.round(horas * 60) + ' min' : horas.toFixed(1) + ' h'}`;
-                statusBox.innerHTML = `<i class="fa-solid ${atrasado ? 'fa-triangle-exclamation' : 'fa-circle-check'} mr-1"></i> <b>${cauceActualVal.txt}</b> • INA${edad}${atrasado ? ' ⚠ dato atrasado' : ''}`;
+                statusBox.innerHTML = `<i class="fa-solid ${atrasado ? 'fa-triangle-exclamation' : 'fa-circle-check'} mr-1"></i> <b>${cauceActualVal.txt}</b> • ${etiqueta}${edad}${atrasado ? ' ⚠ dato atrasado' : ''}`;
             } catch (error) {
                 if (!cauceActualVal || cauceActualVal.id !== seriesId) return;
                 console.error('Cauce INA:', error);
