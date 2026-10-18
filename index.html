@@ -206,6 +206,9 @@
                 </div>
             </div>
 
+            <!-- Estado de alerta (solo estaciones con umbrales, p. ej. La Madrid) -->
+            <div id="cauce-alerta" class="hidden glass-panel p-4 rounded-3xl border-l-4 shadow-lg" role="status" aria-live="polite"></div>
+
             <!-- Gráfico de nivel (últimos 10 días) -->
             <div class="glass-panel p-4 rounded-3xl border-l-4 border-l-sky-400 shadow-lg">
                 <div class="flex justify-between items-baseline mb-2 gap-2">
@@ -617,6 +620,7 @@
             document.getElementById('val-cauce-precedente').innerText = '--';
             document.getElementById('cauce-fecha').innerText = '--/--/--';
             renderGraficoCauce(null, null);
+            renderAlertaCauce(null);
         }
 
         // ---------- Gráfico de nivel (SVG propio, sin librerías) ----------
@@ -627,7 +631,29 @@
         const fmtDia = ms => { const d = new Date(ms + ART_MS); return `${d.getUTCDate()} ${MESES_CORTOS[d.getUTCMonth()]}`; };
         const fmtHora = ms => { const d = new Date(ms + ART_MS); return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`; };
 
-        function renderGraficoCauce(serie, niveles) {
+        // ---------- Tarjeta de estado de alerta ----------
+        const escHtml = x => String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        function renderAlertaCauce(a) {
+            const el = document.getElementById('cauce-alerta');
+            if (!el) return;
+            if (!a) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+            el.classList.remove('hidden');
+            el.style.borderLeftColor = a.color;
+            const conf = a.valor_confirmado != null ? `${Number(a.valor_confirmado).toFixed(2)} m` : '--';
+            const prox = a.proximo ? `Próximo umbral: ${escHtml(a.proximo.nombre)} ${Number(a.proximo.valor).toFixed(2)} m (faltan ${Number(a.proximo.falta_m).toFixed(2)} m)` : 'Superó el umbral más alto configurado.';
+            const avisos = (a.aviso || []).map(x => `<li>${escHtml(x)}</li>`).join('');
+            el.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <span class="px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wide text-white" style="background:${escHtml(a.color)}">${escHtml(a.etiqueta)}</span>
+                    <span class="text-[10px] font-mono text-slate-300">Confirmado: ${conf}${a.max_24h != null ? ' · máx 24 h ' + Number(a.max_24h).toFixed(2) + ' m' : ''}</span>
+                </div>
+                <p class="text-xs text-slate-200 mt-2 leading-snug">${escHtml(a.accion)}</p>
+                ${a.estado !== 'sin_datos' ? `<p class="text-[10px] text-slate-400 mt-1">${prox}</p>` : ''}
+                ${avisos ? `<ul class="text-[10px] text-amber-300 mt-1.5 list-disc pl-4 space-y-0.5">${avisos}</ul>` : ''}
+                <p class="text-[9px] text-slate-500 mt-2 leading-snug">Herramienta orientativa basada en el historial de la estación; no reemplaza las alertas de Defensa Civil ni de los organismos oficiales.</p>`;
+        }
+
+        function renderGraficoCauce(serie, niveles, umbrales) {
             const cont = document.getElementById('cauce-grafico');
             const rango = document.getElementById('cauce-rango');
             const pie = document.getElementById('cauce-grafico-pie');
@@ -674,6 +700,8 @@
                 ['alerta', 'Alerta', '#f59e0b'], ['evacuacion', 'Evacuación', '#ef4444'], ['aguas_bajas', 'Aguas bajas', '#60a5fa']
             ].map(([k, nombre, color]) => ({ nombre, color, valor: niveles && niveles[k] != null ? Number(niveles[k]) : null }))
              .filter(n => n.valor != null && isFinite(n.valor));
+            const defUmbrales = (umbrales || []).map(u => ({ nombre: u.nombre, color: u.color, valor: Number(u.valor) })).filter(n => isFinite(n.valor));
+            defNiveles.push(...defUmbrales);
             const lineasNivel = defNiveles.filter(n => n.valor >= y0 && n.valor <= y1).map(n =>
                 `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(n.valor)}" y2="${Y(n.valor)}" stroke="${n.color}" stroke-width="1" stroke-dasharray="5 3"/>
                  <text x="${W - m.r - 2}" y="${Y(n.valor) - 3}" text-anchor="end" font-size="8" fill="${n.color}">${n.nombre} ${n.valor.toFixed(2)} m</text>`).join('');
@@ -735,7 +763,7 @@
 
             rango.textContent = `Máx ${vmax.toFixed(2)} · Mín ${vmin.toFixed(2)} m`;
             pie.textContent = defNiveles.length
-                ? 'Niveles INA: ' + defNiveles.map(n => `${n.nombre} ${n.valor.toFixed(2)} m`).join(' · ')
+                ? (defUmbrales.length ? 'Umbrales orientativos: ' : 'Niveles INA: ') + defNiveles.map(n => `${n.nombre} ${n.valor.toFixed(2)} m`).join(' · ')
                 : 'El INA no informa niveles de alerta para esta estación. Tocá el gráfico para ver cada valor.';
         }
 
@@ -768,7 +796,8 @@
                 document.getElementById('cauce-fecha').innerText = fechaValida
                     ? fecha.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' })
                     : '--/--/--';
-                renderGraficoCauce(data.serie, data.niveles);
+                renderGraficoCauce(data.serie, data.niveles, data.alerta && data.alerta.umbrales);
+                renderAlertaCauce(data.alerta);
 
                 const atrasado = horas !== null && horas > CAUCE_ATRASO_HORAS;
                 statusBox.className = atrasado
