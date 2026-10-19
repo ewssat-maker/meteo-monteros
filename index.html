@@ -248,6 +248,13 @@
                     </label>
                     <span id="rad-estado-RMA20" class="text-[9px] font-mono text-slate-400">Inactivo</span>
                 </div>
+                <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
+                    <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                        <input type="checkbox" id="chk-RMA7" onchange="toggleRadar('RMA7', this.checked)" class="accent-sky-500 w-4 h-4">
+                        <span class="font-bold">RMA7</span><span class="text-slate-400 text-[10px] hidden sm:inline">Neuquén · Patagonia</span>
+                    </label>
+                    <span id="rad-estado-RMA7" class="text-[9px] font-mono text-slate-400">Inactivo</span>
+                </div>
                 <div class="mt-1 border-t border-slate-700/50 pt-2">
                     <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1.5">Vista del radar</span>
                     <div class="grid grid-cols-2 gap-1 bg-slate-900/80 p-1 rounded-lg border border-sky-500/30">
@@ -879,7 +886,7 @@
         }
 
         // ==========================================
-        // RADAR (RMA11 / RMA20) — datos SMN / SINARAME vía WebMet (OHMC Córdoba)
+        // RADAR (RMA11 / RMA20 / RMA7) — datos SMN / SINARAME vía WebMet (OHMC Córdoba)
         // ==========================================
         const RADAR_WEBMET = 'https://webmet.ohmc.ar';
         // Respaldo por tu backend si el navegador no puede consultar WebMet directo (CORS).
@@ -907,10 +914,14 @@
         // (10–70 dBZ, cada 2,5 dBZ). El campo filtrado de WebMet no trae ecos por debajo de ~11 dBZ.
         const RADAR_PALETA = [[10,'#439cb3'],[12.5,'#3be580'],[15,'#37dd70'],[17.5,'#2ccc64'],[20,'#22bd5a'],[22.5,'#16ae50'],[25,'#10a144'],[27.5,'#54bc2e'],[30,'#93d61b'],[32.5,'#cbdf0b'],[35,'#f4b701'],[37.5,'#e66003'],[40,'#c72503'],[42.5,'#960701'],[45,'#5d0313'],[47.5,'#650056'],[50,'#9f0089'],[52.5,'#68005b'],[55,'#18586e'],[57.5,'#00c4c4'],[60,'#086a6a'],[62.5,'#7a9e9e'],[65,'#a0a4a4'],[67.5,'#545454'],[70,'#636369']];
 
-        // Por la geometría de sus coberturas: RMA11 = Termas de Río Hondo, RMA20 = Las Lajitas
+        // Por la geometría de sus coberturas: RMA11 = Termas de Río Hondo, RMA20 = Las Lajitas, RMA7 = zona de Neuquén.
+        // "centrar": el radar queda lejos de Tucumán/Salta, así que al encenderlo se encuadra el mapa sobre su cobertura
+        // (y al apagarlo se vuelve a la vista inicial).
+        const RADAR_VISTA_INICIAL = { centro: [-26.83, -65.20], zoom: 7 };
         const RADARES = {
-            RMA11: { capa: null, registro: null, activo: false },
-            RMA20: { capa: null, registro: null, activo: false }
+            RMA11: { capa: null, registro: null, activo: false, bounds: null },
+            RMA20: { capa: null, registro: null, activo: false, bounds: null },
+            RMA7:  { capa: null, registro: null, activo: false, bounds: null, centrar: true }
         };
 
         async function pedirUltimoRadar(code, campo) {
@@ -970,6 +981,7 @@
             if (r.capa) mapRadar.removeLayer(r.capa);   // se saca la vieja recién con la nueva ya puesta
             r.capa = nueva;
             r.registro = reg;
+            r.bounds = bounds;
         }
 
         async function cargarRadar(code) {
@@ -983,12 +995,14 @@
             actualizarLeyenda();
             if (!activo) {
                 if (r.capa) mapRadar.removeLayer(r.capa);
-                r.capa = null; r.registro = null;
+                r.capa = null; r.registro = null; r.bounds = null;
                 estadoRadar(code, 'Inactivo');
+                if (r.centrar) { try { mapRadar.setView(RADAR_VISTA_INICIAL.centro, RADAR_VISTA_INICIAL.zoom); } catch (e) {} }
                 return;
             }
             estadoRadar(code, 'Cargando…');
             await cargarRadar(code);
+            if (r.centrar && r.activo && r.bounds) { try { mapRadar.fitBounds(r.bounds, { padding: [10, 10] }); } catch (e) {} }
         }
 
         function cambiarOpacidadRadar(valor) {
