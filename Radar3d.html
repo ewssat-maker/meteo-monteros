@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar 3D · MetricPoint</title>
+<style>
+  :root { --bg:#020617; --panel:rgba(15,23,42,.82); --line:rgba(148,163,184,.25); --txt:#e2e8f0; --mut:#94a3b8; --acc:#38bdf8; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--txt); font:13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow:hidden; }
+  #gl { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
+  #gl:active { cursor:grabbing; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  #top { position:fixed; top:max(8px, env(safe-area-inset-top)); left:8px; right:8px; display:flex; flex-wrap:wrap; gap:6px; align-items:flex-end; padding:8px; z-index:5; }
+  #top label { display:flex; flex-direction:column; gap:2px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); flex:1 1 120px; min-width:110px; }
+  select, button, input[type=range] { font:inherit; }
+  select { background:#0b1220; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:7px 6px; font-size:13px; }
+  button, .btn { background:#0b1220; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:7px 10px; cursor:pointer; text-decoration:none; font-size:13px; }
+  button:hover, .btn:hover { border-color:var(--acc); }
+  #ajustes { position:fixed; top:auto; right:8px; bottom:150px; padding:10px; z-index:5; width:min(260px, calc(100% - 16px)); display:none; }
+  #ajustes.open { display:block; }
+  #ajustes .fila { display:flex; align-items:center; gap:8px; margin:6px 0; }
+  #ajustes .fila span:first-child { width:92px; color:var(--mut); font-size:11px; }
+  #ajustes input[type=range] { flex:1; accent-color:var(--acc); }
+  #brujula { position:fixed; right:12px; top:calc(max(8px, env(safe-area-inset-top)) + 118px); width:42px; height:42px; border-radius:50%; z-index:4; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #brujula svg { width:26px; height:26px; transition:transform .05s linear; }
+  .etq { position:fixed; z-index:3; pointer-events:none; font-size:10px; color:#f8fafc; text-shadow:0 0 3px #000, 0 0 6px #000; white-space:nowrap; transform:translate(-50%,-100%); }
+  .etq::before { content:""; display:block; width:5px; height:5px; border-radius:50%; background:#fde68a; margin:0 auto 2px; box-shadow:0 0 4px #000; }
+  #pie { position:fixed; left:8px; right:8px; bottom:max(8px, env(safe-area-inset-bottom)); z-index:5; padding:8px 10px; }
+  #estado { font-size:12px; font-weight:600; }
+  #nota { font-size:10px; color:var(--mut); margin-top:2px; }
+  #leyenda { margin-top:6px; }
+  #leyenda .barra { height:9px; border-radius:5px; border:1px solid var(--line); }
+  #leyenda .marcas { position:relative; height:12px; font-size:9px; color:var(--mut); }
+  #leyenda .marcas span { position:absolute; top:1px; }
+  #titulo-leyenda { font-size:10px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; }
+  #msg { position:fixed; inset:0; display:none; align-items:center; justify-content:center; text-align:center; padding:24px; z-index:9; background:rgba(2,6,23,.92); }
+  #msg.on { display:flex; }
+  #cargando { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6; padding:10px 14px; display:none; }
+  #cargando.on { display:block; }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-label="Relieve 3D con reflectividad de radar"></canvas>
+
+<div id="top" class="panel">
+  <label>Radar
+    <select id="sel-radar">
+      <option value="RMA11">RMA11 · Termas de Río Hondo</option>
+      <option value="RMA20">RMA20 · Las Lajitas</option>
+      <option value="RMA7">RMA7 · Neuquén</option>
+    </select>
+  </label>
+  <label>Producto
+    <select id="sel-campo">
+      <option value="COLMAX">Máx. columna (COLMAX)</option>
+      <option value="DBZH">Z @ 0,5°</option>
+    </select>
+  </label>
+  <label>Zona
+    <select id="sel-zona">
+      <option value="radar">Cobertura completa</option>
+      <option value="aconquija">Aconquija y valle (detalle)</option>
+    </select>
+  </label>
+  <button id="btn-ajustes" title="Ajustes">⚙ Ajustes</button>
+  <button id="btn-recargar" title="Buscar imagen nueva">⟳</button>
+  <a class="btn" href="index.html" id="lnk-volver">‹ Volver</a>
+</div>
+
+<div id="ajustes" class="panel" role="group" aria-label="Ajustes de la vista">
+  <div class="fila"><span>Exageración</span><input id="rng-exag" type="range" min="1" max="8" step="0.5" value="2.5"><span id="v-exag" style="width:28px;text-align:right">2.5×</span></div>
+  <div class="fila"><span>Opacidad radar</span><input id="rng-op" type="range" min="10" max="100" step="5" value="85"><span id="v-op" style="width:28px;text-align:right">85%</span></div>
+  <div class="fila"><span>Fondo</span>
+    <select id="sel-base" style="flex:1"><option value="sat">Satélite</option><option value="rel">Relieve (colores)</option></select></div>
+  <div class="fila"><span>Anillos</span><input id="chk-anillos" type="checkbox" checked style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Nombres</span><input id="chk-etq" type="checkbox" checked style="accent-color:#38bdf8"></div>
+</div>
+
+<div id="brujula" class="panel" title="Restablecer al norte"><svg id="aguja" viewBox="0 0 24 24"><path d="M12 2 L16 13 L12 11 L8 13 Z" fill="#f87171"/><path d="M12 22 L8 11 L12 13 L16 11 Z" fill="#94a3b8"/></svg></div>
+<div id="etiquetas"></div>
+<div id="cargando" class="panel">Cargando relieve y radar…</div>
+
+<div id="pie" class="panel">
+  <div id="estado">Iniciando…</div>
+  <div id="leyenda">
+    <div id="titulo-leyenda"></div>
+    <div class="barra" id="leg-barra"></div>
+    <div class="marcas" id="leg-marcas"></div>
+  </div>
+  <div id="nota">La reflectividad se proyecta sobre el terreno: es la señal del radar vista desde arriba, no la altura real del eco. Arrastrá para girar · pellizcá para acercar · dos dedos para mover.</div>
+</div>
+
+<div id="msg" class="panel"><div><b id="msg-t">No se pudo iniciar la vista 3D</b><p id="msg-d" style="color:var(--mut)"></p></div></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= Configuración ================= */
+const RADAR_WEBMET = 'https://webmet.ohmc.ar';
+const RADAR_PROXY  = 'https://metricmoisture-backend.onrender.com/api/radar';
+const DEM_URL  = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';   // relieve abierto (AWS Terrain Tiles)
+const BASE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const REFRESCO_MS = 5 * 60 * 1000;
+const ATRASO_MIN = 30;
+const ZONAS = {
+  aconquija: { nombre: 'Aconquija y valle', bbox: { minLat: -28.3, minLon: -66.9, maxLat: -26.2, maxLon: -64.6 }, z: 9 }
+};
+const CIUDADES = [
+  ['San Miguel de Tucumán', -26.8241, -65.2226], ['Termas de Río Hondo', -27.4938, -64.8604],
+  ['Santiago del Estero', -27.7951, -64.2615], ['Catamarca', -28.4696, -65.7795], ['Salta', -24.7821, -65.4231]
+];
+const LEYENDA = {
+  COLMAX: 'Máx. de columna · dBZ',
+  DBZH: 'Z @ 0,5° · dBZ'
+};
+// Misma escala que el módulo de radar del index (10–70 dBZ)
+const PALETA = [[10,'#439cb3'],[12.5,'#3be580'],[15,'#37dd70'],[17.5,'#2ccc64'],[20,'#22bd5a'],[22.5,'#16ae50'],[25,'#10a144'],[27.5,'#54bc2e'],[30,'#93d61b'],[32.5,'#cbdf0b'],[35,'#f4b701'],[37.5,'#e66003'],[40,'#c72503'],[42.5,'#960701'],[45,'#5d0313'],[47.5,'#650056'],[50,'#9f0089'],[52.5,'#68005b'],[55,'#18586e'],[57.5,'#00c4c4'],[60,'#086a6a'],[62.5,'#7a9e9e'],[65,'#a0a4a4'],[67.5,'#545454'],[70,'#636369']];
+
+/* ================= Utilidades ================= */
+const $ = id => document.getElementById(id);
+const D2R = Math.PI / 180;
+const lonToPx = (lon, z) => (lon + 180) / 360 * 256 * 2 ** z;
+const latToPx = (lat, z) => { const s = Math.sin(lat * D2R); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * 2 ** z; };
+const fill = (t, z, x, y) => t.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const MPP_EQ_KM = 40075.016686 / 256;          // km por píxel de mercator a z=0, en el ecuador
+
+function loadImg(url) {
+  return new Promise(res => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    const t = setTimeout(() => res(null), 25000);
+    im.onload = () => { clearTimeout(t); res(im); };
+    im.onerror = () => { clearTimeout(t); res(null); };
+    im.src = url;
+  });
+}
+function mostrarError(t, d) { $('msg-t').textContent = t; $('msg-d').textContent = d || ''; $('msg').classList.add('on'); }
+
+/* ================= Matrices ================= */
+const M = {
+  persp(fovy, asp, n, f) { const t = 1 / Math.tan(fovy / 2), o = new Float32Array(16);
+    o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f); return o; },
+  look(e, c, u) {
+    let zx = e[0] - c[0], zy = e[1] - c[1], zz = e[2] - c[2]; let l = Math.hypot(zx, zy, zz); zx /= l; zy /= l; zz /= l;
+    let xx = u[1] * zz - u[2] * zy, xy = u[2] * zx - u[0] * zz, xz = u[0] * zy - u[1] * zx; l = Math.hypot(xx, xy, xz); xx /= l; xy /= l; xz /= l;
+    const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+    return new Float32Array([xx, yx, zx, 0, xy, yy, zy, 0, xz, yz, zz, 0,
+      -(xx * e[0] + xy * e[1] + xz * e[2]), -(yx * e[0] + yy * e[1] + yz * e[2]), -(zx * e[0] + zy * e[1] + zz * e[2]), 1]);
+  },
+  mul(a, b) { const o = new Float32Array(16);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k]; o[i * 4 + j] = s; }
+    return o; }
+};
+
+/* ================= WebGL ================= */
+const canvas = $('gl');
+const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
+if (!gl) { mostrarError('Tu navegador no admite WebGL 2', 'Probá con una versión reciente de Chrome, Edge, Firefox o Safari.'); return; }
+
+function compilar(tipo, src) {
+  const s = gl.createShader(tipo); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function programa(vs, fs) {
+  const p = gl.createProgram(); gl.attachShader(p, compilar(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compilar(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+let progMalla, progLinea;
+try {
+  progMalla = programa(`#version 300 es
+    in vec3 a_p; in vec2 a_uv; in vec2 a_s;
+    uniform mat4 u_mvp; uniform float u_exag;
+    out vec2 v_uv; out float v_h; out vec3 v_n;
+    void main() {
+      gl_Position = u_mvp * vec4(a_p.x, a_p.y * u_exag, a_p.z, 1.0);
+      v_uv = a_uv; v_h = a_p.y * 1000.0;
+      v_n = normalize(vec3(-a_s.x * u_exag, 1.0, -a_s.y * u_exag));
+    }`, `#version 300 es
+    precision highp float;
+    in vec2 v_uv; in float v_h; in vec3 v_n;
+    uniform sampler2D u_base; uniform sampler2D u_radar;
+    uniform float u_op; uniform float u_usaBase; uniform vec3 u_luz;
+    out vec4 o;
+    vec3 hipso(float h) {
+      vec3 a = vec3(0.13,0.30,0.20), b = vec3(0.45,0.58,0.27), c = vec3(0.70,0.62,0.36), d = vec3(0.58,0.44,0.34), e = vec3(0.96,0.96,0.98);
+      float t = clamp(h / 5500.0, 0.0, 1.0);
+      if (t < 0.12) return mix(a, b, t / 0.12);
+      if (t < 0.35) return mix(b, c, (t - 0.12) / 0.23);
+      if (t < 0.65) return mix(c, d, (t - 0.35) / 0.30);
+      return mix(d, e, (t - 0.65) / 0.35);
+    }
+    void main() {
+      float s = clamp(dot(normalize(v_n), normalize(u_luz)), 0.0, 1.0);
+      float sh = 0.40 + 0.80 * s;
+      vec3 base = u_usaBase > 0.5 ? texture(u_base, v_uv).rgb : hipso(v_h);
+      vec3 col = base * sh;
+      vec4 r = texture(u_radar, v_uv);
+      col = mix(col, r.rgb, r.a * u_op);
+      o = vec4(col, 1.0);
+    }`);
+  progLinea = programa(`#version 300 es
+    in vec3 a_p; uniform mat4 u_mvp; uniform float u_exag;
+    void main() { gl_Position = u_mvp * vec4(a_p.x, a_p.y * u_exag, a_p.z, 1.0); }`,
+    `#version 300 es
+    precision mediump float; uniform vec4 u_col; out vec4 o; void main() { o = u_col; }`);
+} catch (e) { mostrarError('Error al preparar los gráficos', String(e.message || e).slice(0, 200)); return; }
+
+const U = {
+  m: n => gl.getUniformLocation(progMalla, n),
+  l: n => gl.getUniformLocation(progLinea, n)
+};
+const uM = { mvp: U.m('u_mvp'), exag: U.m('u_exag'), base: U.m('u_base'), radar: U.m('u_radar'), op: U.m('u_op'), usaBase: U.m('u_usaBase'), luz: U.m('u_luz') };
+const uL = { mvp: U.l('u_mvp'), exag: U.l('u_exag'), col: U.l('u_col') };
+
+/* ================= Estado ================= */
+const S = {
+  trabajo: 0, reg: null, region: null,
+  malla: null, lineas: null, texBase: null, texRadar: null,
+  exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true,
+  cam: { yaw: 0, pitch: 0.9, dist: 400, tx: 0, tz: 0 },
+  sucio: false
+};
+
+/* ================= Relieve + base ================= */
+async function construirRegion(bbox, z, trabajo) {
+  // Elegir nivel de zoom para no superar ~30 teselas
+  let tx0, tx1, ty0, ty1;
+  for (;;) {
+    tx0 = Math.floor(lonToPx(bbox.minLon, z) / 256); tx1 = Math.floor(lonToPx(bbox.maxLon, z) / 256);
+    ty0 = Math.floor(latToPx(bbox.maxLat, z) / 256); ty1 = Math.floor(latToPx(bbox.minLat, z) / 256);
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 30 || z <= 5) break;
+    z--;
+  }
+  const nx = tx1 - tx0 + 1, ny = ty1 - ty0 + 1, W = nx * 256, H = ny * 256;
+  if (W > gl.getParameter(gl.MAX_TEXTURE_SIZE) || H > gl.getParameter(gl.MAX_TEXTURE_SIZE)) throw new Error('La zona es demasiado grande para este dispositivo');
+  const coords = []; for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) coords.push([tx0 + i, ty0 + j, i, j]);
+
+  const [demImgs, baseImgs] = await Promise.all([
+    Promise.all(coords.map(([x, y]) => loadImg(fill(DEM_URL, z, x, y)))),
+    Promise.all(coords.map(([x, y]) => loadImg(fill(BASE_URL, z, x, y))))
+  ]);
+  if (trabajo !== S.trabajo) return null;
+
+  const cd = document.createElement('canvas'); cd.width = W; cd.height = H;
+  const cx = cd.getContext('2d', { willReadFrequently: true });
+  const cb = document.createElement('canvas'); cb.width = W; cb.height = H;
+  const cbx = cb.getContext('2d');
+  cbx.fillStyle = '#0b1220'; cbx.fillRect(0, 0, W, H);
+  let demOk = 0, baseOk = 0;
+  coords.forEach(([x, y, i, j], k) => {
+    if (demImgs[k]) { cx.drawImage(demImgs[k], i * 256, j * 256); demOk++; }
+    if (baseImgs[k]) { cbx.drawImage(baseImgs[k], i * 256, j * 256); baseOk++; }
+  });
+  if (!demOk) throw new Error('No se pudo descargar el relieve (AWS Terrain Tiles).');
+  const px = cx.getImageData(0, 0, W, H).data;
+  const h = new Float32Array(W * H);            // metros
+  for (let k = 0, n = W * H; k < n; k++) {
+    const r = px[k * 4], g = px[k * 4 + 1], b = px[k * 4 + 2], a = px[k * 4 + 3];
+    h[k] = a === 0 ? 0 : Math.max(0, (r * 256 + g + b / 256) - 32768);
+  }
+
+  const latC = (bbox.minLat + bbox.maxLat) / 2;
+  const kmPx = MPP_EQ_KM / 2 ** z * Math.cos(latC * D2R);      // km de terreno por píxel
+  return { z, tx0, ty0, nx, ny, W, H, h, kmPx, canvasBase: cb, baseOk, demOk, total: coords.length, latC };
+}
+
+function construirMalla(rg) {
+  const { W, H, h, kmPx } = rg;
+  const paso = Math.max(1, Math.round(Math.max(W, H) / 440));
+  const cols = Math.floor((W - 1) / paso) + 1, filas = Math.floor((H - 1) / paso) + 1;
+  const datos = new Float32Array(cols * filas * 7);
+  const hs = (x, y) => h[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)];
+  let o = 0, hmax = 0;
+  for (let j = 0; j < filas; j++) {
+    const py = Math.min(j * paso, H - 1);
+    for (let i = 0; i < cols; i++) {
+      const pxx = Math.min(i * paso, W - 1), hh = hs(pxx, py);
+      const sx = (hs(pxx + paso, py) - hs(pxx - paso, py)) / (2 * paso * kmPx * 1000);
+      const sz = (hs(pxx, py + paso) - hs(pxx, py - paso)) / (2 * paso * kmPx * 1000);
+      if (hh > hmax) hmax = hh;
+      datos[o++] = (pxx - W / 2) * kmPx; datos[o++] = hh / 1000; datos[o++] = (py - H / 2) * kmPx;
+      datos[o++] = pxx / W; datos[o++] = py / H; datos[o++] = sx; datos[o++] = sz;
+    }
+  }
+  const idx = new Uint32Array((cols - 1) * (filas - 1) * 6); let q = 0;
+  for (let j = 0; j < filas - 1; j++) for (let i = 0; i < cols - 1; i++) {
+    const a = j * cols + i, b = a + 1, c = a + cols, d = c + 1;
+    idx[q++] = a; idx[q++] = c; idx[q++] = b; idx[q++] = b; idx[q++] = c; idx[q++] = d;
+  }
+  if (S.malla) { gl.deleteVertexArray(S.malla.vao); gl.deleteBuffer(S.malla.vb); gl.deleteBuffer(S.malla.ib); }
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, datos, gl.STATIC_DRAW);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  const stride = 28;
+  [['a_p', 3, 0], ['a_uv', 2, 12], ['a_s', 2, 20]].forEach(([n, c, off]) => {
+    const l = gl.getAttribLocation(progMalla, n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, c, gl.FLOAT, false, stride, off);
+  });
+  S.malla = { vao, vb, ib, n: idx.length, hmax };
+}
+
+function subirTextura(unidad, cnv, mip, previa) {
+  if (previa) gl.deleteTexture(previa);
+  const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unidad); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cnv);
+  if (mip) { gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
+  else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+
+/* ================= Radar ================= */
+async function pedirUltimo(code, campo) {
+  const qs = `radar_code=${code}&product_key=${campo}&vol_nr=01&vol_nr=02&strategy=0315`;
+  let reg;
+  try {
+    const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`); if (!r.ok) throw new Error('HTTP ' + r.status); reg = await r.json();
+  } catch (e) {
+    const r2 = await fetch(`${RADAR_PROXY}/${code}/latest?campo=${campo}`); if (!r2.ok) throw new Error('HTTP ' + r2.status); reg = await r2.json();
+  }
+  if (reg.radar_code !== code || reg.product_key !== campo) throw new Error(`La API devolvió ${reg.radar_code}/${reg.product_key}`);
+  return reg;
+}
+
+async function cargarTeselasRadar(reg, rg, trabajo) {
+  const cnv = document.createElement('canvas'); cnv.width = rg.W; cnv.height = rg.H;
+  const ctx = cnv.getContext('2d');
+  const bb = reg.bbox, z = rg.z;
+  const tpl = reg.tile_url.startsWith('http') ? reg.tile_url : RADAR_WEBMET + reg.tile_url;
+  const tareas = [];
+  for (let j = 0; j < rg.ny; j++) for (let i = 0; i < rg.nx; i++) {
+    const x = rg.tx0 + i, y = rg.ty0 + j;
+    // solo las teselas que tocan la cobertura del radar
+    const minX = lonToPx(bb.min_lon, z) / 256, maxX = lonToPx(bb.max_lon, z) / 256, minY = latToPx(bb.max_lat, z) / 256, maxY = latToPx(bb.min_lat, z) / 256;
+    if (x + 1 < minX || x > maxX || y + 1 < minY || y > maxY) continue;
+    tareas.push((async () => {
+      let im = await loadImg(fill(tpl, z, x, y));
+      if (!im) im = await loadImg(`${RADAR_PROXY}/tile/${reg.id}/${z}/${x}/${y}.png`);   // respaldo si WebMet no permite CORS
+      if (im) { ctx.drawImage(im, i * 256, j * 256); return 1; }
+      return 0;
+    })());
+  }
+  const ok = (await Promise.all(tareas)).reduce((a, b) => a + b, 0);
+  if (trabajo !== S.trabajo) return null;
+  return { cnv, ok, total: tareas.length };
+}
+
+function textoEdad(iso) {
+  const f = new Date(iso); if (isNaN(f)) return { t: 'hora desconocida', atras: true };
+  const min = Math.max(0, Math.round((Date.now() - f.getTime()) / 60000));
+  const hora = f.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' });
+  return { t: `${hora} (hace ${min} min)${min > ATRASO_MIN ? ' ⚠ atrasado' : ''}`, atras: min > ATRASO_MIN };
+}
+
+/* ================= Líneas (anillos, radar) y etiquetas ================= */
+function altura(rg, pxx, pyy) {
+  const x = Math.round(pxx), y = Math.round(pyy);
+  if (x < 0 || y < 0 || x >= rg.W || y >= rg.H) return null;
+  return rg.h[y * rg.W + x];
+}
+function aKm(rg, lat, lon) {
+  return { x: (lonToPx(lon, rg.z) - rg.tx0 * 256 - rg.W / 2) * rg.kmPx, z: (latToPx(lat, rg.z) - rg.ty0 * 256 - rg.H / 2) * rg.kmPx,
+           px: lonToPx(lon, rg.z) - rg.tx0 * 256, py: latToPx(lat, rg.z) - rg.ty0 * 256 };
+}
+function construirLineas(reg, rg) {
+  const v = [], anillos = [];
+  const c = aKm(rg, (reg.bbox.min_lat + reg.bbox.max_lat) / 2, (reg.bbox.min_lon + reg.bbox.max_lon) / 2);
+  const hr = altura(rg, c.px, c.py) || 0;
+  [60, 120, 180, 240].forEach(rKm => {
+    let prev = null;
+    for (let az = 0; az <= 360; az += 3) {
+      const x = c.x + rKm * Math.sin(az * D2R), z = c.z - rKm * Math.cos(az * D2R);
+      const hh = altura(rg, x / rg.kmPx + rg.W / 2, z / rg.kmPx + rg.H / 2);
+      const p = hh === null ? null : [x, hh / 1000 + 0.12, z];
+      if (prev && p) anillos.push(...prev, ...p);
+      prev = p;
+    }
+  });
+  const pin = [c.x, hr / 1000, c.z, c.x, hr / 1000 + 9, c.z];
+  const crear = arr => { const vao = gl.createVertexArray(); gl.bindVertexArray(vao); const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW); const l = gl.getAttribLocation(progLinea, 'a_p'); gl.enableVertexAttribArray(l);
+    gl.vertexAttribPointer(l, 3, gl.FLOAT, false, 12, 0); return { vao, vb, n: arr.length / 3 }; };
+  if (S.lineas) { [S.lineas.anillos, S.lineas.pin].forEach(o => { gl.deleteVertexArray(o.vao); gl.deleteBuffer(o.vb); }); }
+  S.lineas = { anillos: crear(anillos), pin: crear(pin), centro: c };
+}
+
+function construirEtiquetas(reg, rg) {
+  const cont = $('etiquetas'); cont.innerHTML = ''; S.etq = [];
+  const lista = CIUDADES.map(([n, la, lo]) => [n, la, lo]);
+  lista.push([`Radar ${reg.radar_code}`, (reg.bbox.min_lat + reg.bbox.max_lat) / 2, (reg.bbox.min_lon + reg.bbox.max_lon) / 2]);
+  lista.forEach(([n, la, lo]) => {
+    const p = aKm(rg, la, lo); const hh = altura(rg, p.px, p.py);
+    if (hh === null) return;
+    const el = document.createElement('div'); el.className = 'etq'; el.textContent = n; cont.appendChild(el);
+    S.etq.push({ el, x: p.x, h: hh / 1000, z: p.z });
+  });
+}
+
+/* ================= Cámara y dibujo ================= */
+function matrizVista() {
+  const c = S.cam, asp = canvas.width / canvas.height;
+  const ey = S.malla ? 0 : 0;
+  const eye = [c.tx + c.dist * Math.cos(c.pitch) * Math.sin(c.yaw), ey + c.dist * Math.sin(c.pitch), c.tz + c.dist * Math.cos(c.pitch) * Math.cos(c.yaw)];
+  const vista = M.look(eye, [c.tx, 0, c.tz], [0, 1, 0]);
+  return M.mul(M.persp(50 * D2R, asp, Math.max(0.5, c.dist / 200), c.dist * 12 + 1500), vista);
+}
+
+function dibujar() {
+  S.sucio = false;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h); gl.clearColor(0.008, 0.024, 0.09, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+  if (!S.malla) return;
+  const mvp = matrizVista();
+
+  gl.useProgram(progMalla);
+  gl.uniformMatrix4fv(uM.mvp, false, mvp); gl.uniform1f(uM.exag, S.exag); gl.uniform1f(uM.op, S.op);
+  gl.uniform1f(uM.usaBase, S.usaBase && S.region && S.region.baseOk ? 1 : 0); gl.uniform3f(uM.luz, -0.5, 0.75, -0.35);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.texBase); gl.uniform1i(uM.base, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.texRadar); gl.uniform1i(uM.radar, 1);
+  gl.bindVertexArray(S.malla.vao); gl.drawElements(gl.TRIANGLES, S.malla.n, gl.UNSIGNED_INT, 0);
+
+  if (S.lineas) {
+    gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
+    if (S.anillos) { gl.uniform4f(uL.col, 1, 1, 1, 1); gl.bindVertexArray(S.lineas.anillos.vao); gl.drawArrays(gl.LINES, 0, S.lineas.anillos.n); }
+    gl.uniform4f(uL.col, 0.99, 0.9, 0.54, 1); gl.bindVertexArray(S.lineas.pin.vao); gl.drawArrays(gl.LINES, 0, S.lineas.pin.n);
+  }
+  // etiquetas
+  (S.etq || []).forEach(e => {
+    if (!S.etiquetas) { e.el.style.display = 'none'; return; }
+    const x = e.x, y = e.h * S.exag, z = e.z;
+    const cx = mvp[0] * x + mvp[4] * y + mvp[8] * z + mvp[12], cy = mvp[1] * x + mvp[5] * y + mvp[9] * z + mvp[13], cw = mvp[3] * x + mvp[7] * y + mvp[11] * z + mvp[15];
+    if (cw <= 0) { e.el.style.display = 'none'; return; }
+    const nx = cx / cw, ny = cy / cw;
+    if (Math.abs(nx) > 1.05 || Math.abs(ny) > 1.05) { e.el.style.display = 'none'; return; }
+    e.el.style.display = 'block'; e.el.style.left = ((nx + 1) / 2 * canvas.clientWidth) + 'px'; e.el.style.top = ((1 - ny) / 2 * canvas.clientHeight) + 'px';
+  });
+  $('aguja').style.transform = `rotate(${S.cam.yaw / D2R}deg)`;
+}
+function pedirDibujo() { if (!S.sucio) { S.sucio = true; requestAnimationFrame(dibujar); } }
+
+/* ================= Interacción ================= */
+(() => {
+  const punteros = new Map(); let ultimo = null;
+  const pan = (dx, dy) => { const c = S.cam, k = c.dist * 0.0016; c.tx -= (dx * Math.cos(c.yaw) + dy * Math.sin(c.yaw) * Math.sin(c.pitch)) * k; c.tz -= (-dx * Math.sin(c.yaw) + dy * Math.cos(c.yaw) * Math.sin(c.pitch)) * k; };
+  canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); punteros.set(e.pointerId, [e.clientX, e.clientY]); ultimo = null; });
+  canvas.addEventListener('pointermove', e => {
+    if (!punteros.has(e.pointerId)) return;
+    const [px, py] = punteros.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py;
+    punteros.set(e.pointerId, [e.clientX, e.clientY]);
+    if (punteros.size === 1) {
+      if (e.shiftKey || e.buttons === 2) pan(dx, dy);
+      else { S.cam.yaw -= dx * 0.006; S.cam.pitch = clamp(S.cam.pitch + dy * 0.005, 0.08, 1.52); }
+    } else if (punteros.size === 2) {
+      const pts = [...punteros.values()], d = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]), mx = (pts[0][0] + pts[1][0]) / 2, my = (pts[0][1] + pts[1][1]) / 2;
+      if (ultimo) { S.cam.dist = clamp(S.cam.dist * ultimo.d / d, 15, 1600); pan(mx - ultimo.mx, my - ultimo.my); }
+      ultimo = { d, mx, my };
+    }
+    pedirDibujo();
+  });
+  const soltar = e => { punteros.delete(e.pointerId); ultimo = null; };
+  canvas.addEventListener('pointerup', soltar); canvas.addEventListener('pointercancel', soltar);
+  canvas.addEventListener('wheel', e => { e.preventDefault(); S.cam.dist = clamp(S.cam.dist * Math.exp(e.deltaY * 0.0011), 15, 1600); pedirDibujo(); }, { passive: false });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  $('brujula').addEventListener('click', () => { S.cam.yaw = 0; pedirDibujo(); });
+  window.addEventListener('resize', pedirDibujo);
+})();
+
+/* ================= Flujo principal ================= */
+function actualizarLeyenda() {
+  const barra = $('leg-barra'), marcas = $('leg-marcas'), min = PALETA[0][0], max = PALETA[PALETA.length - 1][0];
+  barra.style.background = `linear-gradient(to right, ${PALETA.map(([v, c]) => `${c} ${((v - min) / (max - min) * 100).toFixed(1)}%`).join(', ')})`;
+  marcas.innerHTML = '';
+  for (let v = min; v <= max; v += 10) {
+    const pos = (v - min) / (max - min) * 100, t = document.createElement('span'); t.textContent = v; t.style.left = pos + '%';
+    t.style.transform = pos === 0 ? 'none' : (pos === 100 ? 'translateX(-100%)' : 'translateX(-50%)'); marcas.appendChild(t);
+  }
+  $('titulo-leyenda').textContent = LEYENDA[$('sel-campo').value];
+}
+
+function ajustarCamara(rg, zona) {
+  const ancho = rg.W * rg.kmPx, alto = rg.H * rg.kmPx;
+  S.cam.tx = 0; S.cam.tz = 0;
+  if (zona === 'aconquija') { S.cam.dist = Math.max(ancho, alto) * 0.7; S.cam.yaw = 1.25; S.cam.pitch = 0.5; }   // mirando al oeste, hacia el cordón
+  else { S.cam.dist = Math.max(ancho, alto) * 0.95; S.cam.yaw = 0; S.cam.pitch = 0.8; }
+}
+
+async function cargarTodo(completo) {
+  const trabajo = ++S.trabajo, code = $('sel-radar').value, campo = $('sel-campo').value;
+  $('cargando').classList.add('on'); $('estado').textContent = `Consultando ${code}…`;
+  try {
+    const reg = await pedirUltimo(code, campo);
+    if (trabajo !== S.trabajo) return;
+    let rg = S.region;
+    const zona = $('sel-zona').value, preset = ZONAS[zona];
+    const claveRegion = `${code}|${zona}`;
+    if (completo || !rg || S.claveRegion !== claveRegion) {
+      const bb = reg.bbox;
+      const solapa = preset && !(preset.bbox.maxLon < bb.min_lon || preset.bbox.minLon > bb.max_lon || preset.bbox.maxLat < bb.min_lat || preset.bbox.minLat > bb.max_lat);
+      const caja = solapa ? preset.bbox : { minLat: bb.min_lat, minLon: bb.min_lon, maxLat: bb.max_lat, maxLon: bb.max_lon };
+      $('estado').textContent = 'Descargando relieve…';
+      rg = await construirRegion(caja, solapa ? preset.z : 8, trabajo);
+      if (!rg || trabajo !== S.trabajo) return;
+      S.region = rg; S.claveRegion = claveRegion;
+      construirMalla(rg);
+      S.texBase = subirTextura(0, rg.canvasBase, true, S.texBase);
+      ajustarCamara(rg, solapa ? zona : 'radar');
+    }
+    $('estado').textContent = 'Descargando radar…';
+    const rad = await cargarTeselasRadar(reg, rg, trabajo);
+    if (!rad || trabajo !== S.trabajo) return;
+    S.texRadar = subirTextura(1, rad.cnv, false, S.texRadar);
+    S.reg = reg; construirLineas(reg, rg); construirEtiquetas(reg, rg);
+    const e = textoEdad(reg.observation_time);
+    $('estado').textContent = `${code} · ${campo === 'COLMAX' ? 'Máx. columna' : 'Z @ 0,5°'} · ${e.t}` + (rad.total && !rad.ok ? ' · sin imagen de radar en esta zona' : '');
+    $('estado').style.color = e.atras ? '#fbbf24' : '';
+    if (!rg.baseOk) $('estado').textContent += ' · sin imagen satelital (se usa el relieve)';
+    actualizarLeyenda(); pedirDibujo();
+  } catch (err) {
+    if (trabajo !== S.trabajo) return;
+    console.error(err); $('estado').textContent = 'No se pudo cargar: ' + String(err.message || err).slice(0, 120); $('estado').style.color = '#f87171';
+  } finally {
+    if (trabajo === S.trabajo) $('cargando').classList.remove('on');
+  }
+}
+
+/* ================= Controles ================= */
+$('sel-radar').addEventListener('change', () => cargarTodo(true));
+$('sel-zona').addEventListener('change', () => cargarTodo(true));
+$('sel-campo').addEventListener('change', () => { actualizarLeyenda(); cargarTodo(false); });
+$('btn-recargar').addEventListener('click', () => cargarTodo(false));
+$('btn-ajustes').addEventListener('click', () => $('ajustes').classList.toggle('open'));
+$('rng-exag').addEventListener('input', e => { S.exag = +e.target.value; $('v-exag').textContent = S.exag + '×'; pedirDibujo(); });
+$('rng-op').addEventListener('input', e => { S.op = e.target.value / 100; $('v-op').textContent = e.target.value + '%'; pedirDibujo(); });
+$('sel-base').addEventListener('change', e => { S.usaBase = e.target.value === 'sat'; pedirDibujo(); });
+$('chk-anillos').addEventListener('change', e => { S.anillos = e.target.checked; pedirDibujo(); });
+$('chk-etq').addEventListener('change', e => { S.etiquetas = e.target.checked; pedirDibujo(); });
+const params = new URLSearchParams(location.search);
+if (RADAR_OK(params.get('radar'))) $('sel-radar').value = params.get('radar');
+function RADAR_OK(c) { return ['RMA11', 'RMA20', 'RMA7'].includes(c); }
+if (params.get('zona') === 'aconquija') $('sel-zona').value = 'aconquija';
+
+setInterval(() => { if (!document.hidden) cargarTodo(false); }, REFRESCO_MS);
+// Texturas vacías (transparentes) para que nada se vea negro mientras llegan los datos
+(() => { const v = document.createElement('canvas'); v.width = v.height = 1;
+  S.texBase = subirTextura(0, v, false, null); S.texRadar = subirTextura(1, v, false, null); })();
+actualizarLeyenda();
+cargarTodo(true);
+window.__S = S; window.__dibujar = dibujar; window.__gl = gl; window.__mv = matrizVista;      // para depuración
+})();
+</script>
+</body>
+</html>
