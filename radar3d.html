@@ -107,9 +107,27 @@ const ATRASO_MIN = 30;
 const ZONAS = {
   aconquija: { nombre: 'Aconquija y valle', bbox: { minLat: -28.3, minLon: -66.9, maxLat: -26.2, maxLon: -64.6 }, z: 9 }
 };
+// [nombre, latitud, longitud, prioridad]  1 = siempre visible · 2 = se ve al acercar · 3 = se ve muy de cerca
+// Posiciones aproximadas (±5 km), suficientes para ubicarse. Se pueden agregar o corregir localidades acá.
 const CIUDADES = [
-  ['San Miguel de Tucumán', -26.8241, -65.2226], ['Termas de Río Hondo', -27.4938, -64.8604],
-  ['Santiago del Estero', -27.7951, -64.2615], ['Catamarca', -28.4696, -65.7795], ['Salta', -24.7821, -65.4231]
+  // Tucumán
+  ['San Miguel de Tucumán', -26.8241, -65.2226, 1], ['Concepción', -27.3459, -65.5896, 2], ['Aguilares', -27.4333, -65.6167, 2],
+  ['Monteros', -27.1667, -65.5000, 2], ['Famaillá', -27.0500, -65.4000, 3], ['Lules', -26.9333, -65.3333, 3],
+  ['Tafí Viejo', -26.7333, -65.2667, 3], ['Yerba Buena', -26.8167, -65.3167, 3], ['Banda del Río Salí', -26.8333, -65.1667, 3],
+  ['Trancas', -26.2333, -65.2833, 2], ['San Pedro de Colalao', -26.2333, -65.4833, 3], ['Burruyacú', -26.4833, -64.7500, 3],
+  ['Simoca', -27.2667, -65.3500, 3], ['Alberdi', -27.5833, -65.6167, 3], ['Graneros', -27.6667, -65.4333, 3],
+  ['La Cocha', -27.7667, -65.5833, 3], ['La Madrid', -27.6411, -65.2503, 3], ['Tafí del Valle', -26.8545, -65.7099, 2],
+  ['Amaicha del Valle', -26.5833, -65.9167, 3], ['Colalao del Valle', -26.3667, -65.8333, 3], ['El Mollar', -26.9167, -65.7000, 3],
+  // Salta
+  ['Salta', -24.7821, -65.4231, 1], ['Orán', -23.1333, -64.3167, 2], ['Tartagal', -22.5167, -63.8000, 2],
+  ['General Güemes', -24.6667, -65.0500, 2], ['Metán', -25.4833, -64.9667, 2], ['Rosario de la Frontera', -25.8000, -64.9667, 2],
+  ['Cafayate', -26.0731, -65.9761, 2], ['Cerrillos', -24.8981, -65.4864, 3], ['Rosario de Lerma', -24.9833, -65.5833, 3],
+  ['Campo Quijano', -24.9000, -65.6333, 3], ['La Caldera', -24.6000, -65.3833, 3], ['Chicoana', -25.1000, -65.5333, 3],
+  ['Cachi', -25.1200, -66.1667, 3], ['San Antonio de los Cobres', -24.2167, -66.3167, 3], ['Embarcación', -23.2167, -64.1000, 3],
+  ['Pichanal', -23.3167, -64.2167, 3], ['Joaquín V. González', -25.1000, -64.1333, 3], ['El Galpón', -25.4000, -64.6500, 3],
+  ['Las Lajitas', -24.7167, -64.1833, 3], ['Salvador Mazza', -22.0500, -63.7000, 3],
+  // Provincias vecinas (referencia)
+  ['Termas de Río Hondo', -27.4938, -64.8604, 2], ['Santiago del Estero', -27.7951, -64.2615, 1], ['Catamarca', -28.4696, -65.7795, 1]
 ];
 const LEYENDA = {
   COLMAX: 'Máx. de columna · dBZ',
@@ -391,13 +409,13 @@ function construirLineas(reg, rg) {
 
 function construirEtiquetas(reg, rg) {
   const cont = $('etiquetas'); cont.innerHTML = ''; S.etq = [];
-  const lista = CIUDADES.map(([n, la, lo]) => [n, la, lo]);
-  lista.push([`Radar ${reg.radar_code}`, (reg.bbox.min_lat + reg.bbox.max_lat) / 2, (reg.bbox.min_lon + reg.bbox.max_lon) / 2]);
-  lista.forEach(([n, la, lo]) => {
+  const lista = CIUDADES.map(([n, la, lo, pr]) => [n, la, lo, pr]);
+  lista.push([`Radar ${reg.radar_code}`, (reg.bbox.min_lat + reg.bbox.max_lat) / 2, (reg.bbox.min_lon + reg.bbox.max_lon) / 2, 0]);
+  lista.forEach(([n, la, lo, pr]) => {
     const p = aKm(rg, la, lo); const hh = altura(rg, p.px, p.py);
     if (hh === null) return;
-    const el = document.createElement('div'); el.className = 'etq'; el.textContent = n; cont.appendChild(el);
-    S.etq.push({ el, x: p.x, h: hh / 1000, z: p.z });
+    const el = document.createElement('div'); el.className = 'etq'; el.textContent = n; el.style.display = 'none'; cont.appendChild(el);
+    S.etq.push({ el, x: p.x, h: hh / 1000, z: p.z, pr, w: n.length * 5.6 + 10 });
   });
 }
 
@@ -431,15 +449,27 @@ function dibujar() {
     if (S.anillos) { gl.uniform4f(uL.col, 1, 1, 1, 1); gl.bindVertexArray(S.lineas.anillos.vao); gl.drawArrays(gl.LINES, 0, S.lineas.anillos.n); }
     gl.uniform4f(uL.col, 0.99, 0.9, 0.54, 1); gl.bindVertexArray(S.lineas.pin.vao); gl.drawArrays(gl.LINES, 0, S.lineas.pin.n);
   }
-  // etiquetas
+  // Etiquetas: se muestran según la prioridad y la distancia de la cámara, y sin encimarse
+  const cw0 = canvas.clientWidth, ch0 = canvas.clientHeight, dist = S.cam.dist;
+  const maxPr = dist > 450 ? 1 : (dist > 220 ? 2 : 3);
+  const cand = [];
   (S.etq || []).forEach(e => {
-    if (!S.etiquetas) { e.el.style.display = 'none'; return; }
+    e.el.style.display = 'none';
+    if (!S.etiquetas || e.pr > maxPr) return;
     const x = e.x, y = e.h * S.exag, z = e.z;
     const cx = mvp[0] * x + mvp[4] * y + mvp[8] * z + mvp[12], cy = mvp[1] * x + mvp[5] * y + mvp[9] * z + mvp[13], cw = mvp[3] * x + mvp[7] * y + mvp[11] * z + mvp[15];
-    if (cw <= 0) { e.el.style.display = 'none'; return; }
+    if (cw <= 0) return;
     const nx = cx / cw, ny = cy / cw;
-    if (Math.abs(nx) > 1.05 || Math.abs(ny) > 1.05) { e.el.style.display = 'none'; return; }
-    e.el.style.display = 'block'; e.el.style.left = ((nx + 1) / 2 * canvas.clientWidth) + 'px'; e.el.style.top = ((1 - ny) / 2 * canvas.clientHeight) + 'px';
+    if (Math.abs(nx) > 1.02 || Math.abs(ny) > 1.02) return;
+    cand.push({ e, sx: (nx + 1) / 2 * cw0, sy: (1 - ny) / 2 * ch0 });
+  });
+  cand.sort((a, b) => a.e.pr - b.e.pr);
+  const ocupados = [];
+  cand.forEach(c => {
+    const r = { x0: c.sx - c.e.w / 2, x1: c.sx + c.e.w / 2, y0: c.sy - 18, y1: c.sy + 2 };
+    if (ocupados.some(o => r.x0 < o.x1 && r.x1 > o.x0 && r.y0 < o.y1 && r.y1 > o.y0)) return;
+    ocupados.push(r);
+    c.e.el.style.display = 'block'; c.e.el.style.left = c.sx + 'px'; c.e.el.style.top = c.sy + 'px';
   });
   $('aguja').style.transform = `rotate(${S.cam.yaw / D2R}deg)`;
 }
