@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>MetricPoint · Administrador</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>body{background:#0b1220}</style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen p-4">
+<!-- © MetricPoint. Todos los derechos reservados. -->
+<div class="max-w-md mx-auto">
+  <h1 class="text-xl font-black text-white text-center mb-1">MetricPoint · Administrador</h1>
+  <p class="text-[11px] text-slate-400 text-center mb-4">Alertas manuales y simulacros</p>
+
+  <!-- Acceso -->
+  <form id="f-login" class="bg-slate-900 border border-slate-700 rounded-2xl p-4 space-y-3">
+    <label class="text-xs text-slate-300">Clave de administrador</label>
+    <input id="clave" type="password" autocomplete="current-password" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm" required>
+    <button class="w-full bg-emerald-600 text-white font-black rounded-lg py-2 text-sm">Ingresar</button>
+    <p id="login-msg" class="text-xs text-red-300 hidden"></p>
+  </form>
+
+  <!-- Panel -->
+  <div id="panel" class="hidden space-y-4">
+    <div class="flex justify-between items-center text-[11px] text-slate-400">
+      <span><i class="fa-solid fa-user-shield mr-1"></i>Sesión activa (8 h)</span>
+      <button id="salir" class="underline">Salir</button>
+    </div>
+
+    <div id="activas" class="space-y-2"></div>
+
+    <form id="f-emitir" class="bg-slate-900 border border-slate-700 rounded-2xl p-4 space-y-3">
+      <h2 class="text-sm font-black">Emitir alerta</h2>
+      <select id="estacion" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm"></select>
+      <div>
+        <p class="text-[11px] text-slate-400 mb-1">Nivel</p>
+        <div id="niveles" class="grid grid-cols-5 gap-1.5"></div>
+      </div>
+      <textarea id="mensaje" maxlength="280" rows="2" placeholder="Mensaje (opcional): ej. Falla del sensor, crecida confirmada por observadores"
+        class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs"></textarea>
+      <div class="flex items-center gap-3 text-xs">
+        <label class="flex items-center gap-2"><input id="simulacro" type="checkbox" checked class="accent-sky-500"> Es un <b>simulacro</b></label>
+        <label class="flex items-center gap-1 ml-auto">Duración
+          <input id="minutos" type="number" min="1" max="1440" value="15" class="w-16 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-right"> min</label>
+      </div>
+      <label class="flex items-center gap-2 text-xs"><input id="notificar" type="checkbox" class="accent-sky-500"> Enviar también por Telegram</label>
+      <button id="btn-emitir" class="w-full bg-red-600 text-white font-black rounded-lg py-2.5 text-sm">Emitir</button>
+      <p id="emitir-msg" class="text-xs hidden"></p>
+    </form>
+
+    <button id="cancelar" class="w-full bg-slate-700 text-white font-bold rounded-lg py-2 text-sm">Cancelar todas las alertas manuales</button>
+
+    <details class="bg-slate-900 border border-slate-700 rounded-2xl p-3">
+      <summary class="text-xs font-bold cursor-pointer">Historial reciente</summary>
+      <div id="historial" class="mt-2 space-y-1 text-[11px] text-slate-300"></div>
+    </details>
+    <p class="text-[10px] text-slate-500 leading-snug">Una alerta manual reemplaza al estado automático de la estación mientras dure (o hasta cancelarla) y aparece con banner y sonido en la app. Los simulacros se muestran con la leyenda «SIMULACRO».</p>
+  </div>
+</div>
+
+<script>
+const BASE = 'https://metricmoisture-backend.onrender.com';
+const COL = { verde: '#10b981', amarillo: '#eab308', naranja: '#f97316', rojo: '#ef4444', bordo: '#9f1239' };
+const NOM = { verde: 'Normal', amarillo: 'Vigilancia', naranja: 'Alerta', rojo: 'Alerta severa', bordo: 'Emergencia' };
+const $ = id => document.getElementById(id);
+const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let token = null, nivel = 'rojo';
+try { token = sessionStorage.getItem('mp_admin_tok'); } catch (e) { }
+
+async function api(ruta, cuerpo) {
+  const r = await fetch(BASE + ruta, {
+    method: cuerpo === undefined ? 'GET' : 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo)
+  });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && token) { salir(); }
+  if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+function salir() { token = null; try { sessionStorage.removeItem('mp_admin_tok'); } catch (e) { } $('panel').classList.add('hidden'); $('f-login').classList.remove('hidden'); }
+$('salir').onclick = salir;
+
+function pintarNiveles() {
+  $('niveles').innerHTML = Object.keys(COL).map(k => `<button type="button" data-n="${k}" class="rounded-lg py-2 text-[10px] font-black text-white border-2 ${k === nivel ? 'border-white' : 'border-transparent opacity-60'}" style="background:${COL[k]}">${NOM[k]}</button>`).join('');
+  $('niveles').querySelectorAll('button').forEach(b => b.onclick = () => { nivel = b.dataset.n; pintarNiveles(); });
+}
+$('simulacro').onchange = () => { $('minutos').value = $('simulacro').checked ? 15 : 120; $('notificar').checked = !$('simulacro').checked; };
+
+function fh(iso) { return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' }); }
+async function cargar() {
+  const d = await api('/api/admin/alertas');
+  $('activas').innerHTML = d.activas.length ? d.activas.map(a => `
+    <div class="rounded-xl p-3 border-l-4 bg-slate-900 border border-slate-700" style="border-left-color:${COL[a.estado]}">
+      <p class="text-xs font-black"><span style="color:${COL[a.estado]}">${NOM[a.estado]}</span> · ${esc(a.estacion)} ${a.simulacro ? '· <span class="bg-sky-500 text-slate-900 rounded px-1">SIMULACRO</span>' : '· <span class="bg-red-500 rounded px-1">REAL</span>'}</p>
+      <p class="text-[11px] text-slate-300">${esc(a.mensaje || '—')}</p>
+      <p class="text-[10px] text-slate-500">Vence ${fh(a.expira)}</p></div>`).join('')
+    : '<p class="text-[11px] text-slate-500 text-center">Sin alertas manuales vigentes: la app usa el estado automático.</p>';
+  $('historial').innerHTML = d.historial.map(a => `<p>${fh(a.creado)} · ${esc(a.estacion)} · ${NOM[a.estado]} · ${a.simulacro ? 'simulacro' : 'real'}${a.activa ? ' · <b>activa</b>' : ''}${a.mensaje ? ' · ' + esc(a.mensaje) : ''}</p>`).join('') || '—';
+}
+function mostrarPanel(estaciones) {
+  $('f-login').classList.add('hidden'); $('panel').classList.remove('hidden');
+  if (estaciones) $('estacion').innerHTML = Object.entries(estaciones).map(([k, v]) => `<option value="${esc(k)}">${esc(v)} (${esc(k)})</option>`).join('');
+  pintarNiveles(); cargar().catch(e => alert(e.message));
+}
+$('f-login').onsubmit = async e => {
+  e.preventDefault(); const m = $('login-msg'); m.classList.add('hidden');
+  try {
+    const d = await api('/api/admin/login', { password: $('clave').value });
+    token = d.token; try { sessionStorage.setItem('mp_admin_tok', token); sessionStorage.setItem('mp_admin_est', JSON.stringify(d.estaciones)); } catch (e) { }
+    $('clave').value = ''; mostrarPanel(d.estaciones);
+  } catch (err) { m.textContent = err.message; m.classList.remove('hidden'); }
+};
+$('f-emitir').onsubmit = async e => {
+  e.preventDefault(); const sim = $('simulacro').checked, m = $('emitir-msg');
+  if (!sim && !confirm(`Vas a emitir una alerta REAL de nivel ${NOM[nivel]}. ¿Confirmás?`)) return;
+  $('btn-emitir').disabled = true;
+  try {
+    const d = await api('/api/admin/emitir', { estacion: $('estacion').value, estado: nivel, mensaje: $('mensaje').value, simulacro: sim, minutos: +$('minutos').value, notificar: $('notificar').checked });
+    m.className = 'text-xs text-emerald-300'; m.textContent = `Emitida${d.telegram ? ' y enviada por Telegram' : ''}.${d.persistente ? '' : ' (Sin base de datos: se perderá si el servidor se reinicia.)'}`;
+    cargar();
+  } catch (err) { m.className = 'text-xs text-red-300'; m.textContent = err.message; }
+  $('btn-emitir').disabled = false;
+};
+$('cancelar').onclick = async () => { if (!confirm('¿Cancelar todas las alertas manuales vigentes?')) return; try { await api('/api/admin/cancelar', {}); cargar(); } catch (e) { alert(e.message); } };
+
+if (token) { let est = null; try { est = JSON.parse(sessionStorage.getItem('mp_admin_est') || 'null'); } catch (e) { } mostrarPanel(est || { '10474': 'Marapa - La Madrid' }); }
+</script>
+</body>
+</html>
