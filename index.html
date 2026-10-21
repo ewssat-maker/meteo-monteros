@@ -60,6 +60,16 @@
 </head>
 <body class="text-slate-100 font-sans antialiased flex flex-col min-h-screen">
 
+
+    <!-- ===== Alertas globales: banner + sonido (se alimenta de /api/alertas_rio) ===== -->
+    <div id="alerta-global" class="hidden fixed top-0 inset-x-0 z-[900] text-white shadow-2xl" role="alert" aria-live="assertive"></div>
+    <div class="fixed bottom-4 left-4 z-[900] flex items-center gap-2">
+        <button id="btn-sonido-alertas" type="button" aria-pressed="false" title="Activar sonido de alertas"
+            class="w-11 h-11 rounded-full bg-slate-900/90 border border-slate-600 text-slate-300 shadow-xl backdrop-blur-md flex items-center justify-center text-base">
+            <i class="fa-solid fa-bell-slash"></i></button>
+        <button id="btn-probar-sonido" type="button" class="hidden px-2.5 h-8 rounded-full bg-slate-900/90 border border-slate-600 text-[10px] text-slate-300 shadow-xl">Probar</button>
+    </div>
+
     <div id="splash-screen">
         <div class="flex items-center space-x-4 mb-4">
             <img src="logo.png" alt="Alerta" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 shadow-2xl animate-pulse">
@@ -668,6 +678,8 @@
                     <span class="px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wide text-white" style="background:${escHtml(a.color)}">${escHtml(a.etiqueta)}</span>
                     <span class="text-[10px] font-mono text-slate-300">Confirmado: ${conf}${a.max_24h != null ? ' · máx 24 h ' + Number(a.max_24h).toFixed(2) + ' m' : ''}</span>
                 </div>
+                ${a.simulacro ? '<p class="text-[10px] font-black text-white bg-slate-700 rounded px-2 py-0.5 mt-2 inline-block">SIMULACRO · ejercicio de prueba</p>' : (a.origen === 'manual' ? '<p class="text-[10px] font-black text-slate-900 bg-white/90 rounded px-2 py-0.5 mt-2 inline-block">EMITIDA MANUALMENTE</p>' : '')}
+                ${a.mensaje ? `<p class="text-xs text-white font-bold mt-1 leading-snug">${escHtml(a.mensaje)}</p>` : ''}
                 <p class="text-xs text-slate-200 mt-2 leading-snug">${escHtml(a.accion)}</p>
                 ${a.estado !== 'sin_datos' ? `<p class="text-[10px] text-slate-400 mt-1">${prox}</p>` : ''}
                 ${avisos ? `<ul class="text-[10px] text-amber-300 mt-1.5 list-disc pl-4 space-y-0.5">${avisos}</ul>` : ''}
@@ -803,6 +815,7 @@
                 const data = await response.json().catch(() => ({}));
                 if (!cauceActualVal || cauceActualVal.id !== seriesId) return;   // ya eligieron otro río
                 if (!response.ok || data.status === 'offline' || data.valor === undefined) {
+                    window.__alertaManualCaida = data.alerta_manual || null;   // sensor caído pero hay alerta manual vigente
                     throw new Error(data.error || `HTTP ${response.status}`);
                 }
 
@@ -830,6 +843,7 @@
                 if (!cauceActualVal || cauceActualVal.id !== seriesId) return;
                 console.error('Cauce INA:', error);
                 limpiarPanelCauce();
+                if (window.__alertaManualCaida) { renderAlertaCauce(window.__alertaManualCaida); window.__alertaManualCaida = null; }
                 statusBox.className = "text-xs text-center text-red-300 bg-red-950/80 border border-red-500/30 py-2 px-3 rounded-xl shadow-lg transition";
                 statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> <b>${cauceActualVal.txt}</b> • ${String(error.message || error).slice(0, 120)}`;
             }
@@ -1085,6 +1099,152 @@
         setInterval(refrescarRadares, RADAR_REFRESCO_MS);
         construirLeyenda();
         actualizarLeyenda();
+    </script>
+
+    <script>
+    // ================== Alertas sonoras y visuales (Marapa - La Madrid, y toda estación con umbrales) ==================
+    (function () {
+        const API = (typeof CAUCES_SNIH_API !== 'undefined' ? CAUCES_SNIH_API : 'https://metricmoisture-backend.onrender.com/api/snih_nivel')
+            .replace('/api/snih_nivel', '/api/alertas_rio');
+        const ORDEN = ['verde', 'amarillo', 'naranja', 'rojo', 'bordo'];
+        const REPETIR_S = { rojo: 45, bordo: 30 };           // se repite hasta que se marque "Enterado"
+        const banner = document.getElementById('alerta-global');
+        const btn = document.getElementById('btn-sonido-alertas');
+        const btnProbar = document.getElementById('btn-probar-sonido');
+        const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
+
+        let sonidoOn = ls.get('mp_sonido_alertas') === '1';
+        let ctx = null, ultimoSonido = {}, avisadas = {}, enterado = {}, timerRep = null, actuales = {};
+
+        // ---------- Audio ----------
+        function audio() {
+            try {
+                if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ctx = new AC(); }
+                if (ctx.state === 'suspended') ctx.resume();
+                return ctx;
+            } catch (e) { return null; }
+        }
+        function tono(f0, f1, ini, dur, vol) {
+            const c = audio(); if (!c) return;
+            const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + ini;
+            o.type = 'square'; o.frequency.setValueAtTime(f0, t);
+            if (f1 !== f0) o.frequency.linearRampToValueAtTime(f1, t + dur);
+            g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+            g.gain.setValueAtTime(vol, t + dur - 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+        }
+        const PATRON = {
+            amarillo: () => { tono(660, 660, 0, 0.3, 0.12); },
+            naranja:  () => { tono(880, 880, 0, 0.25, 0.18); tono(880, 880, 0.4, 0.25, 0.18); },
+            rojo:     () => { for (let i = 0; i < 3; i++) { tono(960, 960, i * 0.5, 0.22, 0.25); tono(720, 720, i * 0.5 + 0.24, 0.22, 0.25); } },
+            bordo:    () => { for (let i = 0; i < 3; i++) { tono(600, 1250, i * 1.1, 0.55, 0.3); tono(1250, 600, i * 1.1 + 0.55, 0.55, 0.3); } }
+        };
+        const VIBRA = { amarillo: [200], naranja: [200, 100, 200], rojo: [400, 150, 400, 150, 400], bordo: [800, 200, 800, 200, 800] };
+        function sonar(estado) {
+            if (!sonidoOn || !PATRON[estado]) return;
+            PATRON[estado]();
+            try { if (navigator.vibrate) navigator.vibrate(VIBRA[estado]); } catch (e) { }
+        }
+
+        // ---------- Botón de sonido ----------
+        function pintarBoton() {
+            btn.setAttribute('aria-pressed', sonidoOn ? 'true' : 'false');
+            btn.title = sonidoOn ? 'Sonido de alertas activado (tocar para silenciar)' : 'Activar sonido de alertas';
+            btn.className = 'w-11 h-11 rounded-full shadow-xl backdrop-blur-md flex items-center justify-center text-base border ' +
+                (sonidoOn ? 'bg-emerald-600 border-emerald-300 text-white' : 'bg-slate-900/90 border-slate-600 text-slate-300');
+            btn.innerHTML = `<i class="fa-solid ${sonidoOn ? 'fa-bell' : 'fa-bell-slash'}"></i>`;
+            btnProbar.classList.toggle('hidden', !sonidoOn);
+        }
+        btn.addEventListener('click', () => {
+            sonidoOn = !sonidoOn; ls.set('mp_sonido_alertas', sonidoOn ? '1' : '0');
+            pintarBoton();
+            if (sonidoOn) {
+                audio(); tono(660, 660, 0, 0.2, 0.15);          // confirma que suena (y desbloquea el audio del navegador)
+                try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { }
+                evaluar(actuales);                               // si ya hay una alerta vigente, suena ahora
+            }
+        });
+        btnProbar.addEventListener('click', () => { audio(); PATRON.rojo(); });
+        // El navegador exige un gesto del usuario para reproducir audio: cualquier toque lo desbloquea si el sonido ya estaba activado.
+        const desbloquear = () => { if (sonidoOn) audio(); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach(e => window.addEventListener(e, desbloquear, { passive: true }));
+        pintarBoton();
+
+        // ---------- Banner ----------
+        function clave(a) { return `${a.estacion}|${a.estado}|${a.manual_id || ''}`; }
+        function pintarBanner(lista) {
+            if (!lista.length) { banner.classList.add('hidden'); banner.innerHTML = ''; document.body.style.paddingTop = ''; return; }
+            const top = lista[0];
+            const sim = lista.some(a => a.simulacro);
+            banner.classList.remove('hidden');
+            banner.style.background = sim ? `repeating-linear-gradient(45deg, ${top.color}, ${top.color} 14px, #0f172a 14px, #0f172a 22px)` : top.color;
+            const pend = lista.some(a => !enterado[clave(a)]);
+            banner.classList.toggle('animate-pulse', pend && ORDEN.indexOf(top.estado) >= 3);
+            banner.innerHTML = lista.map(a => `
+                <div class="flex items-center gap-3 px-4 py-2.5 ${sim ? 'bg-slate-950/75' : ''}">
+                    <i class="fa-solid fa-triangle-exclamation text-xl shrink-0"></i>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[13px] font-black uppercase tracking-wide leading-tight">
+                            ${a.simulacro ? '<span class="bg-white text-slate-900 rounded px-1.5 py-0.5 mr-1.5 text-[10px]">SIMULACRO</span>' : (a.origen === 'manual' ? '<span class="bg-white/90 text-slate-900 rounded px-1.5 py-0.5 mr-1.5 text-[10px]">MANUAL</span>' : '')}${esc(a.nombre || 'Estación ' + a.estacion)} · ${esc(a.etiqueta)}</p>
+                        <p class="text-[11px] leading-snug opacity-95">${esc(a.mensaje || a.accion || '')}</p>
+                        ${a.valor_confirmado != null && !a.simulacro ? `<p class="text-[10px] opacity-90 font-mono">Nivel confirmado: ${Number(a.valor_confirmado).toFixed(2)} m</p>` : ''}
+                    </div>
+                    ${enterado[clave(a)] ? '' : `<button type="button" data-ack="${esc(clave(a))}" class="shrink-0 bg-white text-slate-900 text-[11px] font-black rounded-lg px-3 py-1.5">Enterado</button>`}
+                </div>`).join('') +
+                `<p class="text-[9px] text-center bg-black/30 py-0.5">Alerta no oficial de MetricPoint · no reemplaza a Defensa Civil ni a los organismos oficiales</p>`;
+            document.body.style.paddingTop = banner.offsetHeight + 'px';
+            banner.querySelectorAll('[data-ack]').forEach(b => b.addEventListener('click', () => {
+                enterado[b.dataset.ack] = true; pintarBanner(lista);
+            }));
+        }
+
+        // ---------- Evaluación ----------
+        function evaluar(alertas) {
+            actuales = alertas;
+            const activas = Object.values(alertas)
+                .filter(a => a && ORDEN.indexOf(a.estado) >= 1)
+                .sort((x, y) => ORDEN.indexOf(y.estado) - ORDEN.indexOf(x.estado));
+            // Sonar cuando la alerta es nueva o escala (la clave incluye el nivel y el id manual); si el sonido está
+            // apagado no se marca como sonada, así suena apenas el usuario lo activa.
+            activas.forEach(a => {
+                const k = clave(a);
+                if (sonidoOn && !(k in ultimoSonido)) { ultimoSonido[k] = Date.now(); sonar(a.estado); }
+                if (!avisadas[k]) {
+                    avisadas[k] = true;
+                    try {
+                        if (document.hidden && 'Notification' in window && Notification.permission === 'granted')
+                            new Notification(`${a.simulacro ? 'SIMULACRO · ' : ''}${a.nombre || 'Alerta'}: ${a.etiqueta}`, { body: a.mensaje || a.accion, tag: k });
+                    } catch (e) { }
+                }
+            });
+            // Si el nivel bajó o se canceló, olvida claves viejas (si vuelve a subir, vuelve a sonar)
+            const vivas = new Set(activas.map(clave));
+            Object.keys(avisadas).forEach(k => { if (!vivas.has(k)) { delete avisadas[k]; delete ultimoSonido[k]; delete enterado[k]; } });
+            pintarBanner(activas);
+            // Repetición para rojo/bordo hasta marcar "Enterado"
+            clearInterval(timerRep);
+            if (activas.some(a => REPETIR_S[a.estado])) {
+                timerRep = setInterval(() => {
+                    activas.forEach(a => {
+                        const r = REPETIR_S[a.estado], k = clave(a);
+                        if (sonidoOn && r && !enterado[k] && Date.now() - (ultimoSonido[k] || 0) >= r * 1000) { ultimoSonido[k] = Date.now(); sonar(a.estado); }
+                    });
+                }, 5000);
+            }
+        }
+
+        async function consultar() {
+            try {
+                const r = await fetch(API, { cache: 'no-store' });
+                const d = await r.json();
+                if (d && d.alertas) evaluar(d.alertas);
+            } catch (e) { /* sin red o backend dormido: se reintenta en el próximo ciclo */ }
+        }
+        window.MP_alertas = { consultar, evaluar, _estado: () => ({ ultimoSonido, enterado }) };
+        setTimeout(consultar, 2500);
+        setInterval(consultar, 60000);
+    })();
     </script>
 </body>
 </html>
