@@ -568,9 +568,10 @@
                     statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
                     statusBox.innerHTML = `<i class="fa-solid fa-building-columns mr-1"></i> <b>${nombreEstacion}</b> • SNIH Oficial • ${data.hora}`;
                 } else {
-                    const response = await fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=e1f10a1e78da46f5b10a1e78da96f525`);
-                    if (!response.ok) throw new Error('Error Red WU');
-                    const obs = (await response.json()).observations[0];
+                    const response = await fetch(`https://metricmoisture-backend.onrender.com/api/wu/${encodeURIComponent(stationId)}`);
+                    const wu = await response.json().catch(() => ({}));
+                    if (!response.ok || !wu.observation) throw new Error(wu.error || 'Error Red WU');
+                    const obs = wu.observation;
                     
                     document.getElementById('val-temp').innerText = ((obs.imperial.temp - 32) * 5 / 9).toFixed(1);
                     document.getElementById('val-hum').innerText = obs.humidity;
@@ -580,7 +581,10 @@
                     document.getElementById('val-precip').innerText = (obs.imperial.precipTotal * 25.4).toFixed(1);
                     
                     statusBox.className = "text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg transition";
-                    statusBox.innerHTML = `<i class="fa-solid fa-satellite-dish mr-1"></i> <b>${nombreEstacion}</b> • En línea (WU) • ${obs.obsTimeLocal}`;
+                    statusBox.innerHTML = wu.stale
+                        ? `<i class="fa-solid fa-clock-rotate-left mr-1"></i> <b>${nombreEstacion}</b> • WU: último dato guardado (hace ${Math.round(wu.edad_s / 60)} min) • ${obs.obsTimeLocal}`
+                        : `<i class="fa-solid fa-satellite-dish mr-1"></i> <b>${nombreEstacion}</b> • En línea (WU) • ${obs.obsTimeLocal}`;
+                    if (wu.stale) statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
                 }
             } catch (error) {
                 statusBox.className = "text-xs text-center text-red-300 bg-red-950/80 border border-red-500/30 py-2 px-3 rounded-xl shadow-lg transition";
