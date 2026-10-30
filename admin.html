@@ -26,7 +26,7 @@
   <!-- Panel -->
   <div id="panel" class="hidden space-y-4">
     <div class="flex justify-between items-center text-[11px] text-slate-400">
-      <span><i class="fa-solid fa-user-shield mr-1"></i>Sesión activa (8 h)</span>
+      <span><i class="fa-solid fa-user-shield mr-1"></i>Sesión activa (8 h) · <span id="n-push">0</span> celulares con avisos</span>
       <button id="salir" class="underline">Salir</button>
     </div>
 
@@ -46,11 +46,13 @@
         <label class="flex items-center gap-1 ml-auto">Duración
           <input id="minutos" type="number" min="1" max="1440" value="15" class="w-16 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-right"> min</label>
       </div>
-      <label class="flex items-center gap-2 text-xs"><input id="notificar" type="checkbox" class="accent-sky-500"> Enviar también por Telegram</label>
+      <label class="flex items-center gap-2 text-xs"><input id="notificar" type="checkbox" class="accent-sky-500"> Enviar también al celular (Telegram y notificación push)</label>
       <button id="btn-emitir" class="w-full bg-red-600 text-white font-black rounded-lg py-2.5 text-sm">Emitir</button>
       <p id="emitir-msg" class="text-xs hidden"></p>
     </form>
 
+    <button id="push-prueba" class="w-full bg-sky-700 text-white font-bold rounded-lg py-2 text-sm"><i class="fa-solid fa-bell mr-1"></i>Enviar notificación de prueba a los celulares</button>
+    <p id="push-msg" class="text-[11px] text-slate-300 text-center"></p>
     <button id="cancelar" class="w-full bg-slate-700 text-white font-bold rounded-lg py-2 text-sm">Cancelar todas las alertas manuales</button>
 
     <details class="bg-slate-900 border border-slate-700 rounded-2xl p-3">
@@ -93,6 +95,7 @@ $('simulacro').onchange = () => { $('minutos').value = $('simulacro').checked ? 
 function fh(iso) { return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' }); }
 async function cargar() {
   const d = await api('/api/admin/alertas');
+  $('n-push').textContent = d.push_suscriptores ?? 0;
   $('activas').innerHTML = d.activas.length ? d.activas.map(a => `
     <div class="rounded-xl p-3 border-l-4 bg-slate-900 border border-slate-700" style="border-left-color:${COL[a.estado]}">
       <p class="text-xs font-black"><span style="color:${COL[a.estado]}">${NOM[a.estado]}</span> · ${esc(a.estacion)} ${a.simulacro ? '· <span class="bg-sky-500 text-slate-900 rounded px-1">SIMULACRO</span>' : '· <span class="bg-red-500 rounded px-1">REAL</span>'}</p>
@@ -120,13 +123,18 @@ $('f-emitir').onsubmit = async e => {
   $('btn-emitir').disabled = true;
   try {
     const d = await api('/api/admin/emitir', { estacion: $('estacion').value, estado: nivel, mensaje: $('mensaje').value, simulacro: sim, minutos: +$('minutos').value, notificar: $('notificar').checked });
-    m.className = 'text-xs text-emerald-300'; m.textContent = `Emitida${d.telegram ? ' y enviada por Telegram' : ''}.${d.persistente ? '' : ' (Sin base de datos: se perderá si el servidor se reinicia.)'}`;
+    m.className = 'text-xs text-emerald-300'; m.textContent = `Emitida${d.telegram ? ' · Telegram ✔' : ''}${d.push_destinatarios ? ' · push a ' + d.push_destinatarios + ' celulares' : ''}.${d.persistente ? '' : ' (Sin base de datos: se perderá si el servidor se reinicia.)'}`;
     cargar();
   } catch (err) { m.className = 'text-xs text-red-300'; m.textContent = err.message; }
   $('btn-emitir').disabled = false;
 };
 $('cancelar').onclick = async () => { if (!confirm('¿Cancelar todas las alertas manuales vigentes?')) return; try { await api('/api/admin/cancelar', {}); cargar(); } catch (e) { alert(e.message); } };
 
+$('push-prueba').onclick = async () => {
+  const m = $('push-msg'); m.textContent = 'Enviando…';
+  try { const d = await api('/api/admin/push_prueba', {}); m.textContent = `Enviadas: ${d.enviados} · fallidas: ${d.fallidas ?? d.fallidos} · dadas de baja: ${d.eliminados}${d.errores && d.errores.length ? ' · ' + d.errores.join(' | ') : ''}`; }
+  catch (e) { m.textContent = e.message; }
+};
 if (token) { let est = null; try { est = JSON.parse(sessionStorage.getItem('mp_admin_est') || 'null'); } catch (e) { } mostrarPanel(est || { '10474': 'Marapa - La Madrid' }); }
 </script>
 </body>
