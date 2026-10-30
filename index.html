@@ -18,11 +18,7 @@
         if ('caches' in window) {
             caches.keys().then((names) => { names.forEach(name => caches.delete(name)); });
         }
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) { registration.unregister(); }
-            });
-        }
+        // (El service worker sw.js se usa solo para avisos push y no guarda nada en caché.)
     </script>
 
     <style>
@@ -67,6 +63,9 @@
         <button id="btn-sonido-alertas" type="button" aria-pressed="false" title="Activar sonido de alertas"
             class="w-11 h-11 rounded-full bg-slate-900/90 border border-slate-600 text-slate-300 shadow-xl backdrop-blur-md flex items-center justify-center text-base">
             <i class="fa-solid fa-bell-slash"></i></button>
+        <button id="btn-push" type="button" aria-pressed="false" title="Recibir avisos en el celular aunque la app esté cerrada"
+            class="w-11 h-11 rounded-full bg-slate-900/90 border border-slate-600 text-slate-300 shadow-xl backdrop-blur-md flex items-center justify-center text-base">
+            <i class="fa-solid fa-mobile-screen-button"></i></button>
         <button id="btn-probar-sonido" type="button" class="hidden px-2.5 h-8 rounded-full bg-slate-900/90 border border-slate-600 text-[10px] text-slate-300 shadow-xl">Probar</button>
     </div>
 
@@ -1248,6 +1247,66 @@
         window.MP_alertas = { consultar, evaluar, _estado: () => ({ ultimoSonido, enterado }) };
         setTimeout(consultar, 2500);
         setInterval(consultar, 60000);
+    })();
+    </script>
+
+    <script>
+    // ================== Avisos push: llegan con la app cerrada ==================
+    (function () {
+        const BASE = (typeof CAUCES_SNIH_API !== 'undefined' ? CAUCES_SNIH_API : 'https://metricmoisture-backend.onrender.com/api/snih_nivel').replace('/api/snih_nivel', '');
+        const btn = document.getElementById('btn-push');
+        if (!btn) return;
+        const soporta = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const instalada = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+        let activo = false;
+
+        function pintar(msg) {
+            btn.setAttribute('aria-pressed', activo ? 'true' : 'false');
+            btn.title = msg || (activo ? 'Avisos en el celular activados (tocar para desactivar)' : 'Recibir avisos en el celular aunque la app esté cerrada');
+            btn.className = 'w-11 h-11 rounded-full shadow-xl backdrop-blur-md flex items-center justify-center text-base border ' +
+                (activo ? 'bg-sky-600 border-sky-300 text-white' : 'bg-slate-900/90 border-slate-600 text-slate-300');
+        }
+        const b64uABytes = (b) => { const p = '='.repeat((4 - b.length % 4) % 4); const r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
+        const enviar = (ruta, cuerpo) => fetch(BASE + ruta, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+
+        async function registro() { return navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready); }
+
+        async function activar() {
+            if (esIOS && !instalada) { alert('En iPhone los avisos solo funcionan si agregás la app a la pantalla de inicio: tocá Compartir y elegí «Agregar a pantalla de inicio». Después abrila desde ese ícono y tocá este botón.'); return; }
+            const permiso = await Notification.requestPermission();
+            if (permiso !== 'granted') { alert('Para recibir avisos tenés que permitir las notificaciones de este sitio en el navegador.'); return; }
+            const reg = await registro();
+            const k = await (await fetch(BASE + '/api/push/clave')).json();
+            if (!k.publicKey) throw new Error(k.error || 'El servidor no pudo preparar las claves');
+            const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uABytes(k.publicKey) });
+            const r = await enviar('/api/push/suscribir', { subscription: sub.toJSON() });
+            if (!r.ok) throw new Error('El servidor rechazó la suscripción');
+            activo = true; pintar();
+        }
+        async function desactivar() {
+            const reg = await navigator.serviceWorker.getRegistration();
+            const sub = reg && await reg.pushManager.getSubscription();
+            if (sub) { try { await enviar('/api/push/baja', { endpoint: sub.endpoint }); } catch (e) { } await sub.unsubscribe(); }
+            activo = false; pintar();
+        }
+
+        btn.addEventListener('click', async () => {
+            if (!soporta) { alert('Este navegador no permite avisos push. Probá con Chrome (Android) o, en iPhone, agregá la app a la pantalla de inicio.'); return; }
+            btn.disabled = true;
+            try { activo ? await desactivar() : await activar(); }
+            catch (e) { alert('No se pudieron activar los avisos: ' + (e.message || e)); }
+            btn.disabled = false;
+        });
+
+        // Al abrir: si ya estaba activado, se renueva la suscripción en el servidor (por si Render se reinició sin base de datos).
+        if (soporta && Notification.permission === 'granted') {
+            navigator.serviceWorker.getRegistration().then(async reg => {
+                const sub = reg && await reg.pushManager.getSubscription();
+                if (sub) { activo = true; pintar(); enviar('/api/push/suscribir', { subscription: sub.toJSON() }).catch(() => { }); }
+            }).catch(() => { });
+        }
+        pintar();
     })();
     </script>
 </body>
