@@ -39,6 +39,41 @@
         <p class="text-[11px] text-slate-400 mb-1">Nivel</p>
         <div id="niveles" class="grid grid-cols-5 gap-1.5"></div>
       </div>
+      <div>
+        <p class="text-[11px] text-slate-400 mb-1">Zona de la alerta <span class="text-slate-500">(quiénes la reciben en el celular; los que eligieron «todas» la reciben siempre)</span></p>
+        <select id="zona" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+          <option value="estacion">Zona de la estación (por defecto)</option>
+          <option value="red">Toda la red (sin límite de zona)</option>
+          <optgroup label="Alrededor de una localidad (centro aproximado)">
+          <option value="p:-27.64:-65.25:La Madrid">La Madrid</option>
+          <option value="p:-27.17:-65.5:Monteros">Monteros</option>
+          <option value="p:-27.05:-65.4:Famaillá">Famaillá</option>
+          <option value="p:-27.19:-65.3:Leales">Leales</option>
+          <option value="p:-27.43:-65.62:Aguilares">Aguilares</option>
+          <option value="p:-27.34:-65.59:Concepción">Concepción</option>
+          <option value="p:-26.83:-65.2:San Miguel de Tucumán">San Miguel de Tucumán</option>
+          <option value="p:-26.82:-65.3:Yerba Buena">Yerba Buena</option>
+          <option value="p:-26.73:-65.26:Tafí Viejo">Tafí Viejo</option>
+          <option value="p:-26.85:-65.71:Tafí del Valle">Tafí del Valle</option>
+          <option value="p:-26.5:-64.74:Burruyacú">Burruyacú</option>
+          <option value="p:-24.79:-65.41:Salta (capital)">Salta (capital)</option>
+          <option value="p:-25.8:-64.97:Rosario de la Frontera">Rosario de la Frontera</option>
+          <option value="p:-25.5:-64.97:Metán">Metán</option>
+          <option value="p:-26.07:-65.98:Cafayate">Cafayate</option>
+          </optgroup>
+          <option value="gps">Alrededor de mi ubicación actual</option>
+          <option value="coords">Coordenadas propias…</option>
+        </select>
+        <div id="zona-coords" class="hidden flex gap-2 mt-2">
+          <input id="zlat" type="number" step="any" placeholder="Latitud (ej. -26.83)" class="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs">
+          <input id="zlon" type="number" step="any" placeholder="Longitud (ej. -65.20)" class="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs">
+        </div>
+        <div id="zona-radio" class="flex items-center gap-2 mt-2 text-xs">Radio
+          <select id="radio" class="bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5">
+            <option value="">por defecto</option><option>10</option><option>25</option><option>50</option><option>100</option><option>200</option>
+          </select> km
+        </div>
+      </div>
       <textarea id="mensaje" maxlength="280" rows="2" placeholder="Mensaje (opcional): ej. Falla del sensor, crecida confirmada por observadores"
         class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs"></textarea>
       <div class="flex items-center gap-3 text-xs">
@@ -92,6 +127,26 @@ function pintarNiveles() {
 }
 $('simulacro').onchange = () => { $('minutos').value = $('simulacro').checked ? 15 : 120; $('notificar').checked = !$('simulacro').checked; };
 
+let gps = null;
+$('zona').onchange = () => {
+  const v = $('zona').value;
+  $('zona-coords').classList.toggle('hidden', v !== 'coords');
+  $('zona-radio').classList.toggle('hidden', v === 'red');
+  if (v === 'gps') {
+    if (!navigator.geolocation) { alert('Este dispositivo no informa su ubicación.'); $('zona').value = 'estacion'; return; }
+    navigator.geolocation.getCurrentPosition(p => { gps = { lat: p.coords.latitude, lon: p.coords.longitude }; },
+      () => { alert('No se pudo obtener tu ubicación (revisá el permiso del navegador).'); $('zona').value = 'estacion'; $('zona').onchange(); }, { timeout: 12000 });
+  }
+};
+function areaElegida() {
+  const v = $('zona').value, r = $('radio').value ? +$('radio').value : null;
+  if (v === 'estacion') return r ? { tipo: 'estacion', radio_km: r } : { tipo: 'estacion' };
+  if (v === 'red') return { tipo: 'red' };
+  if (v === 'gps') { if (!gps) throw new Error('Esperá a que el navegador obtenga tu ubicación.'); return { tipo: 'personalizada', lat: gps.lat, lon: gps.lon, radio_km: r || 25, nombre: 'Mi ubicación' }; }
+  if (v === 'coords') { const lat = parseFloat($('zlat').value), lon = parseFloat($('zlon').value); if (!isFinite(lat) || !isFinite(lon)) throw new Error('Completá latitud y longitud.'); return { tipo: 'personalizada', lat, lon, radio_km: r || 25, nombre: 'Zona personalizada' }; }
+  const [, lat, lon, ...nom] = v.split(':');
+  return { tipo: 'personalizada', lat: +lat, lon: +lon, radio_km: r || 25, nombre: nom.join(':') };
+}
 function fh(iso) { return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' }); }
 async function cargar() {
   const d = await api('/api/admin/alertas');
@@ -100,7 +155,7 @@ async function cargar() {
     <div class="rounded-xl p-3 border-l-4 bg-slate-900 border border-slate-700" style="border-left-color:${COL[a.estado]}">
       <p class="text-xs font-black"><span style="color:${COL[a.estado]}">${NOM[a.estado]}</span> · ${esc(a.estacion)} ${a.simulacro ? '· <span class="bg-sky-500 text-slate-900 rounded px-1">SIMULACRO</span>' : '· <span class="bg-red-500 rounded px-1">REAL</span>'}</p>
       <p class="text-[11px] text-slate-300">${esc(a.mensaje || '—')}</p>
-      <p class="text-[10px] text-slate-500">Vence ${fh(a.expira)}</p></div>`).join('')
+      <p class="text-[10px] text-slate-500">${a.area && a.area.tipo !== 'red' ? 'Zona: ' + esc(a.area.nombre) + ' · ' + esc(a.area.radio_km) + ' km · ' : (a.area ? 'Toda la red · ' : '')}Vence ${fh(a.expira)}</p></div>`).join('')
     : '<p class="text-[11px] text-slate-500 text-center">Sin alertas manuales vigentes: la app usa el estado automático.</p>';
   $('historial').innerHTML = d.historial.map(a => `<p>${fh(a.creado)} · ${esc(a.estacion)} · ${NOM[a.estado]} · ${a.simulacro ? 'simulacro' : 'real'}${a.activa ? ' · <b>activa</b>' : ''}${a.mensaje ? ' · ' + esc(a.mensaje) : ''}</p>`).join('') || '—';
 }
@@ -122,8 +177,8 @@ $('f-emitir').onsubmit = async e => {
   if (!sim && !confirm(`Vas a emitir una alerta REAL de nivel ${NOM[nivel]}. ¿Confirmás?`)) return;
   $('btn-emitir').disabled = true;
   try {
-    const d = await api('/api/admin/emitir', { estacion: $('estacion').value, estado: nivel, mensaje: $('mensaje').value, simulacro: sim, minutos: +$('minutos').value, notificar: $('notificar').checked });
-    m.className = 'text-xs text-emerald-300'; m.textContent = `Emitida${d.telegram ? ' · Telegram ✔' : ''}${d.push_destinatarios ? ' · push a ' + d.push_destinatarios + ' celulares' : ''}.${d.persistente ? '' : ' (Sin base de datos: se perderá si el servidor se reinicia.)'}`;
+    const d = await api('/api/admin/emitir', { area: areaElegida(), estacion: $('estacion').value, estado: nivel, mensaje: $('mensaje').value, simulacro: sim, minutos: +$('minutos').value, notificar: $('notificar').checked });
+    m.className = 'text-xs text-emerald-300'; m.textContent = `Emitida${d.telegram ? ' · Telegram ✔' : ''}${d.push_destinatarios ? ' · push a ' + d.push_destinatarios + ' celulares' : ''}${d.push_fuera_de_zona ? ' (' + d.push_fuera_de_zona + ' fuera de la zona, no la reciben)' : ''}.${d.persistente ? '' : ' (Sin base de datos: se perderá si el servidor se reinicia.)'}`;
     cargar();
   } catch (err) { m.className = 'text-xs text-red-300'; m.textContent = err.message; }
   $('btn-emitir').disabled = false;
