@@ -58,6 +58,34 @@
 
 
     <!-- ===== Alertas globales: banner + sonido (se alimenta de /api/alertas_rio) ===== -->
+
+    <!-- ===== Panel de avisos en el celular (push + zona) ===== -->
+    <div id="panel-push" class="hidden fixed inset-0 z-[950] bg-black/60 flex items-end sm:items-center justify-center p-3" role="dialog" aria-modal="true" aria-labelledby="push-titulo">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-600 rounded-2xl p-4 shadow-2xl text-slate-100">
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="push-titulo" class="text-sm font-black"><i class="fa-solid fa-mobile-screen-button mr-2 text-sky-400"></i>Avisos en el celular</h3>
+                <span class="text-[10px] font-bold bg-sky-600 text-white rounded px-2 py-0.5">Activados</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mb-3">Recibís las alertas aunque la app esté cerrada. Elegí cuáles:</p>
+            <label class="flex gap-2 items-start bg-slate-800/70 border border-slate-700 rounded-xl p-2.5 mb-2 cursor-pointer">
+                <input type="radio" name="push-modo" value="zona" class="mt-1 accent-sky-500">
+                <span><b class="text-xs">Solo alertas de mi zona</b><br><span class="text-[10px] text-slate-400">Usa tu ubicación aproximada (unos 5 km de precisión) para avisarte únicamente cuando la alerta te afecta.</span></span>
+            </label>
+            <label class="flex gap-2 items-start bg-slate-800/70 border border-slate-700 rounded-xl p-2.5 mb-2 cursor-pointer">
+                <input type="radio" name="push-modo" value="todas" class="mt-1 accent-sky-500">
+                <span><b class="text-xs">Todas las alertas, aunque no esté en el área afectada</b><br><span class="text-[10px] text-slate-400">No se usa tu ubicación. Recomendado si seguís el río desde lejos.</span></span>
+            </label>
+            <p id="push-loc" class="text-[10px] text-slate-400 mb-1"></p>
+            <p id="push-msg" class="text-[10px] text-amber-300 mb-2 hidden"></p>
+            <p class="text-[9px] text-slate-500 leading-snug mb-3">La ubicación se actualiza cuando abrís la app (si hace días que no la abrís, se usa la última guardada). Se guarda solo aproximada y se borra al desactivar los avisos.</p>
+            <div class="flex gap-2">
+                <button id="push-actualizar" type="button" class="flex-1 bg-slate-700 text-white text-[11px] font-bold rounded-lg py-2">Actualizar ubicación</button>
+                <button id="push-desactivar" type="button" class="flex-1 bg-red-700 text-white text-[11px] font-bold rounded-lg py-2">Desactivar avisos</button>
+            </div>
+            <button id="push-cerrar" type="button" class="w-full mt-2 bg-white text-slate-900 text-xs font-black rounded-lg py-2">Listo</button>
+        </div>
+    </div>
+
     <div id="alerta-global" class="hidden fixed top-0 inset-x-0 z-[900] text-white shadow-2xl" role="alert" aria-live="assertive"></div>
     <div class="fixed bottom-4 left-4 z-[900] flex items-center gap-2">
         <button id="btn-sonido-alertas" type="button" aria-pressed="false" title="Activar sonido de alertas"
@@ -1191,6 +1219,7 @@
                         <p class="text-[13px] font-black uppercase tracking-wide leading-tight">
                             ${a.simulacro ? '<span class="bg-white text-slate-900 rounded px-1.5 py-0.5 mr-1.5 text-[10px]">SIMULACRO</span>' : (a.origen === 'manual' ? '<span class="bg-white/90 text-slate-900 rounded px-1.5 py-0.5 mr-1.5 text-[10px]">MANUAL</span>' : '')}${esc(a.nombre || 'Estación ' + a.estacion)} · ${esc(a.etiqueta)}</p>
                         <p class="text-[11px] leading-snug opacity-95">${esc(a.mensaje || a.accion || '')}</p>
+                        ${a.area && a.area.tipo && a.area.tipo !== 'red' ? `<p class="text-[10px] leading-snug opacity-90"><i class="fa-solid fa-location-dot mr-1"></i>Zona: ${esc(a.area.nombre || '')} · radio ${esc(a.area.radio_km)} km</p>` : ''}
                         ${a.valor_confirmado != null && !a.simulacro ? `<p class="text-[10px] opacity-90 font-mono">Nivel confirmado: ${Number(a.valor_confirmado).toFixed(2)} m</p>` : ''}
                     </div>
                     ${enterado[clave(a)] ? '' : `<button type="button" data-ack="${esc(clave(a))}" class="shrink-0 bg-white text-slate-900 text-[11px] font-black rounded-lg px-3 py-1.5">Enterado</button>`}
@@ -1251,59 +1280,117 @@
     </script>
 
     <script>
-    // ================== Avisos push: llegan con la app cerrada ==================
+    // ================== Avisos push (con la app cerrada), con opción de zona ==================
     (function () {
         const BASE = (typeof CAUCES_SNIH_API !== 'undefined' ? CAUCES_SNIH_API : 'https://metricmoisture-backend.onrender.com/api/snih_nivel').replace('/api/snih_nivel', '');
         const btn = document.getElementById('btn-push');
         if (!btn) return;
+        const $ = id => document.getElementById(id);
         const soporta = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
         const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
         const instalada = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+        const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
         let activo = false;
+        let prefs = { modo: 'todas' };
+        try { const g = JSON.parse(ls.get('mp_push_prefs') || 'null'); if (g && (g.modo === 'zona' || g.modo === 'todas')) prefs = g; } catch (e) { }
+        const guardar = () => ls.set('mp_push_prefs', JSON.stringify(prefs));
+        const gruesa = x => Math.round(x * 20) / 20;      // grilla de ~5 km: no se envía el domicilio exacto
 
-        function pintar(msg) {
+        function pintar() {
             btn.setAttribute('aria-pressed', activo ? 'true' : 'false');
-            btn.title = msg || (activo ? 'Avisos en el celular activados (tocar para desactivar)' : 'Recibir avisos en el celular aunque la app esté cerrada');
+            btn.title = activo ? 'Avisos en el celular activados (tocar para ver opciones)' : 'Recibir avisos en el celular aunque la app esté cerrada';
             btn.className = 'w-11 h-11 rounded-full shadow-xl backdrop-blur-md flex items-center justify-center text-base border ' +
                 (activo ? 'bg-sky-600 border-sky-300 text-white' : 'bg-slate-900/90 border-slate-600 text-slate-300');
         }
         const b64uABytes = (b) => { const p = '='.repeat((4 - b.length % 4) % 4); const r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
         const enviar = (ruta, cuerpo) => fetch(BASE + ruta, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
-
         async function registro() { return navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready); }
 
+        // ---- ubicación aproximada ----
+        function ubicacion() {
+            return new Promise((ok, mal) => {
+                if (!navigator.geolocation) return mal(new Error('Este dispositivo no informa su ubicación.'));
+                navigator.geolocation.getCurrentPosition(
+                    p => ok({ lat: gruesa(p.coords.latitude), lon: gruesa(p.coords.longitude) }),
+                    e => mal(new Error(e.code === 1 ? 'Permiso de ubicación denegado.' : 'No se pudo obtener la ubicación.')),
+                    { enableHighAccuracy: false, timeout: 12000, maximumAge: 86400000 });
+            });
+        }
+        async function sincronizar(refrescarUbicacion) {
+            const reg = await navigator.serviceWorker.getRegistration();
+            const sub = reg && await reg.pushManager.getSubscription();
+            if (!sub) return;
+            if (prefs.modo === 'zona' && refrescarUbicacion) {
+                try { const u = await ubicacion(); prefs.lat = u.lat; prefs.lon = u.lon; guardar(); } catch (e) { /* se usa la última guardada */ }
+            }
+            const p = prefs.modo === 'zona' && prefs.lat != null ? { modo: 'zona', lat: prefs.lat, lon: prefs.lon } : { modo: prefs.modo };
+            const r = await enviar('/api/push/suscribir', { subscription: sub.toJSON(), prefs: p });
+            if (!r.ok) throw new Error('El servidor rechazó la suscripción');
+        }
+
         async function activar() {
-            if (esIOS && !instalada) { alert('En iPhone los avisos solo funcionan si agregás la app a la pantalla de inicio: tocá Compartir y elegí «Agregar a pantalla de inicio». Después abrila desde ese ícono y tocá este botón.'); return; }
+            if (esIOS && !instalada) { alert('En iPhone los avisos solo funcionan si agregás la app a la pantalla de inicio: tocá Compartir y elegí «Agregar a pantalla de inicio». Después abrila desde ese ícono y tocá este botón.'); return false; }
             const permiso = await Notification.requestPermission();
-            if (permiso !== 'granted') { alert('Para recibir avisos tenés que permitir las notificaciones de este sitio en el navegador.'); return; }
+            if (permiso !== 'granted') { alert('Para recibir avisos tenés que permitir las notificaciones de este sitio en el navegador.'); return false; }
             const reg = await registro();
             const k = await (await fetch(BASE + '/api/push/clave')).json();
             if (!k.publicKey) throw new Error(k.error || 'El servidor no pudo preparar las claves');
-            const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uABytes(k.publicKey) });
-            const r = await enviar('/api/push/suscribir', { subscription: sub.toJSON() });
-            if (!r.ok) throw new Error('El servidor rechazó la suscripción');
+            if (!(await reg.pushManager.getSubscription())) await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uABytes(k.publicKey) });
+            prefs = { modo: 'todas' }; guardar();           // por seguridad, al activar se reciben todas hasta que elija otra cosa
+            await sincronizar(false);
             activo = true; pintar();
+            return true;
         }
         async function desactivar() {
             const reg = await navigator.serviceWorker.getRegistration();
             const sub = reg && await reg.pushManager.getSubscription();
             if (sub) { try { await enviar('/api/push/baja', { endpoint: sub.endpoint }); } catch (e) { } await sub.unsubscribe(); }
+            prefs = { modo: 'todas' }; guardar();
             activo = false; pintar();
         }
+
+        // ---- panel ----
+        function msg(t) { const m = $('push-msg'); m.textContent = t || ''; m.classList.toggle('hidden', !t); }
+        function pintarPanel() {
+            document.querySelectorAll('input[name="push-modo"]').forEach(r => { r.checked = r.value === prefs.modo; });
+            $('push-loc').textContent = prefs.modo === 'zona'
+                ? (prefs.lat != null ? `Ubicación aproximada guardada: ${prefs.lat.toFixed(2)}, ${prefs.lon.toFixed(2)}` : 'Todavía sin ubicación: por ahora recibís todas las alertas.')
+                : 'No se usa tu ubicación.';
+            $('push-actualizar').classList.toggle('hidden', prefs.modo !== 'zona');
+        }
+        function abrirPanel() { msg(''); pintarPanel(); $('panel-push').classList.remove('hidden'); }
+        async function cambiarModo(m) {
+            msg('');
+            if (m === 'zona') {
+                try { const u = await ubicacion(); prefs = { modo: 'zona', lat: u.lat, lon: u.lon }; }
+                catch (e) { prefs = { modo: 'todas' }; msg(e.message + ' Seguís recibiendo todas las alertas. Habilitá la ubicación para este sitio y probá de nuevo.'); }
+            } else { prefs = { modo: 'todas' }; }
+            guardar(); pintarPanel();
+            try { await sincronizar(false); } catch (e) { msg('No se pudo guardar en el servidor: ' + e.message); }
+        }
+        document.querySelectorAll('input[name="push-modo"]').forEach(r => r.addEventListener('change', () => cambiarModo(r.value)));
+        $('push-actualizar').addEventListener('click', async () => { msg('Buscando tu ubicación…'); try { await cambiarModo('zona'); if (!$('push-msg').textContent.includes('Seguís')) msg('Ubicación actualizada.'); } catch (e) { msg(e.message); } });
+        $('push-desactivar').addEventListener('click', async () => { try { await desactivar(); $('panel-push').classList.add('hidden'); } catch (e) { msg(e.message); } });
+        $('push-cerrar').addEventListener('click', () => $('panel-push').classList.add('hidden'));
+        $('panel-push').addEventListener('click', e => { if (e.target === $('panel-push')) $('panel-push').classList.add('hidden'); });
 
         btn.addEventListener('click', async () => {
             if (!soporta) { alert('Este navegador no permite avisos push. Probá con Chrome (Android) o, en iPhone, agregá la app a la pantalla de inicio.'); return; }
             btn.disabled = true;
-            try { activo ? await desactivar() : await activar(); }
+            try { if (!activo) { if (await activar()) abrirPanel(); } else abrirPanel(); }
             catch (e) { alert('No se pudieron activar los avisos: ' + (e.message || e)); }
             btn.disabled = false;
         });
 
-        // Al abrir: si ya estaba activado, se renueva la suscripción en el servidor (por si Render se reinició sin base de datos).
+        // Al abrir la app: si ya estaba activado, se renueva la suscripción y (modo zona, con permiso ya dado) la ubicación.
         if (soporta && Notification.permission === 'granted') {
             navigator.serviceWorker.getRegistration().then(async reg => {
                 const sub = reg && await reg.pushManager.getSubscription();
-                if (sub) { activo = true; pintar(); enviar('/api/push/suscribir', { subscription: sub.toJSON() }).catch(() => { }); }
+                if (!sub) return;
+                activo = true; pintar();
+                let puede = false;
+                try { puede = prefs.modo === 'zona' && navigator.permissions && (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted'; } catch (e) { }
+                sincronizar(puede).catch(() => { });
             }).catch(() => { });
         }
         pintar();
