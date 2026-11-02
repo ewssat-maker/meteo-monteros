@@ -1143,12 +1143,14 @@
             });
         }
 
-        RA = RadarAnim.crear({
-            map: mapRadar, pane: 'radarPane', contenedor: document.getElementById('radar-anim'),
-            backend: RADAR_PROXY, webmet: RADAR_WEBMET,
-            activos: () => Object.keys(RADARES).filter(c => RADARES[c].activo),
-            campo: () => RADAR_CAMPO, opacidad: () => radarOpacidad, ocultarSimple
-        });
+        try {   // si radar_anim.js no se cargó, el resto del radar (incluida la escala) sigue funcionando
+            RA = RadarAnim.crear({
+                map: mapRadar, pane: 'radarPane', contenedor: document.getElementById('radar-anim'),
+                backend: RADAR_PROXY, webmet: RADAR_WEBMET,
+                activos: () => Object.keys(RADARES).filter(c => RADARES[c].activo),
+                campo: () => RADAR_CAMPO, opacidad: () => radarOpacidad, ocultarSimple
+            });
+        } catch (e) { console.warn('Animación del radar no disponible:', e.message); }
         setInterval(refrescarRadares, RADAR_REFRESCO_MS);
         construirLeyenda();
         actualizarLeyenda();
