@@ -683,7 +683,12 @@ async function cargarAnimacion(code, campo, rg, trabajo) {
   try { const u = await (await fetch(`${RADAR_PROXY}/umbrales`)).json(); UMB = { lluvia: u.lluvia.desde_dbz, tormenta: u.tormenta.desde_dbz, severa: u.tormenta_severa.desde_dbz, granizo: u.granizo_posible_desde_dbz }; } catch (e) { }
   if (trabajo !== S.trabajo) return;
   const obs = h.observaciones || [];
-  if (obs.length < 2) { $('anim').style.display = 'none'; return; }
+  if (obs.length < 2) {
+    $('anim').style.display = 'block'; $('a-play').disabled = true; $('a-sl').disabled = true; $('a-hora').textContent = '--:--';
+    $('a-info').style.display = 'block'; $('a-info').style.borderColor = 'rgba(148,163,184,.4)';
+    $('a-info').textContent = `El servidor está guardando imágenes del radar (${obs.length} de 6). La animación se activa con 2, en unos minutos.`; return;
+  }
+  $('a-play').disabled = false; $('a-sl').disabled = false; $('a-info').style.borderColor = '';
   const res = await Promise.all(obs.map(o => cargarTeselasRadar(o, rg, trabajo)));
   if (trabajo !== S.trabajo) return;
   borrarFrames();
