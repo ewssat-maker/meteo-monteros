@@ -306,6 +306,10 @@
                     </div>
                     <p id="radar-campo-desc" class="text-[10px] leading-snug text-slate-400 mt-1.5"></p>
                 </div>
+                <div class="mt-1 border-t border-slate-700/50 pt-2">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1"><i class="fa-solid fa-film mr-1"></i> Animación · últimas 6 imágenes</span>
+                    <div id="radar-anim"></div>
+                </div>
                 <div class="mt-1 flex items-center gap-3 border-t border-slate-700/50 pt-2">
                     <i class="fa-solid fa-droplet-slash text-sky-500/50 text-[10px]"></i>
                     <input type="range" min="20" max="100" value="70" oninput="cambiarOpacidadRadar(this.value)" class="flex-1 accent-sky-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
@@ -373,6 +377,7 @@
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="radar_anim.js"></script>
     <script>
         // ==========================================
         // DATA DE ESTACIONES METEOROLÓGICAS
@@ -1034,7 +1039,7 @@
             const url = reg.tile_url.startsWith('http') ? reg.tile_url : RADAR_WEBMET + reg.tile_url;
 
             const nueva = L.tileLayer(url, {
-                pane: 'radarPane', bounds: bounds, opacity: radarOpacidad,
+                pane: 'radarPane', bounds: bounds, opacity: r.oculto ? 0 : radarOpacidad,
                 minZoom: 4, maxNativeZoom: RADAR_MAX_NATIVE_ZOOM, maxZoom: 18
             }).addTo(mapRadar);
             if (r.capa) mapRadar.removeLayer(r.capa);   // se saca la vieja recién con la nueva ya puesta
@@ -1046,6 +1051,15 @@
         async function cargarRadar(code) {
             try { await actualizarRadar(code); }
             catch (e) { console.error(`Radar ${code}:`, e); estadoRadar(code, 'No disponible', 'error'); }
+            if (RA) RA.sincronizar();
+        }
+
+        // Animación de las últimas 6 imágenes + clasificación + seguimiento (radar_anim.js)
+        let RA = null;
+        function ocultarSimple(code, ocultar) {
+            const r = RADARES[code]; if (!r) return;
+            r.oculto = ocultar;
+            if (r.capa) r.capa.setOpacity(ocultar ? 0 : radarOpacidad);
         }
 
         async function toggleRadar(code, activo) {
@@ -1054,8 +1068,9 @@
             actualizarLeyenda();
             if (!activo) {
                 if (r.capa) mapRadar.removeLayer(r.capa);
-                r.capa = null; r.registro = null; r.bounds = null;
+                r.capa = null; r.registro = null; r.bounds = null; r.oculto = false;
                 estadoRadar(code, 'Inactivo');
+                if (RA) RA.sincronizar();
                 if (r.centrar) { try { mapRadar.setView(RADAR_VISTA_INICIAL.centro, RADAR_VISTA_INICIAL.zoom); } catch (e) {} }
                 return;
             }
@@ -1066,7 +1081,8 @@
 
         function cambiarOpacidadRadar(valor) {
             radarOpacidad = valor / 100;
-            Object.values(RADARES).forEach(r => { if (r.capa) r.capa.setOpacity(radarOpacidad); });
+            Object.values(RADARES).forEach(r => { if (r.capa && !r.oculto) r.capa.setOpacity(radarOpacidad); });
+            if (RA) RA.setOpacidad();
         }
 
         async function cambiarCampoRadar(valor) {
@@ -1076,7 +1092,7 @@
             await Promise.all(Object.keys(RADARES).map(async code => {
                 const r = RADARES[code];
                 if (r.capa) mapRadar.removeLayer(r.capa);   // la capa vieja era de otro campo
-                r.capa = null; r.registro = null;
+                r.capa = null; r.registro = null; r.oculto = false;
                 if (!r.activo) return;
                 estadoRadar(code, 'Cargando…');
                 await cargarRadar(code);
@@ -1127,6 +1143,12 @@
             });
         }
 
+        RA = RadarAnim.crear({
+            map: mapRadar, pane: 'radarPane', contenedor: document.getElementById('radar-anim'),
+            backend: RADAR_PROXY, webmet: RADAR_WEBMET,
+            activos: () => Object.keys(RADARES).filter(c => RADARES[c].activo),
+            campo: () => RADAR_CAMPO, opacidad: () => radarOpacidad, ocultarSimple
+        });
         setInterval(refrescarRadares, RADAR_REFRESCO_MS);
         construirLeyenda();
         actualizarLeyenda();
