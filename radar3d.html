@@ -678,7 +678,15 @@ function construirSeguimiento() {
 }
 async function cargarAnimacion(code, campo, rg, trabajo) {
   let h, sd = null;
-  try { h = await (await fetch(`${RADAR_PROXY}/${code}/historial?campo=${campo}`)).json(); } catch (e) { return; }
+  try {
+    const r = await fetch(`${RADAR_PROXY}/${code}/historial?campo=${campo}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    h = await r.json();
+  } catch (e) {
+    $('anim').style.display = 'block'; $('a-play').disabled = true; $('a-sl').disabled = true;
+    $('a-info').style.display = 'block'; $('a-info').style.borderColor = 'rgba(148,163,184,.4)';
+    $('a-info').textContent = 'No se pudo consultar el historial del servidor (' + String(e.message).slice(0, 60) + '). Verificá que el servidor tenga desplegado el módulo de radar nuevo.'; return;
+  }
   try { sd = await (await fetch(`${RADAR_PROXY}/${code}/seguimiento`)).json(); } catch (e) { /* sin seguimiento */ }
   try { const u = await (await fetch(`${RADAR_PROXY}/umbrales`)).json(); UMB = { lluvia: u.lluvia.desde_dbz, tormenta: u.tormenta.desde_dbz, severa: u.tormenta_severa.desde_dbz, granizo: u.granizo_posible_desde_dbz }; } catch (e) { }
   if (trabajo !== S.trabajo) return;
