@@ -377,7 +377,7 @@
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="radar_anim.js"></script>
+    <script src="radar_anim.js?v=3"></script>
     <script>
         // ==========================================
         // DATA DE ESTACIONES METEOROLÓGICAS
@@ -1150,7 +1150,12 @@
                 activos: () => Object.keys(RADARES).filter(c => RADARES[c].activo),
                 campo: () => RADAR_CAMPO, opacidad: () => radarOpacidad, ocultarSimple
             });
-        } catch (e) { console.warn('Animación del radar no disponible:', e.message); }
+        } catch (e) {
+            console.warn('Animación del radar no disponible:', e.message);
+            const c = document.getElementById('radar-anim');
+            if (c) c.innerHTML = '<p style="font-size:11px;color:#fbbf24;line-height:1.4">Animación no disponible: ' +
+                (typeof RadarAnim === 'undefined' ? 'no se encontró radar_anim.js (debe estar en la misma carpeta que esta página; recargá sin caché).' : String(e.message).replace(/[<>&]/g, '')) + '</p>';
+        }
         setInterval(refrescarRadares, RADAR_REFRESCO_MS);
         construirLeyenda();
         actualizarLeyenda();
