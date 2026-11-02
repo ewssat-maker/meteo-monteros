@@ -90,8 +90,7 @@
       <span id="a-hora" style="font:700 12px ui-monospace,monospace;min-width:74px;text-align:right">--:--</span>
     </div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:5px;font-size:12px">
-      <label>Mostrar <select id="a-clas" style="background:#0f172a;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;padding:2px 4px">
-        <option value="todo">Todo</option><option value="lluvia">Solo lluvia</option><option value="tormenta">Solo tormenta</option><option value="severa">Solo tormenta severa</option></select></label>
+      <label><input id="a-clas" type="checkbox" style="accent-color:#38bdf8"> Lluvia / tormenta / severa</label>
       <label><input id="a-seg" type="checkbox" checked style="accent-color:#38bdf8"> Celda más intensa</label>
     </div>
     <div id="a-cl" style="display:none;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:11px"></div>
@@ -252,7 +251,7 @@ const uL = { mvp: U.l('u_mvp'), exag: U.l('u_exag'), col: U.l('u_col') };
 const S = {
   trabajo: 0, reg: null, region: null,
   malla: null, lineas: null, texBase: null, texRadar: null, texUlt: null,
-  frames: [], fi: 0, clas: false, filtro: 'todo', seguir: true, segData: null, segLineas: [], playing: false, timer: null,
+  frames: [], fi: 0, clas: false, seguir: true, segData: null, segLineas: [], playing: false, timer: null,
   exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true,
   cam: { yaw: 0, pitch: 0.9, dist: 400, tx: 0, tz: 0 },
   sucio: false
@@ -592,13 +591,6 @@ function dbzDe(r, g, b) {
   let m = null, md = 1e9; for (const [v, pr, pg, pb] of PAL_RGB) { const d = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2; if (d < md) { md = d; m = v; } }
   const res = md <= 2304 ? m : null; memo.set(k, res); return res;
 }
-function enBanda(v) {
-  const f = S.filtro;
-  if (f === 'lluvia') return v >= UMB.lluvia && v < UMB.tormenta;
-  if (f === 'tormenta') return v >= UMB.tormenta && v < UMB.severa;
-  if (f === 'severa') return v >= UMB.severa;
-  return true;
-}
 function canvasClases(cnv) {
   const o = document.createElement('canvas'); o.width = cnv.width; o.height = cnv.height;
   const ctx = o.getContext('2d'); ctx.drawImage(cnv, 0, 0);
@@ -607,7 +599,8 @@ function canvasClases(cnv) {
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 40) { d[i + 3] = 0; continue; }
       const v = dbzDe(d[i], d[i + 1], d[i + 2]); if (v === null) { d[i + 3] = 0; continue; }
-      if (!enBanda(v)) d[i + 3] = 0;          // se conserva el color original de WebMet
+      const k = v >= UMB.granizo ? CLS.granizo : v >= UMB.severa ? CLS.severa : v >= UMB.tormenta ? CLS.tormenta : v >= UMB.lluvia ? CLS.lluvia : CLS.debil;
+      d[i] = k[0]; d[i + 1] = k[1]; d[i + 2] = k[2]; d[i + 3] = k[3];
     }
     ctx.putImageData(im, 0, 0);
   } catch (e) { return cnv; }
@@ -692,13 +685,13 @@ async function cargarAnimacion(code, campo, rg, trabajo) {
   S.segData = sd; construirSeguimiento();
   $('a-sl').max = S.frames.length - 1; $('anim').style.display = 'block';
   const u = UMB;
-  $('a-cl').innerHTML = `<span>Lluvia ${u.lluvia}–${u.tormenta} · Tormenta ${u.tormenta}–${u.severa} · Severa ≥${u.severa} dBZ (granizo posible ≥${u.granizo}). Se mantienen los colores de la escala.</span>`;
+  $('a-cl').innerHTML = [['lluvia', `Lluvia ${u.lluvia}–${u.tormenta}`], ['tormenta', `Tormenta ${u.tormenta}–${u.severa}`], ['severa', `Severa ≥${u.severa}`], ['granizo', `Granizo ≥${u.granizo}`]]
+    .map(([k, t]) => `<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;background:rgb(${CLS[k].slice(0, 3)})"></i>${t} dBZ</span>`).join('');
   mostrarFrame(S.frames.length - 1);
 }
 $('a-play').addEventListener('click', () => (S.playing ? pararAnim() : reproducirAnim()));
 $('a-sl').addEventListener('input', e => { pararAnim(); mostrarFrame(+e.target.value); });
-$('a-clas').addEventListener('change', e => { S.filtro = e.target.value; S.clas = S.filtro !== 'todo'; S.frames.forEach(f => { if (f.texC) { gl.deleteTexture(f.texC); f.texC = null; } });
-  $('a-cl').style.display = S.clas ? 'flex' : 'none'; if (S.frames.length) mostrarFrame(S.fi); else pedirDibujo(); });
+$('a-clas').addEventListener('change', e => { S.clas = e.target.checked; $('a-cl').style.display = S.clas ? 'flex' : 'none'; if (S.frames.length) mostrarFrame(S.fi); else pedirDibujo(); });
 $('a-seg').addEventListener('change', e => { S.seguir = e.target.checked; $('a-info').style.display = S.seguir && S.segData && S.segData.celda ? 'block' : 'none'; pedirDibujo(); });
 
 /* ================= Controles ================= */
