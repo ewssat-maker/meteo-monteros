@@ -990,16 +990,24 @@
 
         async function pedirUltimoRadar(code, campo) {
             const qs = `radar_code=${code}&product_key=${campo}&vol_nr=01&vol_nr=02&strategy=0315`;
+            const viejo = d => !d || (Date.now() - new Date(d.observation_time).getTime()) > 90 * 60000;
+            let directo = null;
             try {
                 const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`);
                 if (!r.ok) throw new Error('HTTP ' + r.status);
-                return await r.json();
+                directo = await r.json();
             } catch (errDirecto) {
                 console.warn(`Radar ${code}: consulta directa falló (${errDirecto.message}). Probando backend propio...`);
+            }
+            if (directo && !viejo(directo)) return directo;
+            // sin dato directo, o dato viejo (el radar pudo cambiar de estrategia de barrido): el servidor prueba variantes
+            try {
                 const r2 = await fetch(`${RADAR_PROXY}/${code}/latest?campo=${campo}`);
                 if (!r2.ok) throw new Error('HTTP ' + r2.status);
-                return await r2.json();
-            }
+                const d2 = await r2.json();
+                if (!directo || new Date(d2.observation_time) > new Date(directo.observation_time)) return d2;
+            } catch (e2) { if (!directo) throw e2; }
+            return directo;
         }
 
         function estadoRadar(code, texto, nivel) {
