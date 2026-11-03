@@ -350,11 +350,17 @@ function subirTextura(unidad, cnv, mip, previa) {
 /* ================= Radar ================= */
 async function pedirUltimo(code, campo) {
   const qs = `radar_code=${code}&product_key=${campo}&vol_nr=01&vol_nr=02&strategy=0315`;
-  let reg;
+  const viejo = d => !d || (Date.now() - new Date(d.observation_time).getTime()) > 90 * 60000;
+  let reg = null;
   try {
     const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`); if (!r.ok) throw new Error('HTTP ' + r.status); reg = await r.json();
-  } catch (e) {
-    const r2 = await fetch(`${RADAR_PROXY}/${code}/latest?campo=${campo}`); if (!r2.ok) throw new Error('HTTP ' + r2.status); reg = await r2.json();
+  } catch (e) { reg = null; }
+  if (!reg || viejo(reg)) {        // sin dato directo o dato viejo: el servidor prueba otras variantes de consulta
+    try {
+      const r2 = await fetch(`${RADAR_PROXY}/${code}/latest?campo=${campo}`); if (!r2.ok) throw new Error('HTTP ' + r2.status);
+      const d2 = await r2.json();
+      if (!reg || new Date(d2.observation_time) > new Date(reg.observation_time)) reg = d2;
+    } catch (e) { if (!reg) throw e; }
   }
   if (reg.radar_code !== code || reg.product_key !== campo) throw new Error(`La API devolvió ${reg.radar_code}/${reg.product_key}`);
   return reg;
