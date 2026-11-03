@@ -1049,6 +1049,7 @@
         }
 
         async function cargarRadar(code) {
+            iniciarAnimacion();
             try { await actualizarRadar(code); }
             catch (e) { console.error(`Radar ${code}:`, e); estadoRadar(code, 'No disponible', 'error'); }
             if (RA) RA.sincronizar();
@@ -1143,18 +1144,22 @@
             });
         }
 
+        // El mapa del radar se crea recién al abrir el módulo, por eso la animación se inicia de forma diferida.
+        function iniciarAnimacion() {
+            if (RA || !mapRadar) return;
         try {   // si radar_anim.js no se cargó, el resto del radar (incluida la escala) sigue funcionando
-            RA = RadarAnim.crear({
-                map: mapRadar, pane: 'radarPane', contenedor: document.getElementById('radar-anim'),
-                backend: RADAR_PROXY, webmet: RADAR_WEBMET,
-                activos: () => Object.keys(RADARES).filter(c => RADARES[c].activo),
-                campo: () => RADAR_CAMPO, opacidad: () => radarOpacidad, ocultarSimple
-            });
-        } catch (e) {
-            console.warn('Animación del radar no disponible:', e.message);
-            const c = document.getElementById('radar-anim');
-            if (c) c.innerHTML = '<p style="font-size:11px;color:#fbbf24;line-height:1.4">Animación no disponible: ' +
-                (typeof RadarAnim === 'undefined' ? 'no se encontró radar_anim.js (debe estar en la misma carpeta que esta página; recargá sin caché).' : String(e.message).replace(/[<>&]/g, '')) + '</p>';
+                RA = RadarAnim.crear({
+                    map: mapRadar, pane: 'radarPane', contenedor: document.getElementById('radar-anim'),
+                    backend: RADAR_PROXY, webmet: RADAR_WEBMET,
+                    activos: () => Object.keys(RADARES).filter(c => RADARES[c].activo),
+                    campo: () => RADAR_CAMPO, opacidad: () => radarOpacidad, ocultarSimple
+                });
+            } catch (e) {
+                console.warn('Animación del radar no disponible:', e.message);
+                const c = document.getElementById('radar-anim');
+                if (c) c.innerHTML = '<p style="font-size:11px;color:#fbbf24;line-height:1.4">Animación no disponible: ' +
+                    (typeof RadarAnim === 'undefined' ? 'no se encontró radar_anim.js (debe estar en la misma carpeta que esta página; recargá sin caché).' : String(e.message).replace(/[<>&]/g, '')) + '</p>';
+            }
         }
         setInterval(refrescarRadares, RADAR_REFRESCO_MS);
         construirLeyenda();
