@@ -236,8 +236,12 @@
       const c = mejor.celda, col = COLOR_CLASE[c.clase] || '#f59e0b';
       const filas = [];
       filas.push(`<b style="color:${col}">${esc(mejor.code)} · ${esc(CLASES[c.clase === 'tormenta_severa' ? 'severa' : c.clase].txt)} · ${c.max_dbz} dBZ</b>${c.granizo_posible ? ' <span style="color:#e879f9">· granizo posible</span>' : ''}`);
-      filas.push(`Desplazamiento: <b>${c.velocidad_kmh} km/h</b>, ${esc(c.rumbo_texto)}${c.tendencia ? ' · ' + esc(c.tendencia) : ''}`);
-      filas.push(`<span style="color:#94a3b8">Calculado con ${c.puntos_usados} imágenes · confianza ${esc(c.confianza)}</span>`);
+      if (c.velocidad_kmh === null || c.velocidad_kmh === undefined) {
+        filas.push('Movimiento: todavía no se puede estimar (hacen falta al menos 2 imágenes seguidas).');
+      } else {
+        filas.push(`Desplazamiento: <b>${c.velocidad_kmh} km/h</b>, ${esc(c.rumbo_texto)}${c.tendencia ? ' · ' + esc(c.tendencia) : ''}`);
+        filas.push(`<span style="color:#94a3b8">Calculado con ${c.puntos_usados} imágenes · confianza ${esc(c.confianza)}</span>`);
+      }
       if ((c.podria_alcanzar || []).length) filas.push('Podría alcanzar: ' + c.podria_alcanzar.map(l => `<b>${esc(l.localidad)}</b> (~${l.en_min} min)`).join(', '));
       else if ((c.pronostico || []).length) filas.push('En la próxima hora no se prevé que alcance una localidad de la lista.');
       filas.push(`<span style="color:#94a3b8;font-size:10px">${esc(mejor.s.aviso || '')}</span>`);
