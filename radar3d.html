@@ -673,7 +673,7 @@ function construirSeguimiento() {
   const lleg = (c.podria_alcanzar || []).map(l => `${l.localidad} (~${l.en_min} min)`).join(', ');
   info.style.display = 'block';
   info.innerHTML = `<b style="color:rgb(${col.map(v => Math.round(v * 255))})">${nombre} · ${c.max_dbz} dBZ</b>${c.granizo_posible ? ' · granizo posible' : ''}<br>` +
-    `${c.velocidad_kmh} km/h, ${c.rumbo_texto}${c.tendencia ? ' · ' + c.tendencia : ''} · confianza ${c.confianza}<br>` +
+    (c.velocidad_kmh == null ? 'Movimiento: se necesitan al menos 2 imágenes seguidas.<br>' : `${c.velocidad_kmh} km/h, ${c.rumbo_texto}${c.tendencia ? ' · ' + c.tendencia : ''} · confianza ${c.confianza}<br>`) +
     (lleg ? `Podría alcanzar: ${lleg}<br>` : '') + `<span style="color:#94a3b8;font-size:11px">Estimación orientativa por extrapolación; no reemplaza los avisos oficiales.</span>`;
 }
 async function cargarAnimacion(code, campo, rg, trabajo) {
