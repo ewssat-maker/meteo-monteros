@@ -215,6 +215,7 @@
                 <button id="ctab-tucuman" onclick="cambiarProvinciaCauces('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-blue-500 text-slate-900 shadow transition-all">Tucumán</button>
                 <button id="ctab-salta" onclick="cambiarProvinciaCauces('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
             </div>
+            <p class="text-[9px] text-slate-500 text-center -mt-1.5">Cauces · versión 5-nov (Tucumán y Salta)</p>
 
             <!-- Mapa Selector Hidrológico -->
             <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-blue-500/40 shadow-lg glass-panel z-0">
@@ -744,7 +745,7 @@
             el.classList.remove('hidden');
             el.style.borderLeftColor = a.color;
             const conf = a.valor_confirmado != null ? `${Number(a.valor_confirmado).toFixed(2)} m` : '--';
-            const prox = a.proximo ? `Próximo umbral: ${escHtml(a.proximo.nombre)} ${Number(a.proximo.valor).toFixed(2)} m (faltan ${Number(a.proximo.falta_m).toFixed(2)} m)` : 'Superó el umbral más alto configurado.';
+            const prox = a.proximo ? `Próximo umbral: ${escHtml(a.proximo.nombre)} ${Number(a.proximo.valor).toFixed(2)} m${a.modo === 'subida' && a.nivel_base != null ? ' (+' + (a.proximo.valor - a.nivel_base).toFixed(2) + ' m sobre la base)' : ''} (faltan ${Number(a.proximo.falta_m).toFixed(2)} m)` : 'Superó el umbral más alto configurado.';
             const avisos = (a.aviso || []).map(x => `<li>${escHtml(x)}</li>`).join('');
             el.innerHTML = `
                 <div class="flex items-center justify-between gap-2">
@@ -754,6 +755,11 @@
                 ${a.simulacro ? '<p class="text-[10px] font-black text-white bg-slate-700 rounded px-2 py-0.5 mt-2 inline-block">SIMULACRO · ejercicio de prueba</p>' : (a.origen === 'manual' ? '<p class="text-[10px] font-black text-slate-900 bg-white/90 rounded px-2 py-0.5 mt-2 inline-block">EMITIDA MANUALMENTE</p>' : '')}
                 ${a.mensaje ? `<p class="text-xs text-white font-bold mt-1 leading-snug">${escHtml(a.mensaje)}</p>` : ''}
                 <p class="text-xs text-slate-200 mt-2 leading-snug">${escHtml(a.accion)}</p>
+                ${a.modo === 'subida' && a.nivel_base != null ? `<div class="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                    <div class="bg-slate-900/60 rounded-lg py-1.5"><p class="text-[8px] text-slate-400 uppercase">Nivel base 30 d</p><p class="text-xs font-black text-slate-100">${Number(a.nivel_base).toFixed(2)} m</p></div>
+                    <div class="bg-slate-900/60 rounded-lg py-1.5"><p class="text-[8px] text-slate-400 uppercase">Sobre la base</p><p class="text-xs font-black text-slate-100">${a.sobre_base != null ? (a.sobre_base >= 0 ? '+' : '') + Number(a.sobre_base).toFixed(2) + ' m' : '--'}</p></div>
+                    <div class="bg-slate-900/60 rounded-lg py-1.5"><p class="text-[8px] text-slate-400 uppercase">Velocidad</p><p class="text-xs font-black ${a.subida_rapida ? 'text-amber-300' : 'text-slate-100'}">${a.vel_m_h != null ? (a.vel_m_h >= 0 ? '+' : '') + Number(a.vel_m_h).toFixed(2) + ' m/h' : '--'}</p></div>
+                </div>` : ''}
                 ${(a.estado !== 'sin_datos' && a.estado !== 'sin_umbrales') ? `<p class="text-[10px] text-slate-400 mt-1">${prox}</p>` : ''}
                 ${avisos ? `<ul class="text-[10px] text-amber-300 mt-1.5 list-disc pl-4 space-y-0.5">${avisos}</ul>` : ''}
                 <p class="text-[9px] text-slate-500 mt-2 leading-snug">Herramienta orientativa basada en el historial de la estación; no reemplaza las alertas de Defensa Civil ni de los organismos oficiales.</p>`;
