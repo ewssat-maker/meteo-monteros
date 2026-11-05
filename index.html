@@ -211,6 +211,11 @@
                 <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
             </button>
 
+            <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-blue-500/30 shadow-lg">
+                <button id="ctab-tucuman" onclick="cambiarProvinciaCauces('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-blue-500 text-slate-900 shadow transition-all">Tucumán</button>
+                <button id="ctab-salta" onclick="cambiarProvinciaCauces('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
+            </div>
+
             <!-- Mapa Selector Hidrológico -->
             <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-blue-500/40 shadow-lg glass-panel z-0">
                 <div id="mapaCauces" class="absolute inset-0 bg-[#0a0a0a]"></div>
@@ -442,7 +447,8 @@
         // DATA DE CAUCES DE RÍOS (INA)
         // ==========================================
         // Coordenadas oficiales de cada estación (campo geom de la serie en el INA, red RHN - SAT).
-        const caucesINA = [
+        const caucesData = {
+          tucuman: [
             { id: 33882, lat: -27.5211, lon: -65.2664, txt: "Río Chico - RN Nº157" },
             { id: 32292, lat: -27.4325, lon: -65.2714, txt: "Río Gastona - RN Nº157" },
             { id: 32679, lat: -27.3361, lon: -65.3175, txt: "Río Seco - RN Nº157" },
@@ -453,7 +459,14 @@
             // Estaciones hidrológicas del SNIH (fuente: "SNIH"). Posición aproximada: ajustar si hace falta.
             { id: 10474, fuente: "SNIH", lat: -27.64, lon: -65.25, txt: "La Madrid - Est. 10474" },
             { id: 10419, fuente: "SNIH", lat: -26.20, lon: -65.20, txt: "El Brete - Est. 10419" }
-        ];
+          ],
+          salta: [
+            // Estación SNIH 611 (La Punilla, Río Las Conchas). Posición aproximada: ajustar con la oficial.
+            { id: 611, fuente: "SNIH", lat: -25.70, lon: -65.62, txt: "Las Conchas - La Punilla - Est. 611" }
+          ]
+        };
+        let provCauces = 'tucuman';
+        let caucesINA = caucesData.tucuman;
 
         let estacionActualVal = null;
         let cauceActualVal = null;
@@ -639,7 +652,22 @@
         // ==========================================
         // LÓGICA DE CAUCES DE RÍOS (NUEVO)
         // ==========================================
+        function cambiarProvinciaCauces(prov) {
+            if (!caucesData[prov]) return;
+            provCauces = prov;
+            caucesINA = caucesData[prov];
+            const on = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-blue-500 text-slate-900 shadow transition-all";
+            const off = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
+            document.getElementById('ctab-tucuman').className = prov === 'tucuman' ? on : off;
+            document.getElementById('ctab-salta').className = prov === 'salta' ? on : off;
+            cauceActualVal = null;
+            limpiarPanelCauce();
+            cargarCauces();
+        }
+
         function cargarCauces() {
+            caucesMarkers.forEach(item => { try { mapCauces.removeLayer(item.marker); } catch (e) { } });
+            caucesMarkers = [];
             let bounds = L.latLngBounds();
             caucesINA.forEach((cauce, index) => {
                 const marker = L.circleMarker([cauce.lat, cauce.lon], { radius: 7, fillColor: '#22d3ee', color: "#ffffff", weight: 2, fillOpacity: 0.8 }).addTo(mapCauces);
@@ -652,7 +680,7 @@
                 if(index === 0) seleccionarCauce(cauce, marker, true);
             });
             if(caucesMarkers.length > 0) {
-                try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e) {}
+                try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: caucesINA.length === 1 ? 10 : 8}); } catch(e) {}
             }
         }
 
@@ -726,7 +754,7 @@
                 ${a.simulacro ? '<p class="text-[10px] font-black text-white bg-slate-700 rounded px-2 py-0.5 mt-2 inline-block">SIMULACRO · ejercicio de prueba</p>' : (a.origen === 'manual' ? '<p class="text-[10px] font-black text-slate-900 bg-white/90 rounded px-2 py-0.5 mt-2 inline-block">EMITIDA MANUALMENTE</p>' : '')}
                 ${a.mensaje ? `<p class="text-xs text-white font-bold mt-1 leading-snug">${escHtml(a.mensaje)}</p>` : ''}
                 <p class="text-xs text-slate-200 mt-2 leading-snug">${escHtml(a.accion)}</p>
-                ${a.estado !== 'sin_datos' ? `<p class="text-[10px] text-slate-400 mt-1">${prox}</p>` : ''}
+                ${(a.estado !== 'sin_datos' && a.estado !== 'sin_umbrales') ? `<p class="text-[10px] text-slate-400 mt-1">${prox}</p>` : ''}
                 ${avisos ? `<ul class="text-[10px] text-amber-300 mt-1.5 list-disc pl-4 space-y-0.5">${avisos}</ul>` : ''}
                 <p class="text-[9px] text-slate-500 mt-2 leading-snug">Herramienta orientativa basada en el historial de la estación; no reemplaza las alertas de Defensa Civil ni de los organismos oficiales.</p>`;
         }
@@ -842,7 +870,7 @@
             rango.textContent = `Máx ${vmax.toFixed(2)} · Mín ${vmin.toFixed(2)} m`;
             pie.textContent = defNiveles.length
                 ? (defUmbrales.length ? 'Umbrales orientativos: ' : 'Niveles INA: ') + defNiveles.map(n => `${n.nombre} ${n.valor.toFixed(2)} m`).join(' · ')
-                : 'El INA no informa niveles de alerta para esta estación. Tocá el gráfico para ver cada valor.';
+                : 'Esta estación todavía no tiene niveles de alerta definidos. Tocá el gráfico para ver cada valor.';
         }
 
         async function fetchCauceData(seriesId, fuente) {
@@ -940,7 +968,7 @@
                     if(caucesMarkers.length > 0) {
                         let bounds = L.latLngBounds();
                         caucesMarkers.forEach(item => bounds.extend(item.marker.getLatLng()));
-                        try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e){}
+                        try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: caucesMarkers.length === 1 ? 10 : 8}); } catch(e){}
                     }
                 }
                 if(idVista === 'vista-radar' && mapRadar) { mapRadar.invalidateSize(); refrescarRadares(); }
