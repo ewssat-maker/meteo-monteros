@@ -54,17 +54,17 @@
         </div>
         <div data-ra="estado" style="font-size:10px;color:#94a3b8;margin-top:3px"></div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:#e2e8f0">
-          <label style="display:flex;align-items:center;gap:5px">Mostrar
+          <label data-ra="clasw" style="display:flex;align-items:center;gap:5px">Mostrar
             <select data-ra="clas" style="background:#0f172a;color:#e2e8f0;border:1px solid #0ea5e9;border-radius:6px;padding:2px 4px;font-size:11px">
               <option value="todo">Todo</option><option value="lluvia">Solo lluvia</option><option value="tormenta">Solo tormenta</option><option value="severa">Solo tormenta severa</option>
             </select></label>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input data-ra="seg" type="checkbox" checked style="accent-color:#0ea5e9"> Seguir la celda más intensa</label>
+          <label data-ra="segw" style="display:flex;align-items:center;gap:5px;cursor:pointer"><input data-ra="seg" type="checkbox" checked style="accent-color:#0ea5e9"> Seguir la celda más intensa</label>
         </div>
         <div data-ra="leyenda" style="display:none;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:10px;color:#cbd5e1"></div>
         <div data-ra="panel" style="display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(15,23,42,.75);border:1px solid rgba(245,158,11,.4);font-size:11px;line-height:1.45;color:#e2e8f0"></div>
       </div>`;
     const q = k => raiz.querySelector(`[data-ra="${k}"]`);
-    const ui = { play: q('play'), slider: q('slider'), hora: q('hora'), estado: q('estado'), clas: q('clas'), seg: q('seg'), leyenda: q('leyenda'), panel: q('panel') };
+    const ui = { clasw: q('clasw'), segw: q('segw'), play: q('play'), slider: q('slider'), hora: q('hora'), estado: q('estado'), clas: q('clas'), seg: q('seg'), leyenda: q('leyenda'), panel: q('panel') };
 
     // ---------- utilidades ----------
     const activos = () => (cfg.activos() || []).filter(c => E.hist[c] && E.hist[c].obs.length);
@@ -261,6 +261,15 @@
     async function sincronizar() {
       const ver = ++E.ver;
       const lista = cfg.activos() || [], campo = cfg.campo();
+      // Clasificación por dBZ y seguimiento de celdas solo valen para los campos de reflectividad (COLMAX, Z@0.5);
+      // con ZDR/KDP se muestra la animación con los colores originales de WebMet.
+      const esDbz = campo === 'COLMAX' || campo === 'DBZH';
+      ui.clasw.style.display = esDbz ? 'flex' : 'none';
+      ui.segw.style.display = esDbz ? 'flex' : 'none';
+      if (!esDbz) {
+        if (E.clasificar) { E.filtro = 'todo'; E.clasificar = false; ui.clas.value = 'todo'; quitarClases(); leyendaClases(); }
+        E.seg = {};
+      }
       // apaga lo de radares que ya no están activos
       Object.keys(E.capas).forEach(code => { if (!lista.includes(code)) { limpiarCapas(code); delete E.hist[code]; delete E.seg[code]; cfg.ocultarSimple(code, false); } });
       await Promise.all(lista.map(async code => {
@@ -275,7 +284,7 @@
           }
           cfg.ocultarSimple(code, h.observaciones.length >= 2);
         } catch (e) { console.warn('Radar animación', code, e.message); cfg.ocultarSimple(code, false); }
-        try { const s = await json(`${cfg.backend}/${code}/seguimiento`); if (ver === E.ver) E.seg[code] = s; } catch (e) { /* sin seguimiento */ }
+        if (esDbz) try { const s = await json(`${cfg.backend}/${code}/seguimiento`); if (ver === E.ver) E.seg[code] = s; } catch (e) { /* sin seguimiento */ }
       }));
       if (ver !== E.ver) return;
       const n = maxBack();
