@@ -309,6 +309,8 @@
                     <div class="grid grid-cols-2 gap-1 bg-slate-900/80 p-1 rounded-lg border border-sky-500/30">
                         <button id="btn-campo-COLMAX" onclick="cambiarCampoRadar('COLMAX')" class="py-2 text-[11px] uppercase tracking-wide rounded-md bg-sky-500 text-slate-900 font-black transition-all">Máx. columna</button>
                         <button id="btn-campo-DBZH" onclick="cambiarCampoRadar('DBZH')" class="py-2 text-[11px] uppercase tracking-wide rounded-md text-slate-400 font-bold transition-all">Z @ 0,5°</button>
+                        <button id="btn-campo-ZDR" onclick="cambiarCampoRadar('ZDR')" class="py-2 text-[11px] uppercase tracking-wide rounded-md text-slate-400 font-bold transition-all">ZDR @ 0,5°</button>
+                        <button id="btn-campo-KDP" onclick="cambiarCampoRadar('KDP')" class="py-2 text-[11px] uppercase tracking-wide rounded-md text-slate-400 font-bold transition-all">KDP @ 0,5°</button>
                     </div>
                     <p id="radar-campo-desc" class="text-[10px] leading-snug text-slate-400 mt-1.5"></p>
                 </div>
@@ -333,6 +335,7 @@
                     <span id="rad-leyenda-titulo" class="text-[10px] font-black tracking-widest text-sky-400 uppercase">Reflectividad · dBZ</span>
                     <span class="text-[9px] text-slate-500">escala WebMet</span>
                 </div>
+                <p id="rad-leyenda-nota" class="hidden text-[10px] leading-snug text-slate-300"></p>
                 <div id="rad-leyenda-barra" class="h-3 rounded-sm border border-slate-600"></div>
                 <div id="rad-leyenda-marcas" class="relative h-4 mt-0.5 text-[9px] font-mono text-slate-300"></div>
             </div>
@@ -1013,6 +1016,16 @@
             DBZH: {
                 leyenda: 'Z@0.5° · dBZ',
                 descripcion: 'Reflectividad a 0,5° de elevación (Z@0.5): el barrido más cercano al suelo.'
+            },
+            ZDR: {
+                dbz: false, leyenda: 'ZDR @ 0,5° · dB',
+                descripcion: 'Reflectividad diferencial (ZDR): forma de las gotas. Valores altos = gotas grandes y achatadas (lluvia intensa); cerca de 0 con eco fuerte puede indicar granizo.',
+                nota: 'Los colores siguen la escala de WebMet para ZDR (dB). Positivo y alto: gotas grandes; cerca de 0: partículas redondas (granizo, nieve).'
+            },
+            KDP: {
+                dbz: false, leyenda: 'KDP @ 0,5° · °/km',
+                descripcion: 'Fase diferencial específica (KDP): cantidad de agua líquida en el camino del haz. Sirve para estimar lluvia intensa y no se atenúa tanto con el granizo.',
+                nota: 'Los colores siguen la escala de WebMet para KDP (°/km). Valores altos: mucha agua líquida (lluvia muy intensa).'
             }
         };
         let RADAR_CAMPO = 'COLMAX';
@@ -1035,7 +1048,9 @@
             const qs = `radar_code=${code}&product_key=${campo}&vol_nr=01&vol_nr=02&strategy=0315`;
             const viejo = d => !d || (Date.now() - new Date(d.observation_time).getTime()) > 90 * 60000;
             let directo = null;
-            try {
+            // ZDR y KDP: el nombre exacto del campo lo resuelve el servidor propio (no se consulta directo)
+            const soloProxy = CAMPOS_RADAR[campo] && CAMPOS_RADAR[campo].dbz === false;
+            if (!soloProxy) try {
                 const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`);
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 directo = await r.json();
@@ -1186,6 +1201,12 @@
             el.classList.toggle('hidden', !algunoActivo);
             document.getElementById('rad-leyenda-titulo').textContent = CAMPOS_RADAR[RADAR_CAMPO].leyenda;
             document.getElementById('radar-campo-desc').textContent = CAMPOS_RADAR[RADAR_CAMPO].descripcion;
+            const esDbz = CAMPOS_RADAR[RADAR_CAMPO].dbz !== false;      // ZDR/KDP no usan la escala dBZ: se muestra una nota
+            const nota = document.getElementById('rad-leyenda-nota');
+            nota.textContent = CAMPOS_RADAR[RADAR_CAMPO].nota || '';
+            nota.classList.toggle('hidden', esDbz);
+            document.getElementById('rad-leyenda-barra').classList.toggle('hidden', !esDbz);
+            document.getElementById('rad-leyenda-marcas').classList.toggle('hidden', !esDbz);
             // Botones de las dos vistas
             Object.keys(CAMPOS_RADAR).forEach(k => {
                 const b = document.getElementById(`btn-campo-${k}`);
