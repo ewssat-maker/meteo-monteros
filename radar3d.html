@@ -55,6 +55,8 @@
     <select id="sel-campo">
       <option value="COLMAX">Máx. columna (COLMAX)</option>
       <option value="DBZH">Z @ 0,5°</option>
+      <option value="ZDR">ZDR @ 0,5° (forma de gotas)</option>
+      <option value="KDP">KDP @ 0,5° (agua líquida)</option>
     </select>
   </label>
   <label>Zona
@@ -99,6 +101,7 @@
   </div>
   <div id="leyenda">
     <div id="titulo-leyenda"></div>
+    <div id="leg-nota" style="display:none;font-size:11px;line-height:1.35;color:#cbd5e1;max-width:260px"></div>
     <div class="barra" id="leg-barra"></div>
     <div class="marcas" id="leg-marcas"></div>
   </div>
@@ -145,8 +148,17 @@ const CIUDADES = [
 ];
 const LEYENDA = {
   COLMAX: 'Máx. de columna · dBZ',
-  DBZH: 'Z @ 0,5° · dBZ'
+  DBZH: 'Z @ 0,5° · dBZ',
+  ZDR: 'ZDR @ 0,5° · dB',
+  KDP: 'KDP @ 0,5° · °/km'
 };
+const NOMBRE_CAMPO = { COLMAX: 'Máx. columna', DBZH: 'Z @ 0,5°', ZDR: 'ZDR @ 0,5°', KDP: 'KDP @ 0,5°' };
+// ZDR y KDP no están en dBZ: se dibujan con los colores de WebMet (sin escala propia, clasificación ni seguimiento de celdas).
+const NOTA_CAMPO = {
+  ZDR: 'Colores según la escala de WebMet (dB). Alto: gotas grandes (lluvia intensa); cerca de 0 con eco fuerte: posible granizo.',
+  KDP: 'Colores según la escala de WebMet (°/km). Valores altos: mucha agua líquida (lluvia muy intensa).'
+};
+const esDbz = campo => campo === 'COLMAX' || campo === 'DBZH';
 // Misma escala que el módulo de radar del index (10–70 dBZ)
 const PALETA = [[10,'#439cb3'],[12.5,'#3be580'],[15,'#37dd70'],[17.5,'#2ccc64'],[20,'#22bd5a'],[22.5,'#16ae50'],[25,'#10a144'],[27.5,'#54bc2e'],[30,'#93d61b'],[32.5,'#cbdf0b'],[35,'#f4b701'],[37.5,'#e66003'],[40,'#c72503'],[42.5,'#960701'],[45,'#5d0313'],[47.5,'#650056'],[50,'#9f0089'],[52.5,'#68005b'],[55,'#18586e'],[57.5,'#00c4c4'],[60,'#086a6a'],[62.5,'#7a9e9e'],[65,'#a0a4a4'],[67.5,'#545454'],[70,'#636369']];
 
@@ -352,7 +364,7 @@ async function pedirUltimo(code, campo) {
   const qs = `radar_code=${code}&product_key=${campo}&vol_nr=01&vol_nr=02&strategy=0315`;
   const viejo = d => !d || (Date.now() - new Date(d.observation_time).getTime()) > 90 * 60000;
   let reg = null;
-  try {
+  if (esDbz(campo)) try {        // ZDR/KDP: el servidor propio resuelve el nombre exacto del campo
     const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`); if (!r.ok) throw new Error('HTTP ' + r.status); reg = await r.json();
   } catch (e) { reg = null; }
   if (!reg || viejo(reg)) {        // sin dato directo o dato viejo: el servidor prueba otras variantes de consulta
@@ -536,7 +548,10 @@ function actualizarLeyenda() {
     const pos = (v - min) / (max - min) * 100, t = document.createElement('span'); t.textContent = v; t.style.left = pos + '%';
     t.style.transform = pos === 0 ? 'none' : (pos === 100 ? 'translateX(-100%)' : 'translateX(-50%)'); marcas.appendChild(t);
   }
-  $('titulo-leyenda').textContent = LEYENDA[$('sel-campo').value];
+  const campo = $('sel-campo').value, dbz = esDbz(campo);
+  $('titulo-leyenda').textContent = LEYENDA[campo];
+  $('leg-barra').style.display = dbz ? '' : 'none'; $('leg-marcas').style.display = dbz ? '' : 'none';
+  $('leg-nota').style.display = dbz ? 'none' : 'block'; $('leg-nota').textContent = NOTA_CAMPO[campo] || '';
 }
 
 function ajustarCamara(rg, zona) {
@@ -574,7 +589,7 @@ async function cargarTodo(completo) {
     S.texUlt = subirTextura(1, rad.cnv, false, S.texUlt); S.texRadar = S.texUlt;
     S.reg = reg; construirLineas(reg, rg); construirEtiquetas(reg, rg);
     const e = textoEdad(reg.observation_time);
-    $('estado').textContent = `${code} · ${campo === 'COLMAX' ? 'Máx. columna' : 'Z @ 0,5°'} · ${e.t}` + (rad.total && !rad.ok ? ' · sin imagen de radar en esta zona' : '');
+    $('estado').textContent = `${code} · ${NOMBRE_CAMPO[campo] || campo} · ${e.t}` + (rad.total && !rad.ok ? ' · sin imagen de radar en esta zona' : '');
     $('estado').style.color = e.atras ? '#fbbf24' : '';
     if (!rg.baseOk) $('estado').textContent += ' · sin imagen satelital (se usa el relieve)';
     actualizarLeyenda(); pedirDibujo();
@@ -693,7 +708,10 @@ async function cargarAnimacion(code, campo, rg, trabajo) {
     $('a-info').style.display = 'block'; $('a-info').style.borderColor = 'rgba(148,163,184,.4)';
     $('a-info').textContent = 'No se pudo consultar el historial del servidor (' + String(e.message).slice(0, 60) + '). Verificá que el servidor tenga desplegado el módulo de radar nuevo.'; return;
   }
-  try { sd = await (await fetch(`${RADAR_PROXY}/${code}/seguimiento`)).json(); } catch (e) { /* sin seguimiento */ }
+  const dbz = esDbz(campo);
+  $('a-clas').parentElement.style.display = dbz ? '' : 'none'; $('a-seg').parentElement.style.display = dbz ? '' : 'none';
+  if (!dbz && S.clas) { S.filtro = 'todo'; S.clas = false; $('a-clas').value = 'todo'; S.frames.forEach(f => { if (f.texC) { gl.deleteTexture(f.texC); f.texC = null; } }); }
+  if (dbz) try { sd = await (await fetch(`${RADAR_PROXY}/${code}/seguimiento`)).json(); } catch (e) { /* sin seguimiento */ }
   try { const u = await (await fetch(`${RADAR_PROXY}/umbrales`)).json(); UMB = { lluvia: u.lluvia.desde_dbz, tormenta: u.tormenta.desde_dbz, severa: u.tormenta_severa.desde_dbz, granizo: u.granizo_posible_desde_dbz }; } catch (e) { }
   if (trabajo !== S.trabajo) return;
   const obs = h.observaciones || [];
@@ -711,7 +729,8 @@ async function cargarAnimacion(code, campo, rg, trabajo) {
   S.segData = sd; construirSeguimiento();
   $('a-sl').max = S.frames.length - 1; $('anim').style.display = 'block';
   const u = UMB;
-  $('a-cl').innerHTML = `<span>Lluvia ${u.lluvia}–${u.tormenta} · Tormenta ${u.tormenta}–${u.severa} · Severa ≥${u.severa} dBZ (granizo posible ≥${u.granizo}). Se mantienen los colores de la escala.</span>`;
+  if (!dbz) { $('a-cl').style.display = 'none'; S.segData = null; $('a-info').style.display = 'none'; }
+  else $('a-cl').innerHTML = `<span>Lluvia ${u.lluvia}–${u.tormenta} · Tormenta ${u.tormenta}–${u.severa} · Severa ≥${u.severa} dBZ (granizo posible ≥${u.granizo}). Se mantienen los colores de la escala.</span>`;
   mostrarFrame(S.frames.length - 1);
 }
 $('a-play').addEventListener('click', () => (S.playing ? pararAnim() : reproducirAnim()));
