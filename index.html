@@ -52,6 +52,57 @@
         .leaflet-popup-tip { background: #0f172a; }
         .fade-in { animation: fadeIn 0.4s ease forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== Panel de control: movimiento sutil (solo transform/opacity; se desactiva con "reducir movimiento") ===== */
+        /* 1) Entrada escalonada de las tarjetas, una sola vez cada vez que se abre el panel */
+        #vista-menu.fade-in { animation: none; }
+        #vista-menu > .menu-card { animation: tarjetaEntra .55s cubic-bezier(.2,.8,.2,1) backwards; }   /* backwards: al terminar vuelve al estilo normal (hover y toque siguen funcionando) */
+        #vista-menu > .menu-card:nth-child(1) { animation-delay: .04s; }
+        #vista-menu > .menu-card:nth-child(2) { animation-delay: .12s; }
+        #vista-menu > .menu-card:nth-child(3) { animation-delay: .20s; }
+        #vista-menu > .menu-card:nth-child(4) { animation-delay: .28s; }
+        #vista-menu > .menu-card:nth-child(5) { animation-delay: .36s; }
+        @keyframes tarjetaEntra { from { opacity: 0; transform: translateX(-18px) scale(.985); } to { opacity: 1; transform: none; } }
+        /* 2) Cada ícono tiene un gesto propio, acorde a lo que mide */
+        #vista-menu > .menu-card > div:first-child { position: relative; }
+        #vista-menu > .menu-card > div:first-child > i { display: inline-block; will-change: transform; }
+        #vista-menu > .menu-card:nth-child(1) > div:first-child > i { animation: icoOscila 4.2s ease-in-out 1s infinite; transform-origin: 50% 70%; }   /* antena */
+        #vista-menu > .menu-card:nth-child(2) > div:first-child > i { animation: icoOla 3.4s ease-in-out 1.2s infinite; }                              /* agua */
+        #vista-menu > .menu-card:nth-child(4) > div:first-child > i { animation: icoFlota 5s ease-in-out 1.4s infinite; }                              /* relieve */
+        #vista-menu > .menu-card:nth-child(5) > div:first-child > i { animation: icoLatido 3.6s ease-in-out 1.6s infinite; }                           /* pronóstico */
+        @keyframes icoOscila { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+        @keyframes icoOla { 0%, 100% { transform: translateY(1.5px); } 50% { transform: translateY(-2.5px); } }
+        @keyframes icoFlota { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-3px); } }
+        @keyframes icoLatido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        /* 3) Señal "en vivo": un aro que se expande y se desvanece detrás del ícono (Tiempo Real, Cauces) */
+        #vista-menu > .menu-card:nth-child(-n+2) > div:first-child::after {
+            content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1.5px solid currentColor; opacity: 0; pointer-events: none;
+            animation: aroVivo 3.6s ease-out 1.5s infinite; }
+        #vista-menu > .menu-card:nth-child(2) > div:first-child::after { animation-delay: 2.7s; }
+        @keyframes aroVivo { 0% { opacity: .55; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.38); } }
+        /* 4) Radar: barrido giratorio dentro del ícono */
+        #vista-menu > .menu-card:nth-child(3) > div:first-child { overflow: hidden; }
+        #vista-menu > .menu-card:nth-child(3) > div:first-child::before {
+            content: ''; position: absolute; inset: -40%; pointer-events: none;
+            background: conic-gradient(from 0deg, transparent 0 78%, rgba(56, 189, 248, .38) 96%, transparent 100%);
+            animation: barrido 3.2s linear infinite; }
+        @keyframes barrido { to { transform: rotate(360deg); } }
+        /* 5) Respuesta al tocar / pasar el cursor */
+        .menu-card { transition: transform .25s ease, box-shadow .3s ease, border-color .3s ease; }
+        @media (hover: hover) { .menu-card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -8px rgba(16, 185, 129, .28); } }
+        /* 6) Encabezado: línea de luz que recorre el borde inferior (la app está "viva") */
+        header.glass-panel { position: sticky; overflow: hidden; }
+        header.glass-panel::after {
+            content: ''; position: absolute; left: 0; bottom: 0; height: 2px; width: 38%;
+            background: linear-gradient(90deg, transparent, rgba(52, 211, 153, .85), transparent);
+            animation: lineaLuz 5.5s ease-in-out infinite; pointer-events: none; }
+        @keyframes lineaLuz { 0% { transform: translateX(-100%); } 100% { transform: translateX(270%); } }
+        @media (prefers-reduced-motion: reduce) {
+            #vista-menu > .menu-card, #vista-menu > .menu-card * , #vista-menu > .menu-card > div:first-child::before,
+            #vista-menu > .menu-card > div:first-child::after, header.glass-panel::after { animation: none !important; }
+            #vista-menu > .menu-card { opacity: 1; }
+            .menu-card:hover { transform: none; }
+        }
     </style>
 </head>
 <body class="text-slate-100 font-sans antialiased flex flex-col min-h-screen">
