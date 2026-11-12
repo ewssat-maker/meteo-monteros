@@ -4,8 +4,12 @@
   var API = (window.METRIC_BACKEND || "https://metricmoisture-backend.onrender.com") + "/api/lluvia";
   // Cartel de diagnóstico (arriba a la izquierda): dice en qué paso está el script. Se borra solo cuando todo salió bien.
   var cartel = null;
+  // Silencioso por defecto (solo consola). Para ver el cartel: agregar ?lluviadebug=1 a la dirección de Live.
+  var DEBUG = /[?&]lluviadebug=1/.test(location.search);
   function diag(texto, error) {
     try {
+      if (window.console) (error ? console.warn : console.debug)("Lluvia: " + texto);
+      if (!DEBUG) return;
       if (!cartel) {
         cartel = document.createElement("div");
         cartel.style.cssText = "position:fixed;top:4px;left:4px;z-index:99999;font:11px/1.3 system-ui,sans-serif;padding:3px 7px;border-radius:6px;max-width:80vw;pointer-events:none";
