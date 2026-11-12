@@ -2,6 +2,24 @@
 (function () {
   "use strict";
   var API = (window.METRIC_BACKEND || "https://metricmoisture-backend.onrender.com") + "/api/lluvia";
+  // Cartel de diagnóstico (arriba a la izquierda): dice en qué paso está el script. Se borra solo cuando todo salió bien.
+  var cartel = null;
+  function diag(texto, error) {
+    try {
+      if (!cartel) {
+        cartel = document.createElement("div");
+        cartel.style.cssText = "position:fixed;top:4px;left:4px;z-index:99999;font:11px/1.3 system-ui,sans-serif;padding:3px 7px;border-radius:6px;max-width:80vw;pointer-events:none";
+        (document.body || document.documentElement).appendChild(cartel);
+      }
+      cartel.style.background = error ? "#b42318" : "#0b6b3a";
+      cartel.style.color = "#fff";
+      cartel.textContent = "Lluvia: " + texto;
+    } catch (e) {}
+  }
+  function quitarCartel(ms) { setTimeout(function () { try { if (cartel) cartel.remove(); cartel = null; } catch (e) {} }, ms); }
+  window.addEventListener("error", function (ev) {
+    if (ev && ev.filename && /lluvia_live/.test(ev.filename)) diag("error de script: " + ev.message, true);
+  });
   var estado = { overlay: null, marcas: null, horas: 24, activo: false, datos: null, timer: null };
 
   // En index.html el mapa es `let mapRadar` (no cuelga de window) y se crea recién al abrir la vista de radar: se consulta por nombre y se espera sin límite.
@@ -10,9 +28,17 @@
     return window.mapRadar || null;
   }
 
+  var intentos = 0;
   function esperarMapa() {
     var m = buscarMapa();
-    if (m && window.L && m.addLayer) return iniciar(m);
+    if (m && window.L && m.addLayer) {
+      diag("mapa encontrado, creando control…");
+      try { iniciar(m); diag("control listo (arriba a la derecha del mapa)"); quitarCartel(6000); }
+      catch (e) { diag("no se pudo crear el control: " + (e && e.message), true); }
+      return;
+    }
+    intentos++;
+    diag("script cargado, esperando el mapa de radar" + (window.L ? "" : " (Leaflet no está)") + " · abrí la vista de radar (" + intentos + ")");
     setTimeout(esperarMapa, 1000);
   }
 
@@ -117,5 +143,5 @@
     }).catch(function () {});
   }
 
-  try { esperarMapa(); } catch (e) { /* sin efecto sobre la página */ }
+  try { diag("script cargado"); esperarMapa(); } catch (e) { diag("error al iniciar: " + (e && e.message), true); }
 })();
