@@ -28,6 +28,15 @@
     if (isNaN(d)) return '--:--';
     return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' });
   }
+  // Geometría simple en km (sirve para decenas/cientos de km): rumbo entre dos puntos y desplazamiento de un punto en un rumbo.
+  function rumbo(a, b) {
+    const dy = b[0] - a[0], dx = (b[1] - a[1]) * Math.cos((a[0] + b[0]) / 2 * Math.PI / 180);
+    return (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+  }
+  function desplazar(p, grados, km) {
+    const r = grados * Math.PI / 180;
+    return [p[0] + km * Math.cos(r) / 111.32, p[1] + km * Math.sin(r) / (111.32 * Math.cos(p[0] * Math.PI / 180))];
+  }
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   function crear(cfg) {
@@ -212,21 +221,45 @@
         if (s.celda && (!mejor || s.celda.max_dbz > mejor.celda.max_dbz)) mejor = { code, celda: s.celda, s };
         if (!s.celda) return;
         const c = s.celda, col = COLOR_CLASE[c.clase] || '#f59e0b';
+        // ---- trayectoria recorrida (con borde oscuro para que se lea sobre cualquier fondo) ----
         const pts = c.trayectoria.map(p => [p.lat, p.lon]);
-        if (pts.length > 1) L.polyline(pts, { color: '#fff', weight: 3, opacity: .9 }).addTo(E.overlay);
-        c.trayectoria.forEach((p, i) => L.circleMarker([p.lat, p.lon], { radius: i === c.trayectoria.length - 1 ? 0 : 3, color: '#fff', weight: 1, fillColor: col, fillOpacity: 1 })
+        if (pts.length > 1) {
+          L.polyline(pts, { color: '#0f172a', weight: 8, opacity: .55, interactive: false }).addTo(E.overlay);
+          L.polyline(pts, { color: '#ffffff', weight: 4, opacity: 1, interactive: false }).addTo(E.overlay);
+        }
+        c.trayectoria.forEach((p, i) => L.circleMarker([p.lat, p.lon], { radius: i === c.trayectoria.length - 1 ? 0 : 4, color: '#0f172a', weight: 2, fillColor: '#fff', fillOpacity: 1 })
           .bindTooltip(`${hora(p.hora)} · ${p.max_dbz} dBZ`).addTo(E.overlay));
+        // ---- zona de influencia: el núcleo de la tormenta hoy y una franja que se ensancha con la incertidumbre del pronóstico ----
+        const r0 = Math.max(4, Math.sqrt((c.area_km2 || 30) / Math.PI));            // radio equivalente del núcleo (km)
         const fut = [[c.lat, c.lon]].concat((c.pronostico || []).map(p => [p.lat, p.lon]));
-        if (fut.length > 1) L.polyline(fut, { color: col, weight: 3, dashArray: '7 6', opacity: .95 }).addTo(E.overlay);
+        const anchos = [r0].concat((c.pronostico || []).map(p => r0 + (p.incertidumbre_km || 0)));
+        if (fut.length > 1) {
+          const izq = [], der = [];
+          fut.forEach((p, i) => {
+            const a = fut[Math.max(0, i - 1)], b = fut[Math.min(fut.length - 1, i + 1)];
+            const rb = rumbo(a, b);
+            izq.push(desplazar(p, rb - 90, anchos[i])); der.push(desplazar(p, rb + 90, anchos[i]));
+          });
+          L.polygon(izq.concat(der.reverse()), { color: col, weight: 2, opacity: .85, dashArray: '8 6', fillColor: col, fillOpacity: .22, interactive: false }).addTo(E.overlay);
+          const fin = fut[fut.length - 1];
+          L.circle(fin, { radius: anchos[anchos.length - 1] * 1000, color: col, weight: 2, opacity: .85, dashArray: '8 6', fillColor: col, fillOpacity: .12, interactive: false }).addTo(E.overlay);
+          // ---- trayectoria prevista, con flecha en la punta ----
+          L.polyline(fut, { color: '#0f172a', weight: 9, opacity: .6, interactive: false }).addTo(E.overlay);
+          L.polyline(fut, { color: col, weight: 5, dashArray: '10 7', opacity: 1, interactive: false }).addTo(E.overlay);
+          const rf = rumbo(fut[fut.length - 2], fin);
+          L.marker(fin, { interactive: false, icon: L.divIcon({ className: '', iconSize: [0, 0],
+            html: `<svg width="34" height="34" viewBox="-17 -17 34 34" style="position:absolute;left:-17px;top:-17px;transform:rotate(${rf}deg);filter:drop-shadow(0 1px 3px #000a)"><path d="M0,-15 L11,11 L0,5 L-11,11 Z" fill="${col}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>` }) }).addTo(E.overlay);
+        }
+        // núcleo actual: área aproximada de la celda
+        L.circle([c.lat, c.lon], { radius: r0 * 1000, color: col, weight: 3, opacity: 1, fillColor: col, fillOpacity: .30, interactive: false }).addTo(E.overlay);
         (c.pronostico || []).forEach(p => {
-          L.circle([p.lat, p.lon], { radius: p.incertidumbre_km * 1000, color: col, weight: 1, fillColor: col, fillOpacity: .12, dashArray: '3 4' }).addTo(E.overlay);
           L.marker([p.lat, p.lon], { icon: L.divIcon({ className: '', iconSize: [0, 0],
-            html: `<span style="position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font:800 10px system-ui;color:#fff;background:${col};padding:1px 5px;border-radius:8px;box-shadow:0 1px 3px #0008">+${p.min}′</span>` }),
+            html: `<span style="position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font:800 12px system-ui;color:#fff;background:${col};padding:2px 7px;border-radius:9px;border:2px solid #fff;box-shadow:0 1px 4px #000a">+${p.min}′</span>` }),
             interactive: false }).addTo(E.overlay);
         });
         L.marker([c.lat, c.lon], { icon: L.divIcon({ className: '', iconSize: [0, 0],
-          html: `<span style="position:absolute;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;border:3px solid #fff;background:${col};box-shadow:0 0 0 4px ${col}55,0 0 12px #000a;display:block"></span>` }) })
-          .bindTooltip(`${CLASES[c.clase === 'tormenta_severa' ? 'severa' : c.clase].txt} · ${c.max_dbz} dBZ`).addTo(E.overlay);
+          html: `<span style="position:absolute;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;border:3px solid #fff;background:${col};box-shadow:0 0 0 5px ${col}66,0 0 14px #000b;display:block"></span>` }) })
+          .bindTooltip(`${CLASES[c.clase === 'tormenta_severa' ? 'severa' : c.clase].txt} · ${c.max_dbz} dBZ · núcleo ≈ ${Math.round(c.area_km2 || 0)} km²`).addTo(E.overlay);
       });
       if (!mejor) {
         const msg = activos().map(c => E.seg[c] && E.seg[c].mensaje).filter(Boolean)[0];
@@ -242,6 +275,7 @@
         filas.push(`Desplazamiento: <b>${c.velocidad_kmh} km/h</b>, ${esc(c.rumbo_texto)}${c.tendencia ? ' · ' + esc(c.tendencia) : ''}`);
         filas.push(`<span style="color:#94a3b8">Calculado con ${c.puntos_usados} imágenes · confianza ${esc(c.confianza)}</span>`);
       }
+      if (c.area_km2) filas.push(`Núcleo de la celda: ≈ <b>${Math.round(c.area_km2)} km²</b>. La franja punteada marca por dónde podría pasar (se ensancha con la incertidumbre).`);
       if ((c.podria_alcanzar || []).length) filas.push('Podría alcanzar: ' + c.podria_alcanzar.map(l => `<b>${esc(l.localidad)}</b> (~${l.en_min} min)`).join(', '));
       else if ((c.pronostico || []).length) filas.push('En la próxima hora no se prevé que alcance una localidad de la lista.');
       filas.push(`<span style="color:#94a3b8;font-size:10px">${esc(mejor.s.aviso || '')}</span>`);
