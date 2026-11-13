@@ -38,6 +38,7 @@
   #msg.on { display:flex; }
   #cargando { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6; padding:10px 14px; display:none; }
   #cargando.on { display:block; }
+  body.con-lluvia #anim, body.con-lluvia #nota { display:none !important; }
 </style>
 </head>
 <body>
@@ -77,6 +78,8 @@
     <select id="sel-base" style="flex:1"><option value="sat">Satélite</option><option value="rel">Relieve (colores)</option></select></div>
   <div class="fila"><span>Anillos</span><input id="chk-anillos" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Nombres</span><input id="chk-etq" type="checkbox" checked style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Lluvia acumulada</span>
+    <select id="sel-lluvia" style="flex:1"><option value="0">Apagada</option><option value="3">Últimas 3 h</option><option value="6">Últimas 6 h</option><option value="12">Últimas 12 h</option><option value="24">Últimas 24 h</option></select></div>
 </div>
 
 <div id="brujula" class="panel" title="Restablecer al norte"><svg id="aguja" viewBox="0 0 24 24"><path d="M12 2 L16 13 L12 11 L8 13 Z" fill="#f87171"/><path d="M12 22 L8 11 L12 13 L16 11 Z" fill="#94a3b8"/></svg></div>
@@ -119,6 +122,7 @@ const RADAR_WEBMET = 'https://webmet.ohmc.ar';
 const RADAR_PROXY  = 'https://metricmoisture-backend.onrender.com/api/radar';
 const DEM_URL  = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';   // relieve abierto (AWS Terrain Tiles)
 const BASE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const LLUVIA_API = 'https://metricmoisture-backend.onrender.com/api/lluvia';
 const REFRESCO_MS = 5 * 60 * 1000;
 const ATRASO_MIN = 30;
 const ZONAS = {
@@ -266,6 +270,7 @@ const S = {
   malla: null, lineas: null, texBase: null, texRadar: null, texUlt: null,
   frames: [], fi: 0, clas: false, filtro: 'todo', seguir: true, segData: null, segLineas: [], playing: false, timer: null,
   exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true,
+  lluvia: { horas: 0, tex: null, datos: null, img: null, aviso: '' },
   cam: { yaw: 0, pitch: 0.9, dist: 400, tx: 0, tz: 0 },
   sucio: false
 };
@@ -474,7 +479,7 @@ function dibujar() {
   gl.uniformMatrix4fv(uM.mvp, false, mvp); gl.uniform1f(uM.exag, S.exag); gl.uniform1f(uM.op, S.op);
   gl.uniform1f(uM.usaBase, S.usaBase && S.region && S.region.baseOk ? 1 : 0); gl.uniform3f(uM.luz, -0.5, 0.75, -0.35);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.texBase); gl.uniform1i(uM.base, 0);
-  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.texRadar); gl.uniform1i(uM.radar, 1);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.lluvia.horas && S.lluvia.tex ? S.lluvia.tex : S.texRadar); gl.uniform1i(uM.radar, 1);
   gl.bindVertexArray(S.malla.vao); gl.drawElements(gl.TRIANGLES, S.malla.n, gl.UNSIGNED_INT, 0);
 
   if (S.lineas) {
@@ -541,6 +546,7 @@ function pedirDibujo() { if (!S.sucio) { S.sucio = true; requestAnimationFrame(d
 
 /* ================= Flujo principal ================= */
 function actualizarLeyenda() {
+  if (S.lluvia.horas) { leyendaLluvia(); return; }
   const barra = $('leg-barra'), marcas = $('leg-marcas'), min = PALETA[0][0], max = PALETA[PALETA.length - 1][0];
   barra.style.background = `linear-gradient(to right, ${PALETA.map(([v, c]) => `${c} ${((v - min) / (max - min) * 100).toFixed(1)}%`).join(', ')})`;
   marcas.innerHTML = '';
@@ -587,6 +593,7 @@ async function cargarTodo(completo) {
     const rad = await cargarTeselasRadar(reg, rg, trabajo);
     if (!rad || trabajo !== S.trabajo) return;
     S.texUlt = subirTextura(1, rad.cnv, false, S.texUlt); S.texRadar = S.texUlt;
+    if (S.lluvia.horas) { pintarLluvia(); cargarLluvia(); }      // la capa de lluvia acompaña a la región y se renueva con cada carga
     S.reg = reg; construirLineas(reg, rg); construirEtiquetas(reg, rg);
     const e = textoEdad(reg.observation_time);
     $('estado').textContent = `${code} · ${NOMBRE_CAMPO[campo] || campo} · ${e.t}` + (rad.total && !rad.ok ? ' · sin imagen de radar en esta zona' : '');
@@ -600,6 +607,60 @@ async function cargarTodo(completo) {
   } finally {
     if (trabajo === S.trabajo) $('cargando').classList.remove('on');
   }
+}
+
+/* ================= Lluvia acumulada (estimación de radar, ajustada con estaciones cuando corresponde) ================= */
+// Se dibuja en la misma textura del radar: con la capa encendida reemplaza a la imagen instantánea; apagada, todo queda como antes.
+function pintarLluvia() {
+  const L = S.lluvia, rg = S.region;
+  if (!L.img || !L.datos || !rg) return;
+  const b = L.datos.bounds, z = rg.z;                 // [[sur, oeste], [norte, este]]
+  const x0 = lonToPx(b[0][1], z) - rg.tx0 * 256, x1 = lonToPx(b[1][1], z) - rg.tx0 * 256;
+  const y0 = latToPx(b[1][0], z) - rg.ty0 * 256, y1 = latToPx(b[0][0], z) - rg.ty0 * 256;
+  const cnv = document.createElement('canvas'); cnv.width = rg.W; cnv.height = rg.H;
+  const ctx = cnv.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(L.img, x0, y0, x1 - x0, y1 - y0);
+  L.tex = subirTextura(2, cnv, false, L.tex);
+  pedirDibujo();
+}
+
+function leyendaLluvia() {
+  const L = S.lluvia, d = L.datos, barra = $('leg-barra'), marcas = $('leg-marcas'), nota = $('leg-nota');
+  $('titulo-leyenda').textContent = `Lluvia acumulada ${L.horas} h · mm` + (d ? (d.ajustado ? ' · radar ajustado con estaciones' : ' · radar sin ajustar') : '');
+  barra.style.display = d ? '' : 'none'; marcas.style.display = d ? '' : 'none';
+  marcas.innerHTML = '';
+  if (d) {
+    const n = d.colores.length;
+    barra.style.background = `linear-gradient(to right, ${d.colores.map((c, i) => `${c} ${(i / n * 100).toFixed(2)}% ${((i + 1) / n * 100).toFixed(2)}%`).join(', ')})`;
+    d.niveles.forEach((v, i) => { if (i % 2 === 0 || i === n - 1) { const t = document.createElement('span'); t.textContent = v; t.style.left = (i / n * 100) + '%'; t.style.transform = i === 0 ? 'none' : 'translateX(-50%)'; marcas.appendChild(t); } });
+  }
+  nota.style.display = 'block';
+  nota.textContent = L.aviso || (d ? (d.ajustado ? 'Estimación de radar corregida con los pluviómetros de las estaciones.' : 'Estimación de radar sin ajustar' + (d.ajuste && d.ajuste.motivo ? ': ' + d.ajuste.motivo.toLowerCase() : '.') ) + ' Sobre las sierras los valores altos pueden incluir ecos fijos del terreno.' : '');
+}
+
+async function cargarLluvia() {
+  const L = S.lluvia, h = L.horas;
+  if (!h) return;
+  document.body.classList.add('con-lluvia');
+  try {
+    const r = await fetch(`${LLUVIA_API}/radar/mapa?horas=${h}`);
+    const j = await r.json();
+    if (h !== L.horas) return;                                         // se cambió la opción mientras tanto
+    if (!r.ok || j.error) { L.datos = null; L.img = null; L.tex = null; L.aviso = (j && j.error) || 'No se pudo obtener la lluvia acumulada.'; actualizarLeyenda(); pedirDibujo(); return; }
+    const im = await loadImg(j.png);
+    if (h !== L.horas) return;
+    L.datos = j; L.img = im; L.aviso = im ? '' : 'No se pudo dibujar la lluvia acumulada.';
+    pintarLluvia(); actualizarLeyenda();
+  } catch (e) {
+    if (h !== L.horas) return;
+    L.aviso = 'Sin conexión con el servidor de lluvia.'; L.tex = null; actualizarLeyenda(); pedirDibujo();
+  }
+}
+
+function elegirLluvia(h) {
+  const L = S.lluvia; L.horas = h; L.aviso = '';
+  if (!h) { document.body.classList.remove('con-lluvia'); actualizarLeyenda(); pedirDibujo(); return; }
+  actualizarLeyenda(); cargarLluvia();
 }
 
 /* ================= Animación de 6 imágenes, clasificación y seguimiento ================= */
@@ -749,6 +810,7 @@ $('rng-exag').addEventListener('input', e => { S.exag = +e.target.value; $('v-ex
 $('rng-op').addEventListener('input', e => { S.op = e.target.value / 100; $('v-op').textContent = e.target.value + '%'; pedirDibujo(); });
 $('sel-base').addEventListener('change', e => { S.usaBase = e.target.value === 'sat'; pedirDibujo(); });
 $('chk-anillos').addEventListener('change', e => { S.anillos = e.target.checked; pedirDibujo(); });
+$('sel-lluvia').addEventListener('change', e => elegirLluvia(+e.target.value));
 $('chk-etq').addEventListener('change', e => { S.etiquetas = e.target.checked; pedirDibujo(); });
 const params = new URLSearchParams(location.search);
 if (RADAR_OK(params.get('radar'))) $('sel-radar').value = params.get('radar');
