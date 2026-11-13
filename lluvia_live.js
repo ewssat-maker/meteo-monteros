@@ -129,7 +129,7 @@
     var h = '<div style="display:flex;height:10px;border:1px solid #cbd2d9">';
     m.colores.forEach(function (c) { h += '<span style="flex:1;background:' + c + '"></span>'; });
     h += '</div><div style="display:flex;justify-content:space-between;font-size:10px;color:#52606d"><span>' + m.niveles[0] + '</span><span>' + m.niveles[5] + '</span><span>' + m.niveles[m.niveles.length - 1] + ' mm</span></div>' +
-      '<div style="font-size:10px;color:#52606d;margin-top:2px">Estimación de radar sin ajustar. Click en el mapa para ver un punto.</div>';
+      '<div style="font-size:10px;color:#52606d;margin-top:2px">' + (m.ajustado ? 'Radar ajustado con pluviómetros de estaciones.' : 'Radar sin ajustar con estaciones' + (m.ajuste && m.ajuste.motivo ? ' (' + m.ajuste.motivo.replace(/\.$/, '').toLowerCase() + ')' : '') + '.') + ' Click en el mapa para ver un punto.</div>';
     document.getElementById("mpLluviaLeyenda").innerHTML = h;
   }
 
@@ -139,7 +139,7 @@
       var t;
       if (j.mm == null) t = "<b>Sin estimación</b><br>" + (j.motivo || "");
       else {
-        t = "<b>" + j.mm.toFixed(1) + " mm</b> en " + h + " h (radar " + j.radar + ")<br>Cobertura de imágenes: " + Math.round(j.cobertura_pct) + "%";
+        t = "<b>" + j.mm.toFixed(1) + " mm</b> en " + h + " h (radar " + j.radar + (j.ajustado ? ", ajustado" : "") + ")<br>Cobertura de imágenes: " + Math.round(j.cobertura_pct) + "%" + (j.ajustado && j.mm_sin_ajustar != null ? "<br><small>Radar sin ajustar: " + j.mm_sin_ajustar.toFixed(1) + " mm</small>" : "");
         if (j.estaciones_cercanas && j.estaciones_cercanas.length)
           t += "<br><small>Estaciones cerca: " + j.estaciones_cercanas.map(function (s) { return s.nombre + " " + (s.mm == null ? "s/d" : s.mm + " mm") + " (" + s.distancia_km + " km)"; }).join("; ") + "</small>";
       }
