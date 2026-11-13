@@ -805,7 +805,16 @@ $('sel-radar').addEventListener('change', () => cargarTodo(true));
 $('sel-zona').addEventListener('change', () => cargarTodo(true));
 $('sel-campo').addEventListener('change', () => { actualizarLeyenda(); cargarTodo(false); });
 $('btn-recargar').addEventListener('click', () => cargarTodo(false));
-$('btn-ajustes').addEventListener('click', () => $('ajustes').classList.toggle('open'));
+// El panel de ajustes se apoya sobre el panel inferior, cuya altura cambia (leyenda, avisos, pantalla): se recalcula para que no lo tape.
+function ubicarAjustes() {
+  const aj = $('ajustes'), pie = $('pie'); if (!aj || !pie) return;
+  aj.style.bottom = (pie.offsetHeight + 16) + 'px';
+  aj.style.maxHeight = Math.max(140, window.innerHeight - pie.offsetHeight - 190) + 'px'; aj.style.overflowY = 'auto';
+}
+$('btn-ajustes').addEventListener('click', () => { ubicarAjustes(); $('ajustes').classList.toggle('open'); });
+window.addEventListener('resize', ubicarAjustes);
+if (window.ResizeObserver) new ResizeObserver(ubicarAjustes).observe($('pie'));
+ubicarAjustes();
 $('rng-exag').addEventListener('input', e => { S.exag = +e.target.value; $('v-exag').textContent = S.exag + '×'; pedirDibujo(); });
 $('rng-op').addEventListener('input', e => { S.op = e.target.value / 100; $('v-op').textContent = e.target.value + '%'; pedirDibujo(); });
 $('sel-base').addEventListener('change', e => { S.usaBase = e.target.value === 'sat'; pedirDibujo(); });
