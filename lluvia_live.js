@@ -118,7 +118,7 @@
     Array.prototype.forEach.call(p.querySelectorAll(".mpProv"), function (b) {
       b.addEventListener("click", function () { verProvincia(map, b.getAttribute("data-p")); });
     });
-    map.on("click", function (e) { if (estado.activo && !estado.hist) consultarPunto(map, e.latlng); });
+    map.on("click", function (e) { if (estado.activo || estado.hist) consultarPunto(map, e.latlng); });
     pedir(API + "/provincias").then(function (j) { if (j && !j.error && j.tucuman && j.salta) CONT = j; }).catch(function () {});
     iniciarHist(map);
   }
@@ -185,7 +185,7 @@
     if (estado.marcas) map.removeLayer(estado.marcas);
     estado.marcas = L.layerGroup();
     (ests || []).forEach(function (s) {
-      if (s.lat == null || s.mm == null) return;
+      if (s.lat == null || s.mm == null || s.sospechosa) return;               // sin dato, o sensor que marca 0 al lado de otro con mucha lluvia
       var c = color(s.mm, m.niveles, m.colores);
       var ic = L.divIcon({ className: "", iconSize: [34, 16], iconAnchor: [17, 8],
         html: '<div style="background:#fff;border:2px solid ' + c + ';border-radius:8px;font:11px/12px system-ui;text-align:center;color:#1f2933" title="' + s.nombre + '">' + s.mm.toFixed(1) + "</div>" });
@@ -259,6 +259,7 @@
       pedir(u).then(function (m) {
         if (m.error) { histMsg(m.error); return; }
         estado.hist = true;
+        estado.histParams = { fecha: m.fecha, dias: m.dias };
         CONT = mezclar(CONT, m.contornos);
         ponerCapa(map, m, 0.8);
         pintarMarcas(map, m.estaciones, m, "día");
@@ -314,8 +315,9 @@
     function X(lon) { return (lon + 180) / 360 * T; }
     function Y(lat) { var r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * T; }
     var x0 = X(w), y0 = Y(n), W = Math.round(X(e) - x0), H = Math.round(Y(s) - y0);
-    var CAB = 60, PIE = 78;
-    var cv = document.createElement("canvas"); cv.width = W; cv.height = H + CAB + PIE;
+    var CAB = 60, PIE = 78, BLOQ = 330, RES = m.resumen && m.resumen.provincias ? m.resumen : null;
+    var RESH = RES ? m.provincias.length * BLOQ + 44 : 0;
+    var cv = document.createElement("canvas"); cv.width = W; cv.height = H + CAB + PIE + RESH;
     var c = cv.getContext("2d");
     c.fillStyle = "#0f172a"; c.fillRect(0, 0, cv.width, cv.height);
     c.save(); c.translate(0, CAB); c.beginPath(); c.rect(0, 0, W, H); c.clip();
@@ -360,17 +362,76 @@
       c.fillStyle = "#94a3b8";
       c.fillText((m.ajustado ? "Radar ajustado con pluviómetros" : "Radar sin ajustar con pluviómetros") + " · recuadros con número: mm medidos en estaciones", lx, ly + 44);
       c.fillText("MetricPoint" + (conBase ? " · mapa base: Esri, Maxar, Earthstar Geographics" : ""), lx, ly + 58);
+      if (RES) dibujarResumen(c, m, RES, CAB + H + PIE, W, BLOQ);
       return cv;
     });
   }
 
+  // Resumen de variables del período, debajo del mapa (una tarjeta de datos por provincia + gráfico por hora).
+  function dibujarResumen(c, m, RES, y0, W, BLOQ) {
+    var F = "system-ui,sans-serif";
+    c.strokeStyle = "rgba(148,163,184,.3)"; c.lineWidth = 1; c.beginPath(); c.moveTo(14, y0 - 6); c.lineTo(W - 14, y0 - 6); c.stroke();
+    c.textAlign = "left"; c.textBaseline = "alphabetic"; c.fillStyle = "#f1f5f9"; c.font = "bold 16px " + F;
+    c.fillText("Resumen del período · variables principales", 14, y0 + 20);
+    m.provincias.forEach(function (k, n) {
+      var y = y0 + 34 + n * BLOQ, rs = RES.provincias[k] || {}, st = m.por_provincia[k] || {}, nom = st.nombre || k;
+      c.fillStyle = "#38bdf8"; c.font = "bold 15px " + F; c.fillText(nom + (rs.estaciones ? " · " + rs.estaciones + " estaciones" : ""), 14, y + 16);
+      var tp = rs.temperatura, hm = rs.humedad, im = rs.intensidad_max, hl = rs.hora_mas_lluviosa, top = (rs.pluviometros_top || [])[0];
+      var radar = RES.radar;
+      var T = [
+        ["Lluvia estimada por radar", st.mm_max != null ? "máx. " + st.mm_max + " mm" : "s/d", st.mm_media != null ? "promedio " + st.mm_media + " mm" : ""],
+        ["Superficie con lluvia", (st.km2_con_lluvia != null ? st.km2_con_lluvia.toLocaleString("es-AR") : "s/d") + " km²", "más de 25 mm: " + (st.km2_25mm != null ? st.km2_25mm.toLocaleString("es-AR") : "s/d") + " km²"],
+        ["Pluviómetro con más lluvia", top ? top.mm + " mm" : "s/d", top ? top.nombre : "sin datos"],
+        ["Mayor intensidad en 1 h", im ? im.mm_en_1h + " mm" : "s/d", im ? im.estacion + " · " + im.hora : ""],
+        ["Hora más lluviosa", hl ? hl.hora.slice(6) + " h" : "s/d", hl ? "promedio " + hl.mm_medio + " mm/h" : ""],
+        ["Temperatura", tp ? "máx. " + tp.max + " °C" : "s/d", tp ? "mín. " + tp.min + " °C · media " + tp.media + " °C" : ""],
+        ["Humedad relativa", hm ? hm.min + " a " + hm.max + " %" : "s/d", hm ? "media " + hm.media + " %" : ""],
+        ["Eco máximo de radar", radar ? radar.dbz_max + " dBZ" : "s/d", radar ? radar.radar + " · " + radar.hora + " (todo el radar)" : ""]
+      ];
+      var tw = (W - 28 - 3 * 10) / 4, th = 62;
+      T.forEach(function (t, i) {
+        var x = 14 + (i % 4) * (tw + 10), yy = y + 26 + Math.floor(i / 4) * (th + 8);
+        c.fillStyle = "rgba(30,41,59,.9)"; c.fillRect(x, yy, tw, th);
+        c.fillStyle = "#94a3b8"; c.font = "11px " + F; c.fillText(t[0], x + 8, yy + 16);
+        c.fillStyle = "#f8fafc"; c.font = "bold 17px " + F; c.fillText(t[1], x + 8, yy + 38);
+        c.fillStyle = "#94a3b8"; c.font = "11px " + F; c.fillText(t[2].length > 46 ? t[2].slice(0, 45) + "…" : t[2], x + 8, yy + 54);
+      });
+      // gráfico por hora: barras = lluvia media de los pluviómetros, línea = temperatura media
+      var gy = y + 26 + 2 * (th + 8) + 6, gh = 92, gx = 14, gw = W - 28, ph = rs.por_hora || [], nh = ph.length || 1;
+      c.fillStyle = "rgba(30,41,59,.9)"; c.fillRect(gx, gy, gw, gh + 36);
+      c.fillStyle = "#94a3b8"; c.font = "11px " + F; c.fillText("Por hora: barras = lluvia media de los pluviómetros (mm), línea = temperatura media (°C)", gx + 8, gy + 14);
+      var mx = Math.max.apply(null, ph.map(function (p) { return p && p.mm_medio ? p.mm_medio : 0; }).concat([1]));
+      var ts = ph.map(function (p) { return p && p.temp != null ? p.temp : null; }).filter(function (v) { return v != null; });
+      var t0 = ts.length ? Math.min.apply(null, ts) : 0, t1 = ts.length ? Math.max.apply(null, ts) : 1; if (t1 - t0 < 4) { t1 += 2; t0 -= 2; }
+      var bw = (gw - 16) / nh, by = gy + 22, bh = gh - 8;
+      ph.forEach(function (p, i) {
+        var v = p && p.mm_medio ? p.mm_medio : 0, hh = v / mx * bh;
+        c.fillStyle = "#38bdf8"; c.fillRect(gx + 8 + i * bw + 1, by + bh - hh, Math.max(1, bw - 2), hh);
+      });
+      c.strokeStyle = "#fbbf24"; c.lineWidth = 2; c.beginPath(); var ini = false;
+      ph.forEach(function (p, i) {
+        if (!p || p.temp == null) return;
+        var px = gx + 8 + i * bw + bw / 2, py = by + bh - (p.temp - t0) / (t1 - t0) * bh;
+        ini ? c.lineTo(px, py) : c.moveTo(px, py); ini = true;
+      });
+      c.stroke();
+      c.fillStyle = "#94a3b8"; c.font = "10px " + F; c.textAlign = "center";
+      for (var i = 0; i < nh; i += 3) c.fillText(("0" + (i % 24)).slice(-2) + " h", gx + 8 + i * bw + bw / 2, gy + gh + 28);
+      c.textAlign = "right"; c.fillText(mx.toFixed(1) + " mm", gx + gw - 8, gy + 14);
+      c.textAlign = "left";
+    });
+    c.fillStyle = "#64748b"; c.font = "11px " + F;
+    c.fillText(RES.nota || "", 14, y0 + 34 + m.provincias.length * BLOQ + 4);
+  }
+
   function consultarPunto(map, ll) {
-    var h = estado.horas;
-    pedir(API + "/radar/punto?lat=" + ll.lat.toFixed(4) + "&lon=" + ll.lng.toFixed(4) + "&horas=" + h).then(function (j) {
+    var hp = estado.hist && estado.histParams, h = hp ? hp.dias * 24 : estado.horas;
+    var per = hp ? "el día " + fmtF(hp.fecha) + (hp.dias > 1 ? " (+" + (hp.dias - 1) + ")" : "") : h + " h";
+    pedir(API + "/radar/punto?lat=" + ll.lat.toFixed(4) + "&lon=" + ll.lng.toFixed(4) + "&horas=" + h + (hp ? "&fecha=" + hp.fecha + "&dias=" + hp.dias : "")).then(function (j) {
       var t;
       if (j.mm == null) t = "<b>Sin estimación</b><br>" + (j.motivo || j.error || "");
       else {
-        t = "<b>" + j.mm.toFixed(1) + " mm</b> en " + h + " h (radar " + j.radar + (j.ajustado ? ", ajustado" : "") + ")<br>Cobertura de imágenes: " + Math.round(j.cobertura_pct) + "%" + (j.ajustado && j.mm_sin_ajustar != null ? "<br><small>Radar sin ajustar: " + j.mm_sin_ajustar.toFixed(1) + " mm</small>" : "");
+        t = "<b>" + j.mm.toFixed(1) + " mm</b> en " + per + " (radar " + j.radar + (j.ajustado ? ", ajustado" : "") + ")<br>Cobertura de imágenes: " + Math.round(j.cobertura_pct) + "%" + (j.ajustado && j.mm_sin_ajustar != null ? "<br><small>Radar sin ajustar: " + j.mm_sin_ajustar.toFixed(1) + " mm</small>" : "");
         if (j.estaciones_cercanas && j.estaciones_cercanas.length)
           t += "<br><small>Estaciones cerca: " + j.estaciones_cercanas.map(function (s) { return s.nombre + " " + (s.mm == null ? "s/d" : s.mm + " mm") + " (" + s.distancia_km + " km)"; }).join("; ") + "</small>";
       }
