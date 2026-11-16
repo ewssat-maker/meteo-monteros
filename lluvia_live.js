@@ -211,7 +211,8 @@
       ponerCapa(map, m, 0.8);
       pintarMarcas(map, e && e.estaciones, m, h + " h");
       var cob = Object.keys(m.radares).map(function (k) { return k + " " + m.radares[k].cobertura_pct + "%"; }).join(" · ");
-      msg("Últimas " + h + " h · máx. " + m.mm_max + " mm · cobertura " + cob + ". Tocá el mapa para ver un punto.");
+      var q = m.mm_max_en;
+      msg("Últimas " + h + " h · máx. " + m.mm_max + " mm" + (q && q.localidad ? " (a " + q.km + " km de " + q.localidad + (q.en_el_tope ? ", es el tope del ajuste" : "") + ")" : "") + " · cobertura " + cob + ". Tocá el mapa para ver un punto.");
       leyenda(m);
     }).catch(function () { msg("Sin conexión con el servidor."); });
   }
@@ -235,6 +236,8 @@
     var dg = m.diagnostico || {};
     var t = Object.keys(m.por_provincia).map(function (k) { var q = m.por_provincia[k]; return q.nombre + ": máx. " + q.mm_max + " mm, promedio " + q.mm_media + " mm"; }).join(" · ");
     if (dg.desde) t = "Del " + fmtF(dg.desde) + " 00:00 al " + fmtF(dg.hasta) + " 00:00 (hora de Argentina) · " + t;
+    var q = dg.mm_max_en;
+    if (q) t += " · el máximo (" + q.mm + " mm) está " + (q.localidad ? "a " + q.km + " km de " + q.localidad : "en " + q.lat + ", " + q.lon) + (q.en_el_tope ? " y es el tope de seguridad del ajuste, no una medición" : "");
     return t + (m.ajustado ? " · ajustado con pluviómetros" : " · radar sin ajustar");
   }
   function iniciarHist(map) {
