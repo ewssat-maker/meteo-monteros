@@ -100,15 +100,19 @@
         '<div id="mpLluviaLeyenda" style="margin-top:10px"></div>' +
         '<div id="mpLluviaEstado" class="mp-sub"></div>' +
       '</div>' +
-      '<hr><details id="mpHist" open><summary style="cursor:pointer;margin:6px 0"><span class="mp-t">Mapa de un día pasado</span></summary>' +
-        '<div class="mp-row"><span class="mp-lab">Fecha</span><input type="date" id="mpHistFecha"></div>' +
-        '<div class="mp-row"><span class="mp-lab">Zona</span><select id="mpHistProv"><option value="ambas">Tucumán y Salta</option><option value="tucuman">Tucumán</option><option value="salta">Salta</option></select>' +
-          '<select id="mpHistDias"><option value="1">1 día (24 h)</option><option value="2">2 días seguidos</option><option value="3">3 días seguidos</option></select></div>' +
-        '<div class="mp-row"><button type="button" id="mpHistVer" class="go">Ver en el mapa</button><button type="button" id="mpHistBaj">Descargar imagen</button><button type="button" id="mpHistVolver" style="display:none">Volver a las últimas horas</button></div>' +
-        '<div id="mpHistEstado" class="mp-sub"></div>' +
-      '</details>';
+      '';
     var cont = map.getContainer(), caja = cont.parentNode;                 // el mapa va dentro de una caja con borde: el panel se pone antes de esa caja
     (caja.parentNode || document.body).insertBefore(p, caja);
+    var p2 = document.createElement("div");                                 // consulta de días pasados: va debajo del mapa
+    p2.id = "mpHistPanel"; p2.className = "mp-pan"; p2.style.marginTop = "12px";
+    p2.innerHTML =
+      '<div class="mp-t">Mapa de un día pasado</div>' +
+      '<div class="mp-sub" style="margin-top:2px">Lluvia acumulada de un día calendario (00:00 a 24:00, hora de Argentina) en Tucumán y/o Salta. Se ve en el mapa de arriba o se descarga como imagen con un resumen del día.</div>' +
+      '<div class="mp-row"><input type="date" id="mpHistFecha"><select id="mpHistProv"><option value="ambas">Tucumán y Salta</option><option value="tucuman">Tucumán</option><option value="salta">Salta</option></select>' +
+        '<select id="mpHistDias"><option value="1">1 día (24 h)</option><option value="2">2 días seguidos</option><option value="3">3 días seguidos</option></select></div>' +
+      '<div class="mp-row"><button type="button" id="mpHistVer" class="go">Ver en el mapa</button><button type="button" id="mpHistBaj">Descargar imagen</button><button type="button" id="mpHistVolver" style="display:none">Volver a las últimas horas</button></div>' +
+      '<div id="mpHistEstado" class="mp-sub"></div>';
+    if (caja.parentNode) caja.parentNode.insertBefore(p2, caja.nextSibling); else document.body.appendChild(p2);
 
     var chk = $("mpLluviaChk");
     chk.addEventListener("change", function () { chk.checked ? activar(map) : desactivar(map); });
