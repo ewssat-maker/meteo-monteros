@@ -111,7 +111,9 @@
       '<div class="mp-row"><input type="date" id="mpHistFecha"><select id="mpHistProv"><option value="ambas">Tucumán y Salta</option><option value="tucuman">Tucumán</option><option value="salta">Salta</option></select>' +
         '<select id="mpHistDias"><option value="1">1 día (24 h)</option><option value="2">2 días seguidos</option><option value="3">3 días seguidos</option></select></div>' +
       '<div class="mp-row"><button type="button" id="mpHistVer" class="go">Ver en el mapa</button><button type="button" id="mpHistBaj">Descargar imagen</button><button type="button" id="mpHistVolver" style="display:none">Volver a las últimas horas</button></div>' +
-      '<div id="mpHistEstado" class="mp-sub"></div>';
+      '<div id="mpHistEstado" class="mp-sub"></div>' +
+      '<details id="mpSerie" style="margin-top:10px"><summary style="cursor:pointer;color:#7dd3fc;font-weight:700">Días y meses guardados</summary>' +
+        '<div id="mpSerieCuerpo" class="mp-sub">Tocá para cargar…</div></details>';
     var padre = caja.parentNode || document.body;                           // el panel va siempre al final: mapa → escala → días pasados
     var alFinal = function () { if (p2.parentNode !== padre || padre.lastElementChild !== p2) { try { obs.disconnect(); } catch (e) {} padre.appendChild(p2); try { obs.observe(padre, { childList: true }); } catch (e) {} } };
     var obs = (typeof MutationObserver === "function") ? new MutationObserver(alFinal) : { observe: function () {}, disconnect: function () {} };
@@ -259,6 +261,31 @@
       inp.min = d; if (inp.value < d) inp.value = d;
       histMsg("Hay radar guardado desde el " + d.split("-").reverse().join("/") + ".");
     }).catch(function () {});
+
+    var serieOk = false;
+    function dibujarSerie(j) {
+      var cu = $("mpSerieCuerpo"), f = function (v) { return v == null ? "–" : (Math.round(v * 10) / 10).toString().replace(".", ","); };
+      var MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+      if (!j.dias || !j.dias.length) { cu.textContent = "Todavía no hay días guardados. Se guardan solos cada día cerrado."; return; }
+      var h = '<table style="width:100%;border-collapse:collapse;margin-top:4px;color:#e2e8f0;font-size:11px"><tr style="color:#94a3b8;text-align:right"><td style="text-align:left">Mes</td><td>Tucumán mm</td><td>Salta mm</td><td>Días con lluvia (T / S)</td></tr>';
+      j.meses.forEach(function (m) {
+        var t = m.tucuman || {}, sa = m.salta || {}, p = m.mes.split("-");
+        h += '<tr style="text-align:right;border-top:1px solid rgba(148,163,184,.2)"><td style="text-align:left">' + MES[+p[1] - 1] + " " + p[0] + "</td><td>" + f(t.mm_media_acumulada) + "</td><td>" + f(sa.mm_media_acumulada) + "</td><td>" + (t.dias_con_lluvia || 0) + " / " + (sa.dias_con_lluvia || 0) + "</td></tr>";
+      });
+      h += "</table><div style='margin-top:8px;color:#94a3b8'>Días (tocá uno para verlo; el número es la lluvia media de Tucumán / Salta):</div><div style='display:flex;flex-wrap:wrap;gap:5px;margin-top:5px'>";
+      j.dias.slice().reverse().forEach(function (d) {
+        var t = d.tucuman && d.tucuman.mm_media, sa = d.salta && d.salta.mm_media, llu = (t || 0) >= 1 || (sa || 0) >= 1;
+        h += '<button type="button" class="mpDia" data-f="' + d.fecha + '" style="padding:3px 8px;border-radius:9px;border:1px solid ' + (llu ? "#0ea5e9" : "rgba(148,163,184,.3)") + ";background:" + (llu ? "rgba(14,165,233,.18)" : "transparent") + ';color:#e2e8f0;font-size:11px;cursor:pointer">' + d.fecha.slice(8) + "/" + d.fecha.slice(5, 7) + " · " + f(t) + " / " + f(sa) + "</button>";
+      });
+      cu.innerHTML = h + "</div>";
+      Array.prototype.forEach.call(cu.querySelectorAll(".mpDia"), function (b) {
+        b.addEventListener("click", function () { $("mpHistFecha").value = b.getAttribute("data-f"); $("mpHistDias").value = "1"; $("mpHistVer").click(); });
+      });
+    }
+    $("mpSerie").addEventListener("toggle", function () {
+      if (!this.open || serieOk) return;
+      pedir(API + "/historico/serie?dias=120").then(function (j) { serieOk = true; dibujarSerie(j); }).catch(function () { $("mpSerieCuerpo").textContent = "No se pudo cargar la lista de días."; });
+    });
 
     $("mpHistVer").addEventListener("click", function () {
       var u = histUrl(); if (!u) return;
