@@ -112,7 +112,10 @@
         '<select id="mpHistDias"><option value="1">1 día (24 h)</option><option value="2">2 días seguidos</option><option value="3">3 días seguidos</option></select></div>' +
       '<div class="mp-row"><button type="button" id="mpHistVer" class="go">Ver en el mapa</button><button type="button" id="mpHistBaj">Descargar imagen</button><button type="button" id="mpHistVolver" style="display:none">Volver a las últimas horas</button></div>' +
       '<div id="mpHistEstado" class="mp-sub"></div>';
-    if (caja.parentNode) caja.parentNode.insertBefore(p2, caja.nextSibling); else document.body.appendChild(p2);
+    var padre = caja.parentNode || document.body;                           // el panel va siempre al final: mapa → escala → días pasados
+    var alFinal = function () { if (p2.parentNode !== padre || padre.lastElementChild !== p2) { try { obs.disconnect(); } catch (e) {} padre.appendChild(p2); try { obs.observe(padre, { childList: true }); } catch (e) {} } };
+    var obs = (typeof MutationObserver === "function") ? new MutationObserver(alFinal) : { observe: function () {}, disconnect: function () {} };
+    alFinal(); setTimeout(alFinal, 1500); setTimeout(alFinal, 5000);
 
     var chk = $("mpLluviaChk");
     chk.addEventListener("change", function () { chk.checked ? activar(map) : desactivar(map); });
