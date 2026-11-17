@@ -271,11 +271,14 @@
       j.meses.forEach(function (m) {
         var t = m.tucuman || {}, sa = m.salta || {}, p = m.mes.split("-");
         h += '<tr style="text-align:right;border-top:1px solid rgba(148,163,184,.2)"><td style="text-align:left">' + MES[+p[1] - 1] + " " + p[0] + "</td><td>" + f(t.mm_media_acumulada) + "</td><td>" + f(sa.mm_media_acumulada) + "</td><td>" + (t.dias_con_lluvia || 0) + " / " + (sa.dias_con_lluvia || 0) + "</td></tr>";
+        if ((t.dias_dudosos || 0) + (sa.dias_dudosos || 0) > 0)
+          h += '<tr><td colspan="4" style="color:#fbbf24;padding-bottom:4px">Sin confirmar (radar sin pluviómetros que lo respalden): Tucumán ' + (t.dias_dudosos || 0) + " día(s), Salta " + (sa.dias_dudosos || 0) + " día(s). No se suman.</td></tr>";
       });
       h += "</table><div style='margin-top:8px;color:#94a3b8'>Días (tocá uno para verlo; el número es la lluvia media de Tucumán / Salta):</div><div style='display:flex;flex-wrap:wrap;gap:5px;margin-top:5px'>";
       j.dias.slice().reverse().forEach(function (d) {
-        var t = d.tucuman && d.tucuman.mm_media, sa = d.salta && d.salta.mm_media, llu = (t || 0) >= 1 || (sa || 0) >= 1;
-        h += '<button type="button" class="mpDia" data-f="' + d.fecha + '" style="padding:3px 8px;border-radius:9px;border:1px solid ' + (llu ? "#0ea5e9" : "rgba(148,163,184,.3)") + ";background:" + (llu ? "rgba(14,165,233,.18)" : "transparent") + ';color:#e2e8f0;font-size:11px;cursor:pointer">' + d.fecha.slice(8) + "/" + d.fecha.slice(5, 7) + " · " + f(t) + " / " + f(sa) + "</button>";
+        var t = d.tucuman && d.tucuman.mm_media, sa = d.salta && d.salta.mm_media, dud = (d.tucuman && d.tucuman.dudoso) || (d.salta && d.salta.dudoso),
+            llu = !dud && ((t || 0) >= 1 || (sa || 0) >= 1);
+        h += '<button type="button" class="mpDia" data-f="' + d.fecha + '" style="padding:3px 8px;border-radius:9px;border:1px ' + (dud ? "dashed #fbbf24" : "solid " + (llu ? "#0ea5e9" : "rgba(148,163,184,.3)")) + ";background:" + (llu ? "rgba(14,165,233,.18)" : "transparent") + ';color:#e2e8f0;font-size:11px;cursor:pointer">' + d.fecha.slice(8) + "/" + d.fecha.slice(5, 7) + " · " + f(t) + " / " + f(sa) + (dud ? " ?" : "") + "</button>";
       });
       cu.innerHTML = h + "</div>";
       Array.prototype.forEach.call(cu.querySelectorAll(".mpDia"), function (b) {
