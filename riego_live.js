@@ -73,7 +73,27 @@
     b.onclick = abrir; document.body.appendChild(b);
   }
 
+  function arreglarWA() {            // el logo de WhatsApp toma el mismo estilo que Instagram, X y el globo
+    var wa = document.querySelector('a[href*="wa.me"]');
+    if (!wa || wa.dataset.mpFix) return !!(wa && wa.dataset.mpFix);
+    var ref = null, n = wa.parentElement ? wa.parentElement.children : [];
+    for (var i = 0; i < n.length; i++) if (n[i] !== wa && n[i].tagName === "A" && !/wa\.me/.test(n[i].getAttribute("href") || "")) { ref = n[i]; break; }
+    if (!ref) return false;
+    wa.className = ref.className;
+    wa.style.cssText = ref.style.cssText;
+    wa.style.display = ""; 
+    var ri = ref.querySelector("i, svg, img"), wi = wa.querySelector("i, svg, img");
+    if (ri && wi) {
+      var cs = getComputedStyle(ri);
+      wi.style.color = cs.color; wi.style.fontSize = cs.fontSize; wi.style.width = ""; wi.style.height = "";
+      if (wi.tagName === "I" && ri.tagName === "I") wi.className = "fa-brands fa-whatsapp " + (ri.className.match(/text-\w+/) || [""])[0];
+    }
+    wa.dataset.mpFix = "1";
+    return true;
+  }
+
   function arrancar() {
+    var t0 = 0, iw = setInterval(function () { t0++; if (arreglarWA() || t0 > 20) clearInterval(iw); }, 500);
     if (ini()) return;
     var intentos = 0, mo = new MutationObserver(function () { if (ini()) mo.disconnect(); });
     mo.observe(document.body, { childList: true, subtree: true });
