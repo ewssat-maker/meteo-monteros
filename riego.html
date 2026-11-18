@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Riego inteligente · MetricPoint</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--bg:#0f1a17;--pn:#16251f;--ln:#27403a;--tx:#e8f1ec;--mu:#8fa89d;--ac:#38bdf8;--rg:#ef4444;--vg:#f59e0b;--es:#22c55e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--ln)}
+h1{font-size:18px;margin:0}main{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:16px}
+.panel{background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:14px}
+button,select,input{font:inherit;color:var(--tx);background:#0c1512;border:1px solid var(--ln);border-radius:8px;padding:8px 10px}
+button{cursor:pointer;background:var(--ac);color:#04202b;border:0;font-weight:600}button.sec{background:#0c1512;color:var(--tx);border:1px solid var(--ln)}
+.g{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}label{display:grid;gap:4px;color:var(--mu);font-size:13px}
+.lotes{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.lote{border-left:6px solid var(--ln);cursor:pointer}.lote.REGAR{border-color:var(--rg)}.lote.VIGILAR{border-color:var(--vg)}.lote.ESPERAR{border-color:var(--es)}
+.dec{font-size:22px;font-weight:700}.REGAR .dec,.d-REGAR{color:var(--rg)}.VIGILAR .dec,.d-VIGILAR{color:var(--vg)}.ESPERAR .dec,.d-ESPERAR{color:var(--es)}
+.mu{color:var(--mu);font-size:13px}.kpi{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.kpi b{display:block;font-size:20px}
+#map{height:260px;border-radius:8px}svg{width:100%;height:220px;background:#0c1512;border-radius:8px}
+table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1px solid var(--ln);text-align:left;font-size:13px}
+.hid{display:none}.bar{height:12px;background:#0c1512;border-radius:6px;overflow:hidden;position:relative}.bar i{display:block;height:100%;background:var(--ac)}
+</style></head><body>
+<header><h1>Riego inteligente</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
+<main>
+<section id="login" class="panel hid"><h2>Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div><div id="regx" class="g hid"><label>Nombre o razón social<input id="rn"></label><label>Teléfono (WhatsApp)<input id="rt" type="tel"></label></div>
+<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Crear cuenta nueva</button> <span id="lerr" class="mu"></span></p><p class="mu">La cuenta es la misma de MetricPoint: si ya tenés una, ingresá con ella.</p></section>
+<div id="app" class="hid">
+<section class="panel"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Mis lotes</h2><button id="nuevo">Agregar lote</button></div><div id="lotes" class="lotes" style="margin-top:12px"></div><p id="vacio" class="mu hid">Todavía no cargaste lotes. Tocá "Agregar lote", marcá el lote en el mapa y completá los datos.</p></section>
+<section id="form" class="panel hid"><h2 id="ftit">Nuevo lote</h2><div id="map"></div><p class="mu" id="pos">Tocá el mapa sobre el centro del lote.</p>
+<div class="g"><label>Nombre<input id="f_n"></label><label>Provincia<select id="f_p"><option>Tucumán</option><option>Salta</option></select></label>
+<label>Cultivo<select id="f_c"></select></label><label>Fecha de siembra (o de corte en caña)<input id="f_f" type="date"></label>
+<label>Hectáreas<input id="f_h" type="number" min="0" step="0.1"></label><label>Suelo<select id="f_s"></select></label>
+<label>Sistema de riego<select id="f_y"></select></label><label>Agua útil a la siembra (%)<input id="f_a" type="number" min="0" max="100" value="50"></label></div>
+<p><button id="guardar">Guardar lote</button> <button class="sec" id="cancel">Cancelar</button> <span id="ferr" class="mu"></span></p></section>
+<section id="det" class="panel hid"></section></div></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const API=(window.RIEGO_API||"https://metricmoisture-backend.onrender.com");
+const $=id=>document.getElementById(id);let TOK=null,CAT=null,MAP,MK,POS=null,EDIT=null,LOTES=[];
+try{TOK=localStorage.getItem("metric_token")}catch(e){}
+async function api(p,o={}){o.headers=Object.assign({"Content-Type":"application/json","Authorization":"Bearer "+TOK},o.headers||{});
+ const r=await fetch(API+p,o);let j={};try{j=await r.json()}catch(e){}
+ if(r.status==401){TOK=null;try{localStorage.removeItem("metric_token")}catch(e){};mostrar();throw new Error("Sesión vencida")}
+ if(r.status==403&&j.error=="TRIAL_EXPIRED")throw new Error("Tu prueba terminó. Contactanos para activar tu plan.");
+ if(!r.ok)throw new Error(j.error||("Error "+r.status));return j}
+function mostrar(){$("login").classList.toggle("hid",!!TOK);$("app").classList.toggle("hid",!TOK);if(TOK)iniciar()}
+$("ing").onclick=async()=>{$("lerr").textContent="";try{const r=await fetch(API+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo ingresar");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
+let REG=false;
+$("crear").onclick=async()=>{if(!REG){REG=true;$("regx").classList.remove("hid");$("crear").textContent="Registrarme";$("lerr").textContent="Completá los datos y tocá Registrarme.";return}
+ $("lerr").textContent="";try{if(!$("em").value||!$("pw").value)throw new Error("Falta correo o contraseña");const r=await fetch(API+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value,razon_social:$("rn").value||"Usuario",nombre_contacto:$("rn").value,telefono:$("rt").value,cultivo:"Riego inteligente"})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo crear la cuenta");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
+$("salir").onclick=()=>{try{localStorage.removeItem("metric_token")}catch(e){};TOK=null;location.reload()};
+function opts(sel,obj,def){sel.innerHTML=(sel.id=="f_s"?'<option value="">Automático (el de MetricMoisture)</option>':"")+Object.entries(obj).map(([k,v])=>`<option value="${k}">${v.nombre}</option>`).join("")}
+async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}
+ if(!CAT){CAT=await (await fetch(API+"/api/riego/catalogos")).json();opts($("f_c"),CAT.cultivos);opts($("f_s"),CAT.suelos);opts($("f_y"),CAT.sistemas);$("f_s").value=""}
+ cargar()}
+async function cargar(){try{const j=await api("/api/riego/resumen");LOTES=j.lotes;
+ $("vacio").classList.toggle("hid",LOTES.length>0);
+ $("lotes").innerHTML=LOTES.map(l=>l.error?`<div class="panel">${l.nombre}<div class="mu">${l.error}</div></div>`:`<div class="panel lote ${l.decision}" data-id="${l.id}"><div class="mu">${l.nombre} · ${CAT.cultivos[l.cultivo].nombre} · ${l.etapa}</div><div class="dec">${l.decision}</div><div class="bar"><i style="width:${Math.max(0,Math.min(100,l.agua_util_pct))}%"></i></div><div class="mu">Agua útil ${l.agua_util_pct}% · déficit ${l.deficit_mm} mm</div><div class="mu">${l.motivo}</div></div>`).join("");
+ document.querySelectorAll(".lote").forEach(e=>e.onclick=()=>detalle(+e.dataset.id))}catch(e){$("lotes").innerHTML=`<p class="mu">${e.message}</p>`}}
+$("nuevo").onclick=()=>{EDIT=null;$("ftit").textContent="Nuevo lote";["f_n","f_h"].forEach(i=>$(i).value="");POS=null;$("form").classList.remove("hid");$("det").classList.add("hid");
+ if(!MAP){MAP=L.map("map").setView([-26.9,-65.2],8);L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:18,attribution:"Esri"}).addTo(MAP);
+  MAP.on("click",e=>{POS=e.latlng;if(MK)MK.setLatLng(POS);else MK=L.marker(POS).addTo(MAP);$("pos").textContent="Lote en "+POS.lat.toFixed(4)+", "+POS.lng.toFixed(4);$("f_p").value=POS.lat>-25.6?"Salta":"Tucumán";
+   api("/api/riego/suelo?lat="+POS.lat+"&lon="+POS.lng).then(s=>{$("pos").textContent+=" · suelo: arena "+Math.round(s.arena||0)+"%, arcilla "+Math.round(s.arcilla||0)+"% ("+s.fuente+")"}).catch(()=>{})})}
+ setTimeout(()=>MAP.invalidateSize(),50)};
+$("cancel").onclick=()=>$("form").classList.add("hid");
+$("guardar").onclick=async()=>{$("ferr").textContent="";if(!POS)return $("ferr").textContent="Marcá el lote en el mapa.";if(!$("f_f").value)return $("ferr").textContent="Falta la fecha de siembra.";
+ try{await api("/api/riego/lotes",{method:"POST",body:JSON.stringify({nombre:$("f_n").value||"Lote",provincia:$("f_p").value,lat:POS.lat,lon:POS.lng,cultivo:$("f_c").value,fecha_siembra:$("f_f").value,ha:+$("f_h").value||null,suelo:$("f_s").value,sistema:$("f_y").value,agua_inicial_pct:+$("f_a").value})});$("form").classList.add("hid");cargar()}catch(e){$("ferr").textContent=e.message}};
+function perfil(b){const p=b.perfil;if(!p)return'<p class="mu">Perfil de humedad por capas no disponible en este momento.</p>';
+ return `<h3>Perfil de humedad del suelo (${p.f})</h3>`+p.capas.map(c=>`<div style="display:grid;grid-template-columns:70px 1fr 60px;gap:8px;align-items:center;margin:4px 0"><span class="mu">${c.prof_cm} cm</span><div class="bar"><i style="width:${Math.min(100,c.agua_util_pct||0)}%;background:${(c.agua_util_pct||0)<35?"#ef4444":(c.agua_util_pct||0)<60?"#f59e0b":"#22c55e"}"></i></div><span>${c.agua_util_pct==null?"-":c.agua_util_pct+"%"}</span></div>`).join("")+'<p class="mu">Porcentaje de agua útil de cada capa (0% = punto de marchitez, 100% = capacidad de campo).</p>'}
+function grafico(b){const s=b.serie.slice(-45),fut=b.futuro.prudente,w=700,h=220,p=24,n=s.length+fut.length,mx=Math.max(b.taw_mm,...s.map(x=>x.dr));
+ const X=i=>p+i*(w-2*p)/(n-1),Y=v=>h-p-(v/mx)*(h-2*p);
+ const l1=s.map((x,i)=>(i?"L":"M")+X(i)+","+Y(x.dr)).join(" "),l2="M"+X(s.length-1)+","+Y(s[s.length-1].dr)+" "+fut.map((x,i)=>"L"+X(s.length+i)+","+Y(x.dr)).join(" "),
+ l3="M"+X(s.length-1)+","+Y(s[s.length-1].dr)+" "+b.futuro.pronostico.map((x,i)=>"L"+X(s.length+i)+","+Y(x.dr)).join(" ");
+ const bars=s.map((x,i)=>x.lluvia?`<rect x="${X(i)-2}" y="${h-p-Math.min(40,x.lluvia)}" width="4" height="${Math.min(40,x.lluvia)}" fill="#38bdf8" opacity=".6"/>`:"").join("");
+ return `<svg viewBox="0 0 ${w} ${h}"><line x1="${p}" x2="${w-p}" y1="${Y(b.raw_mm)}" y2="${Y(b.raw_mm)}" stroke="#ef4444" stroke-dasharray="4"/><text x="${p+4}" y="${Y(b.raw_mm)-4}" fill="#ef4444" font-size="11">Umbral de riego (${b.raw_mm} mm de déficit)</text>${bars}<path d="${l1}" fill="none" stroke="#e8f1ec" stroke-width="2"/><path d="${l3}" fill="none" stroke="#22c55e" stroke-dasharray="3"/><path d="${l2}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5"/><text x="${p+4}" y="${h-6}" fill="#8fa89d" font-size="11">Déficit de agua en el suelo (mm) · barras: lluvia · verde: con pronóstico · naranja: con lluvia prudente</text></svg>`}
+async function detalle(id){const d=$("det");d.classList.remove("hid");$("form").classList.add("hid");d.innerHTML='<p class="mu">Calculando balance…</p>';d.scrollIntoView({behavior:"smooth"});
+ try{const b=await api("/api/riego/lotes/"+id+"/balance"),r=b.recomendacion,ev=await api("/api/riego/lotes/"+id+"/eventos");
+ const dd=x=>x==null?"más de 7":x;
+ d.innerHTML=`<div style="display:flex;justify-content:space-between"><h2 style="margin:0">${b.lote.nombre}</h2><button class="sec" onclick="borrar(${id})">Eliminar lote</button></div>
+ <div class="dec d-${b.decision}">${b.decision}</div><p>${b.motivo}</p>
+ <div class="kpi"><div><span class="mu">Agua útil</span><b>${b.agua_util_pct}%</b>${b.agua_util_mm} mm</div><div><span class="mu">Déficit</span><b>${b.deficit_mm} mm</b>umbral ${b.umbral_riego_mm}</div><div><span class="mu">Etapa</span><b>${b.etapa}</b>${b.avance_pct}% del ciclo${b.periodo_critico?" · crítico":""}</div><div><span class="mu">Estrés en</span><b>${dd(b.dias_hasta_estres_prudente)} d</b>sin lluvia: ${dd(b.dias_hasta_estres_sin_lluvia)} d</div><div><span class="mu">Lluvia 7 días</span><b>${b.lluvia_pronostico_mm} mm</b>prudente ${b.lluvia_prudente_mm}</div></div>
+ <p>${r.bruta_mm==null?"Sin sistema de riego: la decisión es de alerta.":`<b>Lámina sugerida:</b> ${r.bruta_mm} mm brutos (${r.neta_mm} mm netos, eficiencia ${Math.round(r.eficiencia*100)}%)${r.pasadas?` · unas ${r.pasadas} pasada(s) del sistema`:""}${r.deficit_total_mm>r.neta_mm?`. El déficit total es ${r.deficit_total_mm} mm: el resto en riegos siguientes.`:""}`}</p>
+ ${grafico(b)}${perfil(b)}<p class="mu">Humedad: ${b.fuentes.humedad} · Suelo: ${b.fuentes.suelo||"-"} · Lluvia: ${b.fuentes.lluvia} · ET0: ${b.fuentes.et0}${b.sentinel?` · última imagen Sentinel ${b.sentinel.f}`:""}</p>
+ <h3>Registrar lluvia o riego</h3><div class="g"><label>Fecha<input id="e_f" type="date"></label><label>Tipo<select id="e_t"><option value="lluvia">Lluvia medida en mi lote</option><option value="riego">Riego aplicado (lámina bruta)</option></select></label><label>Milímetros<input id="e_m" type="number" min="0" step="0.1"></label></div><p><button onclick="evento(${id})">Guardar registro</button> <span id="eerr" class="mu"></span></p>
+ <table><tr><th>Fecha</th><th>Tipo</th><th>mm</th><th></th></tr>${ev.eventos.map(e=>`<tr><td>${e.f}</td><td>${e.tipo}</td><td>${e.mm}</td><td><a href="#" onclick="delev(${id},${e.id});return false" class="mu">quitar</a></td></tr>`).join("")}</table>`}
+ catch(e){d.innerHTML=`<p class="mu">${e.message}</p>`}}
+async function evento(id){try{await api("/api/riego/lotes/"+id+"/eventos",{method:"POST",body:JSON.stringify({fecha:$("e_f").value,tipo:$("e_t").value,mm:+$("e_m").value})});detalle(id);cargar()}catch(e){$("eerr").textContent=e.message}}
+async function delev(id,e){await api("/api/riego/lotes/"+id+"/eventos?id="+e,{method:"DELETE"});detalle(id);cargar()}
+async function borrar(id){if(!confirm("¿Eliminar este lote y sus registros?"))return;await api("/api/riego/lotes/"+id,{method:"DELETE"});$("det").classList.add("hid");cargar()}
+mostrar();
+</script></body></html>
