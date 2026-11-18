@@ -44,7 +44,9 @@ const API=(window.RIEGO_API||"https://metricmoisture-backend.onrender.com");
 const $=id=>document.getElementById(id);const CAT0={cultivos:{cana:{nombre:'Caña de azúcar'},soja:{nombre:'Soja'},maiz:{nombre:'Maíz'},poroto:{nombre:'Poroto'},trigo:{nombre:'Trigo'}},sistemas:{pivote:{nombre:'Pivote central'},aspersion:{nombre:'Aspersión'},canon:{nombre:'Cañón / enrollador'},goteo:{nombre:'Goteo'},microaspersion:{nombre:'Microaspersión'},surco:{nombre:'Surco / gravedad'},melga:{nombre:'Melgas / manto'},secano:{nombre:'Sin sistema (secano)'}},suelos:{arenoso:{nombre:'Arenoso'},franco_arenoso:{nombre:'Franco arenoso'},franco:{nombre:'Franco'},franco_limoso:{nombre:'Franco limoso'},franco_arcilloso:{nombre:'Franco arcilloso'},arcilloso:{nombre:'Arcilloso'}}};
 let TOK=null,POLY=null,FG=null,DIB=false,CAT=null,MAP,MK,POS=null,EDIT=null,LOTES=[];
 try{TOK=localStorage.getItem("metric_token")}catch(e){}
-async function api(p,o={}){o.headers=Object.assign({"Content-Type":"application/json","Authorization":"Bearer "+TOK},o.headers||{});
+const MSG_SRV="No hay conexión con el servidor de riego. Verificá que riego.py esté en modulos/ y registrado en app_moisture.py, y que Render haya terminado de desplegar.";
+async function api(p,o={}){try{return await api0(p,o)}catch(e){if(e instanceof TypeError)throw new Error(MSG_SRV);throw e}}
+async function api0(p,o={}){o.headers=Object.assign({"Content-Type":"application/json","Authorization":"Bearer "+TOK},o.headers||{});
  const r=await fetch(API+p,o);let j={};try{j=await r.json()}catch(e){}
  if(r.status==401){TOK=null;try{localStorage.removeItem("metric_token")}catch(e){};mostrar();throw new Error("Sesión vencida")}
  if(r.status==403&&j.error=="TRIAL_EXPIRED")throw new Error("Tu prueba terminó. Contactanos para activar tu plan.");
@@ -57,7 +59,7 @@ $("crear").onclick=async()=>{if(!REG){REG=true;$("regx").classList.remove("hid")
 $("salir").onclick=()=>{try{localStorage.removeItem("metric_token")}catch(e){};TOK=null;location.reload()};
 function opts(sel,obj,def){sel.innerHTML=(sel.id=="f_s"?'<option value="">Automático (el de MetricMoisture)</option>':"")+Object.entries(obj).map(([k,v])=>`<option value="${k}">${v.nombre}</option>`).join("")}
 async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}
- if(!CAT){try{CAT=await (await fetch(API+"/api/riego/catalogos")).json()}catch(e){CAT=CAT0}if(!CAT||!CAT.cultivos)CAT=CAT0;opts($("f_c"),CAT.cultivos);opts($("f_s"),CAT.suelos);opts($("f_y"),CAT.sistemas);$("f_s").value=""}
+ if(!CAT){try{CAT=await (await fetch(API+"/api/riego/catalogos")).json()}catch(e){CAT=CAT0;$("lotes").insertAdjacentHTML("beforebegin",'<p class="mu" style="color:#f59e0b">'+MSG_SRV+'</p>')}if(!CAT||!CAT.cultivos)CAT=CAT0;opts($("f_c"),CAT.cultivos);opts($("f_s"),CAT.suelos);opts($("f_y"),CAT.sistemas);$("f_s").value=""}
  cargar()}
 async function cargar(){try{const j=await api("/api/riego/resumen");LOTES=j.lotes;
  $("vacio").classList.toggle("hid",LOTES.length>0);
