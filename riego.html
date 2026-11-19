@@ -20,7 +20,13 @@ button{cursor:pointer;background:var(--ac);color:#04202b;border:0;font-weight:60
 .mu{color:var(--mu);font-size:13px}.kpi{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.kpi b{display:block;font-size:20px}
 #map{height:420px;border-radius:8px}.busq{display:flex;gap:8px;margin:8px 0}.busq input{flex:1}.flatpickr-input{cursor:pointer}svg{width:100%;height:220px;background:#0c1512;border-radius:8px}
 table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1px solid var(--ln);text-align:left;font-size:13px}
-.hid{display:none}.bar{height:12px;background:#0c1512;border-radius:6px;overflow:hidden;position:relative}.bar i{display:block;height:100%;background:var(--ac)}
+.hid{display:none}
+.cargando{display:flex;align-items:center;gap:12px;grid-column:1/-1;padding:18px 4px;color:var(--mu)}
+.rueda{width:26px;height:26px;border-radius:50%;border:3px solid var(--ln);border-top-color:var(--ac);animation:gira .9s linear infinite;flex:none}
+.gota{display:inline-block;animation:late 1.4s ease-in-out infinite}
+.esq{height:118px;border-radius:10px;border:1px solid var(--ln);background:linear-gradient(100deg,#16251f 30%,#1f3830 50%,#16251f 70%);background-size:300% 100%;animation:brilla 1.6s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}@keyframes late{50%{transform:translateY(3px) scale(.9);opacity:.6}}@keyframes brilla{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.rueda,.gota,.esq{animation:none}}.bar{height:12px;background:#0c1512;border-radius:6px;overflow:hidden;position:relative}.bar i{display:block;height:100%;background:var(--ac)}
 </style></head><body>
 <header><h1>Riego inteligente</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
 <main>
@@ -51,7 +57,7 @@ async function api0(p,o={}){o.headers=Object.assign({"Content-Type":"application
  if(r.status==401){TOK=null;try{localStorage.removeItem("metric_token")}catch(e){};mostrar();throw new Error("Sesión vencida")}
  if(r.status==403&&j.error=="TRIAL_EXPIRED")throw new Error("Tu prueba terminó. Contactanos para activar tu plan.");
  if(!r.ok)throw new Error(j.error||("Error "+r.status));return j}
-function mostrar(){$("login").classList.toggle("hid",!!TOK);$("app").classList.toggle("hid",!TOK);if(TOK)iniciar()}
+function mostrar(){if(TOK&&$("lotes"))esperaLotes();$("login").classList.toggle("hid",!!TOK);$("app").classList.toggle("hid",!TOK);if(TOK)iniciar()}
 $("ing").onclick=async()=>{$("lerr").textContent="";try{const r=await fetch(API+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo ingresar");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
 let REG=false;
 $("crear").onclick=async()=>{if(!REG){REG=true;$("regx").classList.remove("hid");$("crear").textContent="Registrarme";$("lerr").textContent="Completá los datos y tocá Registrarme.";return}
@@ -61,9 +67,10 @@ function opts(sel,obj,def){sel.innerHTML=(sel.id=="f_s"?'<option value="">Autom�
 async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}
  if(!CAT){try{CAT=await (await fetch(API+"/api/riego/catalogos")).json()}catch(e){CAT=CAT0;$("lotes").insertAdjacentHTML("beforebegin",'<p class="mu" style="color:#f59e0b">'+MSG_SRV+'</p>')}if(!CAT||!CAT.cultivos)CAT=CAT0;opts($("f_c"),CAT.cultivos);opts($("f_s"),CAT.suelos);opts($("f_y"),CAT.sistemas);$("f_s").value=""}
  cargar()}
-async function cargar(){try{const j=await api("/api/riego/resumen");LOTES=j.lotes;
+function esperaLotes(){$("vacio").classList.add("hid");$("lotes").innerHTML='<div class="cargando"><div class="rueda"></div><span><span class="gota">💧</span> Cargando tus lotes y calculando el balance de agua…</span></div><div class="esq"></div><div class="esq"></div>'}
+async function cargar(){esperaLotes();try{const j=await api("/api/riego/resumen");LOTES=j.lotes;
  $("vacio").classList.toggle("hid",LOTES.length>0);
- $("lotes").innerHTML=LOTES.map(l=>l.error?`<div class="panel">${l.nombre}<div class="mu">${l.error}</div></div>`:`<div class="panel lote ${l.decision}" data-id="${l.id}"><div class="mu">${l.nombre} · ${CAT.cultivos[l.cultivo].nombre} · ${l.etapa}</div><div class="dec">${l.decision}</div><div class="bar"><i style="width:${Math.max(0,Math.min(100,l.agua_util_pct))}%"></i></div><div class="mu">Agua útil ${l.agua_util_pct}% · déficit ${l.deficit_mm} mm</div><div class="mu">${l.motivo}</div></div>`).join("");
+ $("lotes").innerHTML=LOTES.map(l=>l.error?`<div class="panel lote" data-id="${l.id}"><div>${l.nombre}</div><div class="mu" style="color:#f59e0b">${l.error}</div><div class="mu">Tocá para eliminarlo y cargarlo de nuevo.</div></div>`:`<div class="panel lote ${l.decision}" data-id="${l.id}"><div class="mu">${l.nombre} · ${CAT.cultivos[l.cultivo].nombre} · ${l.etapa}</div><div class="dec">${l.decision}</div><div class="bar"><i style="width:${Math.max(0,Math.min(100,l.agua_util_pct))}%"></i></div><div class="mu">Agua útil ${l.agua_util_pct}% · déficit ${l.deficit_mm} mm</div><div class="mu">${l.motivo}</div></div>`).join("");
  document.querySelectorAll(".lote").forEach(e=>e.onclick=()=>detalle(+e.dataset.id))}catch(e){$("lotes").innerHTML=`<p class="mu">${e.message}</p>`}}
 function marca(p){POS=p;if(MK)MK.setLatLng(p);else MK=L.marker(p).addTo(MAP);$("f_p").value=p.lat>-25.6?"Salta":"Tucumán";
  $("pos").textContent="Lote en "+p.lat.toFixed(4)+", "+p.lng.toFixed(4);
@@ -92,7 +99,8 @@ async function buscar(){const q=$("bus").value.trim();if(!q||!MAP)return;try{con
 $("busb").onclick=buscar;$("bus").onkeydown=e=>{if(e.key=="Enter")buscar()};
 $("cancel").onclick=()=>$("form").classList.add("hid");
 $("guardar").onclick=async()=>{$("ferr").textContent="";if(!POS)return $("ferr").textContent="Dibujá el lote o tocá el mapa para marcarlo.";if(!$("f_f").value)return $("ferr").textContent="Falta la fecha de siembra.";
- try{await api("/api/riego/lotes",{method:"POST",body:JSON.stringify({nombre:$("f_n").value||"Lote",provincia:$("f_p").value,lat:POS.lat,lon:POS.lng,poligono:POLY,cultivo:$("f_c").value,fecha_siembra:$("f_f").value,ha:+$("f_h").value||null,suelo:$("f_s").value,sistema:$("f_y").value,agua_inicial_pct:+$("f_a").value})});$("form").classList.add("hid");cargar()}catch(e){$("ferr").textContent=e.message}};
+ $("guardar").disabled=true;$("guardar").textContent="Guardando…";$("ferr").innerHTML='<span class="rueda" style="display:inline-block;width:16px;height:16px;vertical-align:middle"></span> Guardando el lote y leyendo el suelo…';
+ try{await api("/api/riego/lotes",{method:"POST",body:JSON.stringify({nombre:$("f_n").value||"Lote",provincia:$("f_p").value,lat:POS.lat,lon:POS.lng,poligono:POLY,cultivo:$("f_c").value,fecha_siembra:$("f_f").value,ha:+$("f_h").value||null,suelo:$("f_s").value,sistema:$("f_y").value,agua_inicial_pct:+$("f_a").value})});$("form").classList.add("hid");$("ferr").textContent="";cargar()}catch(e){$("ferr").textContent=e.message}$("guardar").disabled=false;$("guardar").textContent="Guardar lote"};
 function perfil(b){const p=b.perfil;if(!p)return'<p class="mu">Perfil de humedad por capas no disponible en este momento.</p>';
  return `<h3>Perfil de humedad del suelo (${p.f})</h3>`+p.capas.map(c=>`<div style="display:grid;grid-template-columns:70px 1fr 60px;gap:8px;align-items:center;margin:4px 0"><span class="mu">${c.prof_cm} cm</span><div class="bar"><i style="width:${Math.min(100,c.agua_util_pct||0)}%;background:${(c.agua_util_pct||0)<35?"#ef4444":(c.agua_util_pct||0)<60?"#f59e0b":"#22c55e"}"></i></div><span>${c.agua_util_pct==null?"-":c.agua_util_pct+"%"}</span></div>`).join("")+'<p class="mu">Porcentaje de agua útil de cada capa (0% = punto de marchitez, 100% = capacidad de campo).</p>'}
 function grafico(b){const s=b.serie.slice(-45),fut=b.futuro.prudente,w=700,h=220,p=24,n=s.length+fut.length,mx=Math.max(b.taw_mm,...s.map(x=>x.dr));
@@ -101,7 +109,7 @@ function grafico(b){const s=b.serie.slice(-45),fut=b.futuro.prudente,w=700,h=220
  l3="M"+X(s.length-1)+","+Y(s[s.length-1].dr)+" "+b.futuro.pronostico.map((x,i)=>"L"+X(s.length+i)+","+Y(x.dr)).join(" ");
  const bars=s.map((x,i)=>x.lluvia?`<rect x="${X(i)-2}" y="${h-p-Math.min(40,x.lluvia)}" width="4" height="${Math.min(40,x.lluvia)}" fill="#38bdf8" opacity=".6"/>`:"").join("");
  return `<svg viewBox="0 0 ${w} ${h}"><line x1="${p}" x2="${w-p}" y1="${Y(b.raw_mm)}" y2="${Y(b.raw_mm)}" stroke="#ef4444" stroke-dasharray="4"/><text x="${p+4}" y="${Y(b.raw_mm)-4}" fill="#ef4444" font-size="11">Umbral de riego (${b.raw_mm} mm de déficit)</text>${bars}<path d="${l1}" fill="none" stroke="#e8f1ec" stroke-width="2"/><path d="${l3}" fill="none" stroke="#22c55e" stroke-dasharray="3"/><path d="${l2}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5"/><text x="${p+4}" y="${h-6}" fill="#8fa89d" font-size="11">Déficit de agua en el suelo (mm) · barras: lluvia · verde: con pronóstico · naranja: con lluvia prudente</text></svg>`}
-async function detalle(id){const d=$("det");d.classList.remove("hid");$("form").classList.add("hid");d.innerHTML='<p class="mu">Calculando balance…</p>';d.scrollIntoView({behavior:"smooth"});
+async function detalle(id){const d=$("det");d.classList.remove("hid");$("form").classList.add("hid");d.innerHTML='<div class="cargando"><div class="rueda"></div><span><span class="gota">💧</span> Calculando el balance de este lote (la primera vez puede tardar unos segundos)…</span></div>';d.scrollIntoView({behavior:"smooth"});
  try{const b=await api("/api/riego/lotes/"+id+"/balance"),r=b.recomendacion,ev=await api("/api/riego/lotes/"+id+"/eventos");
  const dd=x=>x==null?"más de 7":x;
  d.innerHTML=`<div style="display:flex;justify-content:space-between"><h2 style="margin:0">${b.lote.nombre}</h2><button class="sec" onclick="borrar(${id})">Eliminar lote</button></div>
@@ -111,10 +119,10 @@ async function detalle(id){const d=$("det");d.classList.remove("hid");$("form").
  ${grafico(b)}${perfil(b)}<p class="mu">Humedad: ${b.fuentes.humedad} · Suelo: ${b.fuentes.suelo||"-"} · Lluvia: ${b.fuentes.lluvia} · ET0: ${b.fuentes.et0}${b.sentinel?` · última imagen Sentinel ${b.sentinel.f}`:""}</p>
  <h3>Registrar lluvia o riego</h3><div class="g"><label>Fecha<input id="e_f" placeholder="Elegir en el calendario" readonly></label><label>Tipo<select id="e_t"><option value="lluvia">Lluvia medida en mi lote</option><option value="riego">Riego aplicado (lámina bruta)</option></select></label><label>Milímetros<input id="e_m" type="number" min="0" step="0.1"></label></div><p><button onclick="evento(${id})">Guardar registro</button> <span id="eerr" class="mu"></span></p>
  <table><tr><th>Fecha</th><th>Tipo</th><th>mm</th><th></th></tr>${ev.eventos.map(e=>`<tr><td>${e.f}</td><td>${e.tipo}</td><td>${e.mm}</td><td><a href="#" onclick="delev(${id},${e.id});return false" class="mu">quitar</a></td></tr>`).join("")}</table>`}
- catch(e){d.innerHTML=`<p class="mu">${e.message}</p>`;return}cal("e_f")}
+ catch(e){d.innerHTML=`<p class="mu" style="color:#f59e0b">${e.message}</p><button class="sec" onclick="borrar(${id})">Eliminar lote</button>`;return}cal("e_f")}
 async function evento(id){try{await api("/api/riego/lotes/"+id+"/eventos",{method:"POST",body:JSON.stringify({fecha:$("e_f").value,tipo:$("e_t").value,mm:+$("e_m").value})});detalle(id);cargar()}catch(e){$("eerr").textContent=e.message}}
 async function delev(id,e){await api("/api/riego/lotes/"+id+"/eventos?id="+e,{method:"DELETE"});detalle(id);cargar()}
 async function borrar(id){if(!confirm("¿Eliminar este lote y sus registros?"))return;await api("/api/riego/lotes/"+id,{method:"DELETE"});$("det").classList.add("hid");cargar()}
-function cal(id){flatpickr("#"+id,{locale:"es",dateFormat:"Y-m-d",altInput:true,altFormat:"j \\de F \\de Y",allowInput:false,maxDate:id=="e_f"?"today":null,disableMobile:true})}
+function cal(id){flatpickr("#"+id,{locale:"es",dateFormat:"Y-m-d",altInput:true,altFormat:"j \\de F \\de Y",allowInput:false,maxDate:"today",disableMobile:true})}
 cal("f_f");mostrar();
 </script></body></html>
