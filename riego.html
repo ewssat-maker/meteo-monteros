@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.css">
 <style>
 :root{--bg:#0f1a17;--pn:#16251f;--ln:#27403a;--tx:#e8f1ec;--mu:#8fa89d;--ac:#38bdf8;--rg:#ef4444;--vg:#f59e0b;--es:#22c55e}
@@ -21,6 +22,14 @@ button{cursor:pointer;background:var(--ac);color:#04202b;border:0;font-weight:60
 #map{height:420px;border-radius:8px}.busq{display:flex;gap:8px;margin:8px 0}.busq input{flex:1}.flatpickr-input{cursor:pointer}svg{width:100%;height:220px;background:#0c1512;border-radius:8px}
 table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1px solid var(--ln);text-align:left;font-size:13px}
 .hid{display:none}
+.pie{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 16px 18px;margin-top:8px}
+.pie .logos{display:flex;align-items:center;gap:20px}.pie .logos img{width:48px;height:48px;object-fit:contain;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(15,23,42,.8);box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.pie .sep{width:1px;height:32px;background:rgba(255,255,255,.2)}
+.pie .redes{display:flex;gap:16px}.pie .redes a{width:40px;height:40px;border-radius:50%;background:rgba(30,41,59,.8);border:1px solid #334155;display:flex;align-items:center;justify-content:center;color:#34d399;text-decoration:none;font-size:18px;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:.2s}
+.pie .redes a:hover{background:#10b981;color:#fff;border-color:#34d399}.pie small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
+.tasa{border:2px solid var(--ac);background:rgba(56,189,248,.08);border-radius:10px;padding:12px 14px;margin:12px 0}
+.tasa label{color:var(--tx);font-size:14px;font-weight:600}.tasa input{width:160px;font-size:20px;font-weight:700;border:2px solid var(--ac);background:#0c1512;text-align:center}
+.tasa .mu{margin:6px 0 0}th.ed{color:var(--ac)}
 .cargando{display:flex;align-items:center;gap:12px;grid-column:1/-1;padding:18px 4px;color:var(--mu)}
 .rueda{width:26px;height:26px;border-radius:50%;border:3px solid var(--ln);border-top-color:var(--ac);animation:gira .9s linear infinite;flex:none}
 .gota{display:inline-block;animation:late 1.4s ease-in-out infinite}
@@ -36,18 +45,23 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 <section class="panel"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Mis lotes</h2><button id="nuevo">Agregar lote</button></div><div id="lotes" class="lotes" style="margin-top:12px"></div><p id="vacio" class="mu hid">Todavía no cargaste lotes. Tocá "Agregar lote", marcá el lote en el mapa y completá los datos.</p></section>
 <section id="form" class="panel hid"><h2 id="ftit">Nuevo lote</h2><div class="busq"><input id="bus" placeholder="Buscar localidad, finca o camino (ej. Las Lajitas, Salta)"><button class="sec" id="busb">Buscar</button></div><div id="map"></div><p class="mu" id="pos">Usá el lápiz del mapa (arriba a la izquierda) para dibujar el contorno del lote, o tocá el mapa para marcar su centro.</p>
 <div class="g"><label>Nombre<input id="f_n"></label><label>Provincia<select id="f_p"><option>Tucumán</option><option>Salta</option></select></label>
-<label>Cultivo<select id="f_c"></select></label><label>Fecha de siembra (o de corte en caña)<input id="f_f" placeholder="Tocá para elegir en el calendario" readonly></label>
+<label>Cultivo<select id="f_c"></select></label><label>Fecha de siembra, plantación o corte<input id="f_f" placeholder="Tocá para elegir en el calendario" readonly></label>
 <label>Hectáreas<input id="f_h" type="number" min="0" step="0.1"></label><label>Suelo<select id="f_s"></select></label>
 <label>Sistema de riego<select id="f_y"></select></label><label>Agua útil a la siembra (%)<input id="f_a" type="number" min="0" max="100" value="50"></label></div>
 <p><button id="guardar">Guardar lote</button> <button class="sec" id="cancel">Cancelar</button> <span id="ferr" class="mu"></span></p></section>
 <section id="det" class="panel hid"></section></div></main>
+<footer class="pie"><div class="logos"><img src="logo.png" alt="Logo Alerta" onerror="this.style.display='none'"><div class="sep"></div><img src="logo_metric.png" alt="MetricPoint" onerror="this.style.display='none'"></div>
+<div class="redes"><a href="https://www.instagram.com/metricpoint.service/" target="_blank" rel="noopener" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+<a href="https://wa.me/5493876448915?text=Hola%2C%20quiero%20consultar%20por%20Riego%20inteligente%20de%20MetricPoint" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+<a href="https://metricpoint.onrender.com" target="_blank" rel="noopener" aria-label="Sitio web"><i class="fa-solid fa-globe"></i></a></div>
+<small>© 2026 MetricPoint AgTech</small></footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.js"></script>
 <script>
 const API=(window.RIEGO_API||"https://metricmoisture-backend.onrender.com");
-const $=id=>document.getElementById(id);const CAT0={cultivos:{cana:{nombre:'Caña de azúcar'},soja:{nombre:'Soja'},maiz:{nombre:'Maíz'},poroto:{nombre:'Poroto'},trigo:{nombre:'Trigo'}},sistemas:{pivote:{nombre:'Pivote central'},aspersion:{nombre:'Aspersión'},canon:{nombre:'Cañón / enrollador'},goteo:{nombre:'Goteo'},microaspersion:{nombre:'Microaspersión'},surco:{nombre:'Surco / gravedad'},melga:{nombre:'Melgas / manto'},secano:{nombre:'Sin sistema (secano)'}},suelos:{arenoso:{nombre:'Arenoso'},franco_arenoso:{nombre:'Franco arenoso'},franco:{nombre:'Franco'},franco_limoso:{nombre:'Franco limoso'},franco_arcilloso:{nombre:'Franco arcilloso'},arcilloso:{nombre:'Arcilloso'}}};
+const $=id=>document.getElementById(id);const CAT0={cultivos:{cana:{nombre:'Caña de azúcar'},soja:{nombre:'Soja'},maiz:{nombre:'Maíz'},poroto:{nombre:'Poroto'},trigo:{nombre:'Trigo'},citricos:{nombre:'Cítricos (limón, naranja, pomelo)'}},sistemas:{pivote:{nombre:'Pivote central'},aspersion:{nombre:'Aspersión'},canon:{nombre:'Cañón / enrollador'},goteo:{nombre:'Goteo'},microaspersion:{nombre:'Microaspersión'},surco:{nombre:'Surco / gravedad'},melga:{nombre:'Melgas / manto'},secano:{nombre:'Sin sistema (secano)'}},suelos:{arenoso:{nombre:'Arenoso'},franco_arenoso:{nombre:'Franco arenoso'},franco:{nombre:'Franco'},franco_limoso:{nombre:'Franco limoso'},franco_arcilloso:{nombre:'Franco arcilloso'},arcilloso:{nombre:'Arcilloso'}}};
 let TOK=null,POLY=null,FG=null,DIB=false,CAT=null,MAP,MK,POS=null,EDIT=null,LOTES=[];
 try{TOK=localStorage.getItem("metric_token")}catch(e){}
 const MSG_SRV="No hay conexión con el servidor de riego. Verificá que riego.py esté en modulos/ y registrado en app_moisture.py, y que Render haya terminado de desplegar.";
@@ -111,8 +125,9 @@ function planHtml(b,id){const p=b.plan;
  const nota=sis=="pivote"?"Pivote: cada fila es una vuelta; ajustá la velocidad (% del temporizador) para aplicar esa lámina.":(sis=="surco"||sis=="melga")?"Las horas dependen del caudal y el largo del surco o la melga: cargá la tasa de tu equipo (mm por hora) para calcularlas.":"Horas calculadas con la tasa de aplicación indicada; ajustala a la de tu equipo.";
  return `<div class="panel" style="background:#0c1512"><h3 style="margin-top:0">Plan de riego</h3><div class="dec d-${b.decision}">${b.decision=="VIGILAR"?"Riego de respaldo: "+(p.hoy?"hoy si no llueve":"desde el "+fdia(p.inicio,b.hoy)+" si no llueve"):(p.hoy?"Regar hoy":"Empezar el "+fdia(p.inicio,b.hoy))}</div>
  <p>${b.decision=="VIGILAR"?"Hay lluvia pronosticada que podría cubrir el déficit. Si no se cumple: ":""}<b>${p.eventos.length} riego(s)</b> en los próximos 7 días, <b>${p.total_bruto_mm} mm brutos</b> en total (${p.total_neto_mm} mm llegan al cultivo). Déficit hoy ${b.deficit_mm} mm → ${p.deficit_final_mm} mm al final del plan.</p>
- <label style="max-width:260px">Tasa de aplicación de tu equipo (mm por hora)<input id="tasa" type="number" min="0" step="0.1" value="${t0||""}" placeholder="${sinTasa?"ej. 5":""}" oninput="recalc(${id})"></label>
- <table><tr><th>Día</th><th>Lámina bruta</th><th>Horas de riego</th><th>Déficit después</th></tr>${filas}</table>
+ <div class="tasa"><label for="tasa">✏️ Tasa de aplicación de TU equipo (mm por hora)</label><br><input id="tasa" type="number" min="0" step="0.1" value="${t0||""}" placeholder="${sinTasa?"ej. 5":""}" oninput="recalc(${id})"> <span class="mu">mm/h</span>
+ <p class="mu">Es un valor típico del sistema elegido. Cambialo por el de tu equipo (datos del fabricante o medido en el lote) y las horas de la tabla se recalculan al instante.</p></div>
+ <table><tr><th>Día</th><th>Lámina bruta</th><th class="ed">Horas de riego ✏️</th><th>Déficit después</th></tr>${filas}</table>
  <p class="mu">${nota} El plan supone la lluvia prudente (pronóstico × probabilidad) y se recalcula cada día.</p>${p.alerta?`<p style="color:#f59e0b">${p.alerta}</p>`:""}</div>`}
 function lluviaPron(b){const l=(b.pronostico||[]).filter(x=>x.lluvia>=1);if(!l.length)return'<p class="mu">Sin lluvia significativa pronosticada para los próximos 7 días.</p>';
  return '<p class="mu">Lluvia pronosticada: '+l.map(x=>fdia(x.f,b.hoy)+" "+x.lluvia+" mm ("+Math.round(x.prob==null?100:x.prob)+"%)").join(" · ")+"</p>"}
@@ -140,7 +155,7 @@ async function detalle(id){const d=$("det");d.classList.remove("hid");$("form").
  const dd=x=>x==null?"más de 7":x;
  d.innerHTML=`<div style="display:flex;justify-content:space-between"><h2 style="margin:0">${b.lote.nombre}</h2><button class="sec" onclick="borrar(${id})">Eliminar lote</button></div>
  <div class="dec d-${b.decision}">${b.decision}</div><p>${b.motivo}</p>
- <div class="kpi"><div><span class="mu">Agua útil</span><b>${b.agua_util_pct}%</b>${b.agua_util_mm} mm</div><div><span class="mu">Déficit</span><b>${b.deficit_mm} mm</b>umbral ${b.umbral_riego_mm}</div><div><span class="mu">Etapa</span><b>${b.etapa}</b>${b.avance_pct}% del ciclo${b.periodo_critico?" · crítico":""}</div><div><span class="mu">Estrés en</span><b>${dd(b.dias_hasta_estres_prudente)} d</b>sin lluvia: ${dd(b.dias_hasta_estres_sin_lluvia)} d</div><div><span class="mu">Lluvia 7 días</span><b>${b.lluvia_pronostico_mm} mm</b>prudente ${b.lluvia_prudente_mm}</div></div>
+ <div class="kpi"><div><span class="mu">Agua útil</span><b>${b.agua_util_pct}%</b>${b.agua_util_mm} mm</div><div><span class="mu">Déficit</span><b>${b.deficit_mm} mm</b>umbral ${b.umbral_riego_mm}</div><div><span class="mu">Etapa</span><b>${b.etapa}</b>${b.avance_pct==null?"cultivo perenne":b.avance_pct+"% del ciclo"}${b.periodo_critico?" · crítico":""}</div><div><span class="mu">Estrés en</span><b>${dd(b.dias_hasta_estres_prudente)} d</b>sin lluvia: ${dd(b.dias_hasta_estres_sin_lluvia)} d</div><div><span class="mu">Lluvia 7 días</span><b>${b.lluvia_pronostico_mm} mm</b>prudente ${b.lluvia_prudente_mm}</div></div>
  ${planHtml(b,id)}${lluviaPron(b)}${comoSeCalculo(b)}
  ${grafico(b)}${perfil(b)}<p class="mu">Humedad: ${b.fuentes.humedad} · Suelo: ${b.fuentes.suelo||"-"} · Lluvia: ${b.fuentes.lluvia} · ET0: ${b.fuentes.et0}${b.sentinel?` · última imagen Sentinel ${b.sentinel.f}`:""}</p>
  <h3>Registrar lluvia o riego</h3><div class="g"><label>Fecha<input id="e_f" placeholder="Elegir en el calendario" readonly></label><label>Tipo<select id="e_t"><option value="lluvia">Lluvia medida en mi lote</option><option value="riego">Riego aplicado (lámina bruta)</option></select></label><label>Milímetros<input id="e_m" type="number" min="0" step="0.1"></label></div><p><button onclick="evento(${id})">Guardar registro</button> <span id="eerr" class="mu"></span></p>
