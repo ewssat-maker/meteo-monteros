@@ -109,11 +109,23 @@ function planHtml(b,id){const p=b.plan;
  const sis=p.sistema,sinTasa=!p.tasa_mm_h;
  const filas=p.eventos.map((e,i)=>`<tr><td>${fdia(e.f,b.hoy)}</td><td><b>${e.bruto_mm} mm</b></td><td class="hs" data-mm="${e.bruto_mm}">${t0?(e.bruto_mm/t0).toFixed(1)+" h":"—"}</td><td>${e.deficit_despues_mm} mm</td></tr>`).join("");
  const nota=sis=="pivote"?"Pivote: cada fila es una vuelta; ajustá la velocidad (% del temporizador) para aplicar esa lámina.":(sis=="surco"||sis=="melga")?"Las horas dependen del caudal y el largo del surco o la melga: cargá la tasa de tu equipo (mm por hora) para calcularlas.":"Horas calculadas con la tasa de aplicación indicada; ajustala a la de tu equipo.";
- return `<div class="panel" style="background:#0c1512"><h3 style="margin-top:0">Plan de riego</h3><div class="dec d-${b.decision}">${p.hoy?"Regar hoy":"Empezar el "+fdia(p.inicio,b.hoy)}</div>
- <p>${b.decision=="VIGILAR"?"Si no llueve lo previsto: ":""}<b>${p.eventos.length} riego(s)</b> en los próximos 7 días, <b>${p.total_bruto_mm} mm brutos</b> en total (${p.total_neto_mm} mm llegan al cultivo). Déficit hoy ${b.deficit_mm} mm → ${p.deficit_final_mm} mm al final del plan.</p>
+ return `<div class="panel" style="background:#0c1512"><h3 style="margin-top:0">Plan de riego</h3><div class="dec d-${b.decision}">${b.decision=="VIGILAR"?"Riego de respaldo: "+(p.hoy?"hoy si no llueve":"desde el "+fdia(p.inicio,b.hoy)+" si no llueve"):(p.hoy?"Regar hoy":"Empezar el "+fdia(p.inicio,b.hoy))}</div>
+ <p>${b.decision=="VIGILAR"?"Hay lluvia pronosticada que podría cubrir el déficit. Si no se cumple: ":""}<b>${p.eventos.length} riego(s)</b> en los próximos 7 días, <b>${p.total_bruto_mm} mm brutos</b> en total (${p.total_neto_mm} mm llegan al cultivo). Déficit hoy ${b.deficit_mm} mm → ${p.deficit_final_mm} mm al final del plan.</p>
  <label style="max-width:260px">Tasa de aplicación de tu equipo (mm por hora)<input id="tasa" type="number" min="0" step="0.1" value="${t0||""}" placeholder="${sinTasa?"ej. 5":""}" oninput="recalc(${id})"></label>
  <table><tr><th>Día</th><th>Lámina bruta</th><th>Horas de riego</th><th>Déficit después</th></tr>${filas}</table>
  <p class="mu">${nota} El plan supone la lluvia prudente (pronóstico × probabilidad) y se recalcula cada día.</p>${p.alerta?`<p style="color:#f59e0b">${p.alerta}</p>`:""}</div>`}
+function lluviaPron(b){const l=(b.pronostico||[]).filter(x=>x.lluvia>=1);if(!l.length)return'<p class="mu">Sin lluvia significativa pronosticada para los próximos 7 días.</p>';
+ return '<p class="mu">Lluvia pronosticada: '+l.map(x=>fdia(x.f,b.hoy)+" "+x.lluvia+" mm ("+Math.round(x.prob==null?100:x.prob)+"%)").join(" · ")+"</p>"}
+function comoSeCalculo(b){const u=b.serie[b.serie.length-1]||{},s=b.suelo||{};return `<details style="margin:10px 0"><summary class="mu" style="cursor:pointer">Cómo se calculó</summary>
+ <table><tr><td>Capacidad de campo / punto de marchitez</td><td>${s.cc} / ${s.pmp} m³/m³</td></tr>
+ <tr><td>Profundidad de raíces hoy</td><td>${b.prof_raiz_m} m</td></tr>
+ <tr><td>Agua total disponible (TAW) = (CC − PMP) × raíz</td><td>${b.taw_mm} mm</td></tr>
+ <tr><td>Umbral de riego (RAW) = fracción que el cultivo puede gastar sin estrés${b.periodo_critico?" (reducida por período crítico)":""}</td><td>${b.raw_mm} mm</td></tr>
+ <tr><td>Déficit actual (agua que falta para capacidad de campo)</td><td>${b.deficit_mm} mm</td></tr>
+ <tr><td>ET0 de referencia último día</td><td>${u.et0} mm</td></tr>
+ <tr><td>Coeficiente del cultivo (Kc) · reducción por estrés (Ks)</td><td>${b.kc} · ${b.ks}</td></tr>
+ <tr><td>Consumo del cultivo (ETc = Kc × Ks × ET0)</td><td>${u.etc} mm/día</td></tr></table>
+ <p class="mu">Cada día: déficit nuevo = déficit anterior − lluvia útil − riego aplicado × eficiencia + ETc. La lluvia útil descuenta intercepción y escurrimiento. El perfil de humedad (Sentinel-1) corrige el déficit con peso del 50%.</p></details>`}
 function recalc(id){const v=parseFloat($("tasa").value);try{localStorage.setItem("tasa_"+id,v||"")}catch(e){}document.querySelectorAll(".hs").forEach(c=>c.textContent=v>0?(+c.dataset.mm/v).toFixed(1)+" h":"—")}
 function perfil(b){const p=b.perfil;if(!p)return'<p class="mu">Perfil de humedad por capas no disponible en este momento.</p>';
  return `<h3>Perfil de humedad del suelo (${p.f})</h3>`+p.capas.map(c=>`<div style="display:grid;grid-template-columns:70px 1fr 60px;gap:8px;align-items:center;margin:4px 0"><span class="mu">${c.prof_cm} cm</span><div class="bar"><i style="width:${Math.min(100,c.agua_util_pct||0)}%;background:${(c.agua_util_pct||0)<35?"#ef4444":(c.agua_util_pct||0)<60?"#f59e0b":"#22c55e"}"></i></div><span>${c.agua_util_pct==null?"-":c.agua_util_pct+"%"}</span></div>`).join("")+'<p class="mu">Porcentaje de agua útil de cada capa (0% = punto de marchitez, 100% = capacidad de campo).</p>'}
@@ -129,7 +141,7 @@ async function detalle(id){const d=$("det");d.classList.remove("hid");$("form").
  d.innerHTML=`<div style="display:flex;justify-content:space-between"><h2 style="margin:0">${b.lote.nombre}</h2><button class="sec" onclick="borrar(${id})">Eliminar lote</button></div>
  <div class="dec d-${b.decision}">${b.decision}</div><p>${b.motivo}</p>
  <div class="kpi"><div><span class="mu">Agua útil</span><b>${b.agua_util_pct}%</b>${b.agua_util_mm} mm</div><div><span class="mu">Déficit</span><b>${b.deficit_mm} mm</b>umbral ${b.umbral_riego_mm}</div><div><span class="mu">Etapa</span><b>${b.etapa}</b>${b.avance_pct}% del ciclo${b.periodo_critico?" · crítico":""}</div><div><span class="mu">Estrés en</span><b>${dd(b.dias_hasta_estres_prudente)} d</b>sin lluvia: ${dd(b.dias_hasta_estres_sin_lluvia)} d</div><div><span class="mu">Lluvia 7 días</span><b>${b.lluvia_pronostico_mm} mm</b>prudente ${b.lluvia_prudente_mm}</div></div>
- ${planHtml(b,id)}
+ ${planHtml(b,id)}${lluviaPron(b)}${comoSeCalculo(b)}
  ${grafico(b)}${perfil(b)}<p class="mu">Humedad: ${b.fuentes.humedad} · Suelo: ${b.fuentes.suelo||"-"} · Lluvia: ${b.fuentes.lluvia} · ET0: ${b.fuentes.et0}${b.sentinel?` · última imagen Sentinel ${b.sentinel.f}`:""}</p>
  <h3>Registrar lluvia o riego</h3><div class="g"><label>Fecha<input id="e_f" placeholder="Elegir en el calendario" readonly></label><label>Tipo<select id="e_t"><option value="lluvia">Lluvia medida en mi lote</option><option value="riego">Riego aplicado (lámina bruta)</option></select></label><label>Milímetros<input id="e_m" type="number" min="0" step="0.1"></label></div><p><button onclick="evento(${id})">Guardar registro</button> <span id="eerr" class="mu"></span></p>
  <table><tr><th>Fecha</th><th>Tipo</th><th>mm</th><th></th></tr>${ev.eventos.map(e=>`<tr><td>${e.f}</td><td>${e.tipo}</td><td>${e.mm}</td><td><a href="#" onclick="delev(${id},${e.id});return false" class="mu">quitar</a></td></tr>`).join("")}</table>`}
