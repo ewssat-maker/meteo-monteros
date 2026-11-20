@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pronóstico · MetricPoint</title>
+<title>Pronóstico inteligente · MetricPoint</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
@@ -54,7 +54,7 @@ button:focus-visible,a:focus-visible,.sit:focus-visible{outline:2px solid var(--
 .pie .redes{display:flex;gap:16px}.pie .redes a{width:40px;height:40px;border-radius:50%;background:rgba(30,41,59,.8);border:1px solid #334155;display:flex;align-items:center;justify-content:center;color:#34d399;text-decoration:none;font-size:18px;transition:.2s}
 .pie .redes a:hover{background:#10b981;color:#fff;border-color:#34d399}.pie small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
 </style></head><body>
-<header><h1><i class="fa-solid fa-cloud-sun-rain"></i>Pronóstico</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
+<header><h1><i class="fa-solid fa-cloud-sun-rain"></i>Pronóstico inteligente</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
 <main>
 <section id="login" class="panel hid"><h2 style="margin-top:0">Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div><div id="regx" class="g hid"><label>Nombre o razón social<input id="rn"></label><label>Teléfono (WhatsApp)<input id="rt" type="tel"></label></div>
 <p><button id="ing">Ingresar</button> <button class="sec" id="crear">Crear cuenta nueva</button> <span id="lerr" class="mu"></span></p><p class="mu">La cuenta es la misma de MetricPoint: si ya tenés una, ingresá con ella.</p></section>
@@ -66,7 +66,7 @@ button:focus-visible,a:focus-visible,.sit:focus-visible{outline:2px solid var(--
 </div></main>
 <footer class="pie"><div class="logos"><img src="logo.png" alt="Logo Alerta" onerror="this.style.display='none'"><div class="sep"></div><img src="logo_metric.png" alt="MetricPoint" onerror="this.style.display='none'"></div>
 <div class="redes"><a href="https://www.instagram.com/metricpoint.service/" target="_blank" rel="noopener" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
-<a href="https://wa.me/5493876448915?text=Hola%2C%20quiero%20consultar%20por%20el%20Pron%C3%B3stico%20de%20MetricPoint" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+<a href="https://wa.me/5493876448915?text=Hola%2C%20quiero%20consultar%20por%20el%20Pron%C3%B3stico%20inteligente%20de%20MetricPoint" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
 <a href="https://metricpoint.onrender.com" target="_blank" rel="noopener" aria-label="Sitio web"><i class="fa-solid fa-globe"></i></a></div>
 <small>© 2026 MetricPoint AgTech</small></footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -86,7 +86,7 @@ async function api0(p,o={}){o.headers=Object.assign({"Content-Type":"application
 $("ing").onclick=async()=>{$("lerr").textContent="";try{const r=await fetch(API+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo ingresar");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
 let REG=false;
 $("crear").onclick=async()=>{if(!REG){REG=true;$("regx").classList.remove("hid");$("crear").textContent="Registrarme";$("lerr").textContent="Completá los datos y tocá Registrarme.";return}
- $("lerr").textContent="";try{if(!$("em").value||!$("pw").value)throw new Error("Falta correo o contraseña");const r=await fetch(API+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value,razon_social:$("rn").value||"Usuario",nombre_contacto:$("rn").value,telefono:$("rt").value,cultivo:"Pronóstico"})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo crear la cuenta");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
+ $("lerr").textContent="";try{if(!$("em").value||!$("pw").value)throw new Error("Falta correo o contraseña");const r=await fetch(API+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value,razon_social:$("rn").value||"Usuario",nombre_contacto:$("rn").value,telefono:$("rt").value,cultivo:"Pronóstico inteligente"})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo crear la cuenta");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
 $("salir").onclick=()=>{try{localStorage.removeItem("metric_token")}catch(e){};TOK=null;location.reload()};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const f1=x=>x==null?"—":(Math.round(x*10)/10).toFixed(1),f0=x=>x==null?"—":Math.round(x);
@@ -103,11 +103,11 @@ async function cargar(){esperando();
   if(!SIT.length){$("vacio").classList.remove("hid");$("vista").classList.add("hid");return}
   $("vacio").classList.add("hid");const ok=SIT.find(s=>s.id==SEL&&!s.error)||SIT.find(s=>!s.error)||SIT[0];elegir(ok.id);riegoInfo()}
  catch(e){$("sitios").innerHTML='<p class="mu" style="color:var(--am)">'+esc(e.message)+'</p>'}}
-function pintarSitios(){$("sitios").innerHTML=SIT.map(s=>{if(s.error)return`<button class="sit" data-id="${s.id}"><b>${esc(s.nombre)}</b><span class="mu">${esc(s.error)}</span></button>`;
+function pintarSitios(){$("sitios").innerHTML=SIT.map(s=>{if(s.error)return`<button class="sit" data-id="${s.id}"><b>${esc(s.nombre)}</b><span class="mu">${/429|Too Many|saturado/i.test(s.error)?"El servicio meteorológico está saturado. Reintentá en un minuto.":esc(s.error)}</span><span class="mu" style="display:block;margin-top:4px;color:var(--ac)">Tocá para reintentar</span></button>`;
  const d=s.dias[0],ll=s.dias.slice(0,3).reduce((a,x)=>a+(x.lluvia||0),0),n=s.alertas.length;
  return`<button class="sit ${s.id==SEL?"on":""}" data-id="${s.id}"><span class="pt ${s.semaforo}"></span><b>${esc(s.nombre)}</b><div class="tt">${f0(d.tmax)}°<small> / ${f0(d.tmin)}°</small></div><div class="lz"><span><i class="fa-solid fa-droplet"></i> ${f0(ll)} mm en 3 días</span><span>${n?`<i class="fa-solid fa-triangle-exclamation"></i> ${n}`:"sin alertas"}</span></div></button>`}).join("");
  document.querySelectorAll(".sit").forEach(b=>b.onclick=()=>elegir(b.dataset.id))}
-async function elegir(id){SEL=id;pintarSitios();const s=SIT.find(x=>x.id==id);if(!s||s.error)return;
+async function elegir(id){SEL=id;const s0=SIT.find(x=>x.id==id);if(s0&&s0.error){cargar();return}pintarSitios();const s=s0;if(!s)return;
  const v=$("vista");v.classList.remove("hid");v.innerHTML='<div class="cargando"><div class="rueda"></div><span>Armando el pronóstico de '+esc(s.nombre)+'…</span></div>';
  try{DATA=await api("/api/pronostico/punto?lat="+s.lat+"&lon="+s.lon+"&tipo="+s.tipo);if(SEL!=id)return;vista(s)}catch(e){v.innerHTML='<p class="mu" style="color:var(--am)">'+esc(e.message)+'</p>'}}
 async function riegoInfo(){try{const r=await api("/api/riego/resumen");(r.lotes||r||[]).forEach?.(l=>{RIEGO["L"+l.id]=l});if(DATA){const s=SIT.find(x=>x.id==SEL);if(s)marcaRiego(s)}}catch(e){}}
@@ -119,6 +119,7 @@ function vista(s){const p=DATA,hoy=p.dias[0].f,h0=p.horas[0],sem=p.semaforo;
  const semT={verde:"Sin alertas",amarillo:"Atención",rojo:"Alerta"}[sem];
  $("vista").innerHTML=`<div class="panel"><div class="hd"><div><h2>${esc(s.nombre)}</h2><div class="mu">${mina?"Mina / obra":"Campo"}${s.cultivo?" · "+esc(s.cultivo):""} · actualizado ${new Date(p.actualizado).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</div></div><div style="text-align:right"><span class="pill ${sem}">${semT}</span>${s.origen=="sitio"?` <button class="sec" id="bdel" style="padding:3px 10px;font-size:12px">Quitar sitio</button>`:""}<div id="riegoChip"></div></div></div>
  <div class="corr">${corrTxt(p.correccion)}</div>
+ ${p.datos_viejos?`<div class="corr" style="color:var(--am)"><i class="fa-solid fa-clock-rotate-left"></i> El servicio meteorológico está saturado: se muestra el último pronóstico guardado, que puede tener algunas horas.</div>`:""}
  ${p.lluvia_cerca.length?`<div class="corr" style="color:var(--ll)"><i class="fa-solid fa-cloud-rain"></i> Está lloviendo cerca ahora: ${p.lluvia_cerca.map(x=>esc(x.nombre)+" ("+x.dist_km+" km, "+x.mm_40min+" mm en 40 min)").join(" · ")}</div>`:""}
  <h3 style="margin:14px 0 0">Próximas 72 horas · pasá el dedo o el mouse por el gráfico</h3><div class="lectura" id="lec"></div><svg id="gr" viewBox="0 0 760 330"></svg>
  <div class="leyenda"><span><i style="background:var(--t)"></i>Temperatura (corregida)</span><span><i style="background:var(--ll);height:8px"></i>Lluvia por hora</span><span><i style="background:#c4b5fd"></i>Ráfagas</span>${mina?"":`<span><i style="background:var(--vd);height:8px;opacity:.5"></i>Buena hora para pulverizar</span>`}</div></div>
