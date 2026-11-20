@@ -38,7 +38,7 @@
     var c = t;                         // sube hasta la tarjeta: la que tiene como hermana anterior la de RADAR 3D
     while (c && c !== document.body) {
       var prev = c.previousElementSibling;
-      if (prev && /radar 3d/i.test(prev.textContent)) return c;
+      if (prev && (/radar 3d/i.test(prev.textContent) || prev.id === "pronLiveCard")) return c;
       c = c.parentElement;
     }
     return null;
@@ -48,7 +48,7 @@
     if (document.getElementById("riegoLiveCard") || document.getElementById("riegoLiveFlot")) return true;
     var p = tarjeta();
     if (!p) return false;
-    var k = p.cloneNode(true);
+    var k = p.cloneNode(true); k.classList.remove("mp-oculta"); k.style.display = "";
     [k].concat([].slice.call(k.querySelectorAll("*"))).forEach(function (n) {
       n.removeAttribute("onclick"); n.removeAttribute("id"); n.removeAttribute("href"); n.removeAttribute("data-i18n");
     });
@@ -61,7 +61,7 @@
     var ico = k.querySelector("svg, i, img");
     if (ico) { var s = document.createElement("span"); s.textContent = "💧"; s.style.cssText = "font-size:26px;line-height:1"; ico.parentNode.replaceChild(s, ico); }
     k.addEventListener("click", abrir, true);
-    p.parentNode.insertBefore(k, p.nextSibling);
+    p.parentNode.insertBefore(k, p.nextSibling);   // si la tarjeta vieja está oculta, Riego queda justo debajo del nuevo Pronóstico inteligente
     return true;
   }
 
