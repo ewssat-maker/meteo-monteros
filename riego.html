@@ -66,7 +66,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 <div class="panel s4"><h3>Programación de riego</h3><div id="prog"></div></div>
 <div class="panel s3"><h3>Histórico (7 días)</h3><div id="hist"></div></div>
 <div class="panel s7"><h3>Alertas y novedades</h3><div id="alertas"></div></div>
-<div class="panel s5"><h3>Eficiencia del sistema</h3><div class="fila2"><div id="anillo"></div><div class="lista2" id="efic" style="flex:1;min-width:150px"></div></div></div>
+<div class="panel s5"><h3>Agua útil y eficiencia</h3><div class="fila2"><div id="anillo"></div><div class="lista2" id="efic" style="flex:1;min-width:150px"></div></div></div>
 </section>
 <section id="form" class="panel hid"><h2 id="ftit">Nuevo lote</h2><div class="busq"><input id="bus" placeholder="Buscar localidad, finca o camino (ej. Las Lajitas, Salta)"><button class="sec" id="busb">Buscar</button></div><div id="map"></div><p class="mu" id="pos">Usá el lápiz del mapa (arriba a la izquierda) para dibujar el contorno del lote, o tocá el mapa para marcar su centro.</p>
 <div class="g"><label>Nombre<input id="f_n"></label><label>Provincia<select id="f_p"><option>Tucumán</option><option>Salta</option></select></label>
@@ -135,9 +135,12 @@ function renderDash(){const ok=LOTES.filter(l=>!l.error);
  if(!al.length)al.push(["✅","Todo en orden","Ningún lote requiere riego por ahora",null]);
  $("alertas").innerHTML=al.slice(0,6).map(a=>`<div class="alerta"><i>${a[0]}</i><div><b>${a[1]}</b><small>${a[2]}</small></div>${a[3]?`<button class="sec" style="margin-left:auto" onclick="detalle(${a[3]})">Ver</button>`:""}</div>`).join("");
  // eficiencia
- const sin=ok.length?Math.round(100*ok.filter(l=>l.decision!="REGAR").length/ok.length):0,prom=ok.length?Math.round(ok.reduce((s,l)=>s+(l.agua_util_pct||0),0)/ok.length):0;
- $("anillo").innerHTML=`<div class="anillo" style="--p:${sin};--c:#22c55e"><div><b>${sin}%</b><small>sin estrés</small></div></div>`;
- $("efic").innerHTML=`<div><span>Agua útil promedio</span><b>${prom}%</b></div><div><span>Lotes sin estrés</span><b>${ok.filter(l=>l.decision!="REGAR").length}/${ok.length}</b></div><div><span>Lotes a regar hoy</span><b>${n("REGAR")}</b></div>`;
+ const prom=ok.length?Math.round(ok.reduce((s,l)=>s+(l.agua_util_pct||0),0)/ok.length):0,sinN=ok.filter(l=>l.decision!="REGAR").length;
+ const EF0={pivote:.85,aspersion:.75,canon:.65,goteo:.92,microaspersion:.85,surco:.55,melga:.6};
+ const efs=ok.map(l=>((CAT&&CAT.sistemas&&CAT.sistemas[l.sistema]&&CAT.sistemas[l.sistema].eficiencia)!=null?CAT.sistemas[l.sistema].eficiencia:EF0[l.sistema])).filter(x=>x>0);
+ const efm=efs.length?Math.round(100*efs.reduce((a,b)=>a+b,0)/efs.length):null,col=prom<35?"#ef4444":prom<60?"#f59e0b":"#22c55e";
+ $("anillo").innerHTML=`<div class="anillo" style="--p:${prom};--c:${col}"><div><b>${prom}%</b><small>agua útil</small></div></div>`;
+ $("efic").innerHTML=`<div><span>Eficiencia de aplicación</span><b>${efm==null?"—":efm+"%"}</b></div><div><span>Lotes sin estrés</span><b>${sinN}/${ok.length}</b></div><div><span>Lotes a regar hoy</span><b>${n("REGAR")}</b></div>`;
  mapaDash();
  const st=(ok.find(l=>l.estacion)||{}).estacion;vivoHeader(st)}
 function vivoHeader(st){
@@ -228,7 +231,7 @@ function comoSeCalculo(b){const u=b.serie[b.serie.length-1]||{},s=b.suelo||{};re
  <p class="mu">Cada día: déficit nuevo = déficit anterior − lluvia útil − riego aplicado × eficiencia + ETc. La lluvia útil descuenta intercepción y escurrimiento. El perfil de humedad (Sentinel-1) corrige el déficit con peso del 50%.</p></details>`}
 function recalc(id){const v=parseFloat($("tasa").value);try{localStorage.setItem("tasa_"+id,v||"")}catch(e){}document.querySelectorAll(".hs").forEach(c=>c.textContent=v>0?(+c.dataset.mm/v).toFixed(1)+" h":"—")}
 function perfil(b){const p=b.perfil;if(!p)return'<p class="mu">Perfil de humedad por capas no disponible en este momento.</p>';
- return `<h3>Perfil de humedad del suelo (${p.f})</h3>`+p.capas.map(c=>`<div style="display:grid;grid-template-columns:70px 1fr 60px;gap:8px;align-items:center;margin:4px 0"><span class="mu">${c.prof_cm} cm</span><div class="bar"><i style="width:${Math.min(100,c.agua_util_pct||0)}%;background:${(c.agua_util_pct||0)<35?"#ef4444":(c.agua_util_pct||0)<60?"#f59e0b":"#22c55e"}"></i></div><span>${c.agua_util_pct==null?"-":c.agua_util_pct+"%"}</span></div>`).join("")+'<p class="mu">Porcentaje de agua útil de cada capa (0% = punto de marchitez, 100% = capacidad de campo).</p>'}
+ return `<h3>Perfil de humedad del suelo (al cierre del ${p.f})</h3>`+p.capas.map(c=>`<div style="display:grid;grid-template-columns:70px 1fr 60px;gap:8px;align-items:center;margin:4px 0"><span class="mu">${c.prof_cm} cm</span><div class="bar"><i style="width:${Math.min(100,c.agua_util_pct||0)}%;background:${(c.agua_util_pct||0)<35?"#ef4444":(c.agua_util_pct||0)<60?"#f59e0b":"#22c55e"}"></i></div><span>${c.agua_util_pct==null?"-":c.agua_util_pct+"%"}</span></div>`).join("")+'<p class="mu">Porcentaje de agua útil de cada capa (0% = punto de marchitez, 100% = capacidad de campo).</p>'}
 function grafico(b){const s=b.serie.slice(-45),fut=b.futuro.prudente,w=700,h=220,p=24,n=s.length+fut.length,mx=Math.max(b.taw_mm,...s.map(x=>x.dr));
  const X=i=>p+i*(w-2*p)/(n-1),Y=v=>h-p-(v/mx)*(h-2*p);
  const l1=s.map((x,i)=>(i?"L":"M")+X(i)+","+Y(x.dr)).join(" "),l2="M"+X(s.length-1)+","+Y(s[s.length-1].dr)+" "+fut.map((x,i)=>"L"+X(s.length+i)+","+Y(x.dr)).join(" "),
