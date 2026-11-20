@@ -21,6 +21,21 @@ button{cursor:pointer;background:var(--ac);color:#04202b;border:0;font-weight:60
 .mu{color:var(--mu);font-size:13px}.kpi{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.kpi b{display:block;font-size:20px}
 #map{height:420px;border-radius:8px}.busq{display:flex;gap:8px;margin:8px 0}.busq input{flex:1}.flatpickr-input{cursor:pointer}svg{width:100%;height:220px;background:#0c1512;border-radius:8px}
 table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1px solid var(--ln);text-align:left;font-size:13px}
+
+.dg{display:grid;gap:14px;grid-template-columns:1fr}
+.dg>.panel{min-width:0}.dg h3{margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+@media(min-width:900px){.dg{grid-template-columns:repeat(12,1fr)}.s7{grid-column:span 7}.s5{grid-column:span 5}.s4{grid-column:span 4}.s3{grid-column:span 3}.s6{grid-column:span 6}.s12{grid-column:span 12}}
+.vivo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}.vivo .est{font-size:13px;color:var(--mu)}.vivo .est b{color:var(--tx)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{display:flex;gap:8px;align-items:center;background:#0c1512;border:1px solid var(--ln);border-radius:10px;padding:7px 12px;font-size:15px;font-weight:700}.chip small{display:block;font-size:10px;color:var(--mu);font-weight:600}
+.kps{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}.kp{background:#0c1512;border:1px solid var(--ln);border-radius:12px;padding:12px 8px;text-align:center}.kp b{display:block;font-size:26px;line-height:1.1}.kp span{font-size:11px;color:var(--mu)}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid}.b-REGAR{color:#ef4444;border-color:#ef444466;background:#ef444414}.b-VIGILAR{color:#f59e0b;border-color:#f59e0b66;background:#f59e0b14}.b-ESPERAR{color:#22c55e;border-color:#22c55e66;background:#22c55e14}
+#dmap{height:320px;border-radius:8px}.num{width:24px;height:24px;border-radius:50%;color:#fff;font-weight:800;font-size:12px;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6)}
+.tt tr.act td{background:#1b3029}.tt tr{cursor:pointer}.tt tr:hover td{background:#1b3029}.tt td,.tt th{padding:7px 6px}
+.tiles{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}.tile{background:#0c1512;border:1px solid var(--ln);border-radius:10px;padding:8px 10px}.tile span{font-size:11px;color:var(--mu)}.tile b{font-size:19px;display:block}
+.anillo{width:130px;height:130px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p)*1%),#0c1512 0);display:grid;place-items:center;flex:none}.anillo>div{width:100px;height:100px;border-radius:50%;background:var(--pn);display:grid;place-items:center;text-align:center;align-content:center}.anillo b{font-size:26px;line-height:1}.anillo small{font-size:11px;color:var(--mu)}
+.alerta{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--ln);font-size:14px}.alerta:last-child{border:0}.alerta i{font-style:normal;font-size:18px}.alerta small{display:block;color:var(--mu)}
+.fila2{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.lista2 div{display:flex;justify-content:space-between;gap:20px;padding:6px 0;border-bottom:1px solid var(--ln);font-size:14px}.lista2 div:last-child{border:0}
+.vivo-d{border:1px solid var(--ln);border-radius:10px;padding:8px 12px;margin:8px 0;background:#0c1512;font-size:13px;color:var(--mu)}.vivo-d b{color:var(--tx)}
 .hid{display:none}
 .pie{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 16px 18px;margin-top:8px}
 .pie .logos{display:flex;align-items:center;gap:20px}.pie .logos img{width:48px;height:48px;object-fit:contain;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(15,23,42,.8);box-shadow:0 2px 8px rgba(0,0,0,.4)}
@@ -42,7 +57,17 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 <section id="login" class="panel hid"><h2>Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div><div id="regx" class="g hid"><label>Nombre o razón social<input id="rn"></label><label>Teléfono (WhatsApp)<input id="rt" type="tel"></label></div>
 <p><button id="ing">Ingresar</button> <button class="sec" id="crear">Crear cuenta nueva</button> <span id="lerr" class="mu"></span></p><p class="mu">La cuenta es la misma de MetricPoint: si ya tenés una, ingresá con ella.</p></section>
 <div id="app" class="hid">
-<section class="panel"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Mis lotes</h2><button id="nuevo">Agregar lote</button></div><div id="lotes" class="lotes" style="margin-top:12px"></div><p id="vacio" class="mu hid">Todavía no cargaste lotes. Tocá "Agregar lote", marcá el lote en el mapa y completá los datos.</p></section>
+<section id="dash" class="dg">
+<div class="panel s12 vivo"><div><div style="font-size:20px;font-weight:800">Sistema de riego inteligente</div><div class="est" id="vivoEst">Monitoreo y control en tiempo real</div></div><div class="chips" id="vivoChips"></div></div>
+<div class="panel s12"><h3>Resumen general</h3><div class="kps" id="kps"></div></div>
+<div class="panel s7"><h3>Mapa de lotes</h3><div id="dmap"></div><p class="mu" style="margin:8px 0 0"><span style="color:#22c55e">●</span> Esperar &nbsp; <span style="color:#f59e0b">●</span> Vigilar &nbsp; <span style="color:#ef4444">●</span> Regar</p></div>
+<div class="panel s5"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Estado de lotes</h3><button id="nuevo">Agregar lote</button></div><div id="lotes" style="overflow:auto;max-height:340px"></div><p id="vacio" class="mu hid">Todavía no cargaste lotes. Tocá "Agregar lote", dibujá el lote en el mapa y completá los datos.</p></div>
+<div class="panel s5"><h3 id="sensTit">Sensores ambientales</h3><div class="tiles" id="sens"></div><div class="tiles" id="suelo" style="margin-top:8px"></div></div>
+<div class="panel s4"><h3>Programación de riego</h3><div id="prog"></div></div>
+<div class="panel s3"><h3>Histórico (7 días)</h3><div id="hist"></div></div>
+<div class="panel s7"><h3>Alertas y novedades</h3><div id="alertas"></div></div>
+<div class="panel s5"><h3>Eficiencia del sistema</h3><div class="fila2"><div id="anillo"></div><div class="lista2" id="efic" style="flex:1;min-width:150px"></div></div></div>
+</section>
 <section id="form" class="panel hid"><h2 id="ftit">Nuevo lote</h2><div class="busq"><input id="bus" placeholder="Buscar localidad, finca o camino (ej. Las Lajitas, Salta)"><button class="sec" id="busb">Buscar</button></div><div id="map"></div><p class="mu" id="pos">Usá el lápiz del mapa (arriba a la izquierda) para dibujar el contorno del lote, o tocá el mapa para marcar su centro.</p>
 <div class="g"><label>Nombre<input id="f_n"></label><label>Provincia<select id="f_p"><option>Tucumán</option><option>Salta</option></select></label>
 <label>Cultivo<select id="f_c"></select></label><label>Fecha de siembra, plantación o corte<input id="f_f" placeholder="Tocá para elegir en el calendario" readonly></label>
@@ -62,7 +87,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 <script>
 const API=(window.RIEGO_API||"https://metricmoisture-backend.onrender.com");
 const $=id=>document.getElementById(id);const CAT0={cultivos:{cana:{nombre:'Caña de azúcar'},soja:{nombre:'Soja'},maiz:{nombre:'Maíz'},poroto:{nombre:'Poroto'},trigo:{nombre:'Trigo'},citricos:{nombre:'Cítricos (limón, naranja, pomelo)'}},sistemas:{pivote:{nombre:'Pivote central'},aspersion:{nombre:'Aspersión'},canon:{nombre:'Cañón / enrollador'},goteo:{nombre:'Goteo'},microaspersion:{nombre:'Microaspersión'},surco:{nombre:'Surco / gravedad'},melga:{nombre:'Melgas / manto'},secano:{nombre:'Sin sistema (secano)'}},suelos:{arenoso:{nombre:'Arenoso'},franco_arenoso:{nombre:'Franco arenoso'},franco:{nombre:'Franco'},franco_limoso:{nombre:'Franco limoso'},franco_arcilloso:{nombre:'Franco arcilloso'},arcilloso:{nombre:'Arcilloso'}}};
-let TOK=null,POLY=null,FG=null,DIB=false,CAT=null,MAP,MK,POS=null,EDIT=null,LOTES=[];
+let ACT=null,TOK=null,POLY=null,FG=null,DIB=false,CAT=null,MAP,MK,POS=null,EDIT=null,LOTES=[];
 try{TOK=localStorage.getItem("metric_token")}catch(e){}
 const MSG_SRV="No hay conexión con el servidor de riego. Verificá que riego.py esté en modulos/ y registrado en app_moisture.py, y que Render haya terminado de desplegar.";
 async function api(p,o={}){try{return await api0(p,o)}catch(e){if(e instanceof TypeError)throw new Error(MSG_SRV);throw e}}
@@ -81,11 +106,68 @@ function opts(sel,obj,def){sel.innerHTML=(sel.id=="f_s"?'<option value="">Autom�
 async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}
  if(!CAT){try{CAT=await (await fetch(API+"/api/riego/catalogos")).json()}catch(e){CAT=CAT0;$("lotes").insertAdjacentHTML("beforebegin",'<p class="mu" style="color:#f59e0b">'+MSG_SRV+'</p>')}if(!CAT||!CAT.cultivos)CAT=CAT0;opts($("f_c"),CAT.cultivos);opts($("f_s"),CAT.suelos);opts($("f_y"),CAT.sistemas);$("f_s").value=""}
  cargar()}
-function esperaLotes(){$("vacio").classList.add("hid");$("lotes").innerHTML='<div class="cargando"><div class="rueda"></div><span><span class="gota">💧</span> Cargando tus lotes y calculando el balance de agua…</span></div><div class="esq"></div><div class="esq"></div>'}
-async function cargar(){esperaLotes();try{const j=await api("/api/riego/resumen");LOTES=j.lotes;
+function esperaLotes(){$("vacio").classList.add("hid");$("lotes").innerHTML='<div class="cargando"><div class="rueda"></div><span><span class="gota">💧</span> Cargando tus lotes y calculando el balance de agua…</span></div><div class="esq"></div>';
+ ["kps","prog","alertas","efic","anillo","hist","sens","suelo"].forEach(i=>{if($(i))$(i).innerHTML='<div class="esq" style="height:60px"></div>'})}
+const COLD={REGAR:"#ef4444",VIGILAR:"#f59e0b",ESPERAR:"#22c55e"};let MAPD=null,CAPAD=null,BAL={};
+const fm=(v,d=1)=>v==null||isNaN(v)?"--":Number(v).toFixed(d).replace(".",",");
+const hoyIso=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Argentina/Salta"});
+const diaTxt=f=>{const h=hoyIso();if(f==h)return"Hoy";const n=Math.round((new Date(f+"T12:00:00")-new Date(h+"T12:00:00"))/864e5);return n==1?"Mañana":new Date(f+"T12:00:00").toLocaleDateString("es-AR",{weekday:"short",day:"numeric",month:"numeric"})};
+function spark(v,c){v=(v||[]).filter(x=>x!=null);if(v.length<2)return"";const mn=Math.min(...v),mx=Math.max(...v),r=mx-mn||1,w=120,h=34;
+ return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:34px;background:none"><polyline fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round" points="${v.map((x,i)=>(i*w/(v.length-1)).toFixed(1)+","+(h-3-(x-mn)/r*(h-6)).toFixed(1)).join(" ")}"/></svg>`}
+function horasDe(mm,l){const t=parseFloat(localStorage.getItem("tasa_"+l.id))||(l.plan&&l.plan.tasa_mm_h);return t?fm(mm/t,1)+" h":"—"}
+function renderDash(){const ok=LOTES.filter(l=>!l.error);
+ // resumen general
+ const n=c=>ok.filter(l=>l.decision==c).length,ha=ok.reduce((s,l)=>s+(+l.ha||0),0);
+ const m3=ok.reduce((s,l)=>{const e=l.plan&&l.plan.hoy&&l.plan.eventos[0];return s+(e?e.bruto_mm*(+l.ha||0)*10:0)},0);
+ $("kps").innerHTML=[["Lotes",LOTES.length,"var(--tx)"],["Hectáreas",Math.round(ha).toLocaleString("es-AR"),"var(--tx)"],["Regar",n("REGAR"),COLD.REGAR],["Vigilar",n("VIGILAR"),COLD.VIGILAR],["Esperar",n("ESPERAR"),COLD.ESPERAR],["Agua a aplicar hoy (m³)",Math.round(m3).toLocaleString("es-AR"),"var(--ac)"]].map(k=>`<div class="kp"><b style="color:${k[2]}">${k[1]}</b><span>${k[0]}</span></div>`).join("");
+ // tabla de estado
  $("vacio").classList.toggle("hid",LOTES.length>0);
- $("lotes").innerHTML=LOTES.map(l=>l.error?`<div class="panel lote" data-id="${l.id}"><div>${l.nombre}</div><div class="mu" style="color:#f59e0b">${l.error}</div><div class="mu">Tocá para eliminarlo y cargarlo de nuevo.</div></div>`:`<div class="panel lote ${l.decision}" data-id="${l.id}"><div class="mu">${l.nombre} · ${CAT.cultivos[l.cultivo].nombre} · ${l.etapa}</div><div class="dec">${l.decision}</div><div class="bar"><i style="width:${Math.max(0,Math.min(100,l.agua_util_pct))}%"></i></div><div class="mu">Agua útil ${l.agua_util_pct}% · déficit ${l.deficit_mm} mm</div><div class="mu">${l.motivo}</div></div>`).join("");
- document.querySelectorAll(".lote").forEach(e=>e.onclick=()=>detalle(+e.dataset.id))}catch(e){$("lotes").innerHTML=`<p class="mu">${e.message}</p>`}}
+ $("lotes").innerHTML=LOTES.length?`<table class="tt"><tr><th>#</th><th>Lote</th><th>Estado</th><th>Próximo riego</th></tr>${LOTES.map((l,i)=>l.error?`<tr data-id="${l.id}"><td>${i+1}</td><td>${l.nombre}</td><td colspan="2" style="color:#f59e0b">${l.error}</td></tr>`:`<tr data-id="${l.id}" class="${ACT==l.id?"act":""}"><td>${i+1}</td><td>${l.nombre}<div class="mu">${CAT.cultivos[l.cultivo].nombre} · ${l.etapa}</div></td><td><span class="badge b-${l.decision}">${l.decision}</span></td><td>${l.plan?(l.plan.hoy?"Hoy":diaTxt(l.plan.inicio)):(l.dias_hasta_estres?"Revisar en "+l.dias_hasta_estres+" d":"Sin riego previsto")}</td></tr>`).join("")}</table>`:"";
+ document.querySelectorAll("#lotes tr[data-id]").forEach(e=>e.onclick=()=>detalle(+e.dataset.id));
+ // programación
+ const ev=ok.filter(l=>l.plan&&l.plan.eventos.length).map(l=>({l,e:l.plan.eventos[0]})).sort((a,b)=>a.e.f.localeCompare(b.e.f));
+ $("prog").innerHTML=ev.length?`<table class="tt"><tr><th>Día</th><th>Lote</th><th>Lámina</th><th>Horas</th></tr>${ev.map(x=>`<tr data-id="${x.l.id}"><td><span class="badge b-${x.e.f==hoyIso()?"REGAR":"VIGILAR"}">${diaTxt(x.e.f)}</span></td><td>${x.l.nombre}</td><td>${x.e.bruto_mm} mm</td><td>${horasDe(x.e.bruto_mm,x.l)}</td></tr>`).join("")}</table><p class="mu">Primer riego sugerido de cada lote. Las horas usan la tasa de tu equipo.</p>`:'<p class="mu">Ningún lote necesita riego en los próximos días.</p>';
+ document.querySelectorAll("#prog tr[data-id]").forEach(e=>e.onclick=()=>detalle(+e.dataset.id));
+ // alertas
+ const al=[];ok.filter(l=>l.decision=="REGAR").forEach(l=>al.push(["⚠️",`Agua útil baja en ${l.nombre} (${l.agua_util_pct}%)`,"Se recomienda regar hoy",l.id]));
+ ok.filter(l=>l.decision=="VIGILAR").forEach(l=>al.push(["ℹ️",`${l.nombre}: riego de respaldo`,"Depende de que se cumpla la lluvia pronosticada",l.id]));
+ LOTES.filter(l=>l.error).forEach(l=>al.push(["❗",`${l.nombre}: no se pudo calcular`,l.error,l.id]));
+ if(!al.length)al.push(["✅","Todo en orden","Ningún lote requiere riego por ahora",null]);
+ $("alertas").innerHTML=al.slice(0,6).map(a=>`<div class="alerta"><i>${a[0]}</i><div><b>${a[1]}</b><small>${a[2]}</small></div>${a[3]?`<button class="sec" style="margin-left:auto" onclick="detalle(${a[3]})">Ver</button>`:""}</div>`).join("");
+ // eficiencia
+ const sin=ok.length?Math.round(100*ok.filter(l=>l.decision!="REGAR").length/ok.length):0,prom=ok.length?Math.round(ok.reduce((s,l)=>s+(l.agua_util_pct||0),0)/ok.length):0;
+ $("anillo").innerHTML=`<div class="anillo" style="--p:${sin};--c:#22c55e"><div><b>${sin}%</b><small>sin estrés</small></div></div>`;
+ $("efic").innerHTML=`<div><span>Agua útil promedio</span><b>${prom}%</b></div><div><span>Lotes sin estrés</span><b>${ok.filter(l=>l.decision!="REGAR").length}/${ok.length}</b></div><div><span>Lotes a regar hoy</span><b>${n("REGAR")}</b></div>`;
+ mapaDash();
+ const st=(ok.find(l=>l.estacion)||{}).estacion;vivoHeader(st)}
+function vivoHeader(st){
+ $("vivoEst").innerHTML=st?`📡 <b>${st.nombre}</b> (${st.fuente}) · a ${fm(st.dist_km,1)} km · ${st.hora}`:"Sin estación cercana con datos en las últimas 3 horas";
+ $("vivoChips").innerHTML=st?[["🌡️",fm(st.temp,1)+" °C","Temperatura"],["💧",st.hum==null?"--":Math.round(st.hum)+" %","Humedad"],["🌬️",st.viento==null?"--":fm(st.viento,1)+" km/h","Viento"],["🌧️",st.lluvia_hoy==null?"--":fm(st.lluvia_hoy,1)+" mm","Lluvia hoy"]].map(c=>`<div class="chip"><span>${c[0]}</span><div>${c[1]}<small>${c[2]}</small></div></div>`).join(""):""}
+function mapaDash(){if(!$("dmap"))return;
+ if(!MAPD){MAPD=L.map("dmap",{scrollWheelZoom:false}).setView([-26.3,-65.0],8);
+  L.layerGroup([L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"}),L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19})]).addTo(MAPD);CAPAD=L.featureGroup().addTo(MAPD)}
+ CAPAD.clearLayers();const pts=[];
+ LOTES.forEach((l,i)=>{if(l.error||l.lat==null)return;const c=COLD[l.decision]||"#94a3b8";pts.push([l.lat,l.lon]);
+  if(l.poligono&&l.poligono.length>2)L.polygon(l.poligono.map(p=>[p[1],p[0]]),{color:c,weight:2,fillColor:c,fillOpacity:.28}).on("click",()=>detalle(l.id)).addTo(CAPAD);
+  L.marker([l.lat,l.lon],{icon:L.divIcon({className:"",html:`<div class="num" style="background:${c}">${i+1}</div>`,iconSize:[24,24]})}).bindTooltip(l.nombre+" · "+l.decision).on("click",()=>detalle(l.id)).addTo(CAPAD)});
+ setTimeout(()=>{MAPD.invalidateSize();if(pts.length)try{MAPD.fitBounds(CAPAD.getBounds().isValid()?CAPAD.getBounds():pts,{padding:[30,30],maxZoom:15})}catch(e){}},80)}
+async function widgetsLote(b){ACT=b.lote.id;BAL[b.lote.id]=b;document.querySelectorAll("#lotes tr[data-id]").forEach(e=>e.classList.toggle("act",+e.dataset.id==ACT));
+ const v=b.vivo||{},st=v.estacion;if(st)vivoHeader(st);
+ $("sensTit").textContent="Sensores ambientales"+(st?" · "+st.nombre+" ("+fm(st.dist_km,1)+" km)":"");
+ $("sens").innerHTML=st?[["Temperatura",fm(st.temp,1)+" °C","#fb923c","t"],["Humedad",st.hum==null?"--":Math.round(st.hum)+" %","#60a5fa","h"],["Viento",st.viento==null?"sin dato":fm(st.viento,1)+" km/h","#34d399",""],["Lluvia hoy",st.lluvia_hoy==null?"sin dato":fm(st.lluvia_hoy,1)+" mm","#22d3ee",""]].map(t=>`<div class="tile"><span>${t[0]}</span><b>${t[1]}</b><div id="sp_${t[3]||t[0]}"></div></div>`).join(""):'<p class="mu">No hay estación cercana con datos recientes.</p>';
+ if(st)fetch(API+"/api/lluvia/estacion/"+encodeURIComponent(st.id)+"?horas=24").then(r=>r.json()).then(j=>{const s=j.serie||[];const t=s.map(x=>x.temp).filter(x=>x!=null&&x>-10&&x<47),hh=s.map(x=>x.hum).filter(x=>x!=null&&x>=1);
+  if($("sp_t"))$("sp_t").innerHTML=spark(t,"#fb923c");if($("sp_h"))$("sp_h").innerHTML=spark(hh,"#60a5fa")}).catch(()=>{});
+ const p=b.perfil,s=b.suelo||{};
+ $("suelo").innerHTML=p?[[10,"h10"],[30,"h30"],[60,"h60"]].map(c=>{const pc=p.serie.map(x=>x[c[1]]==null?null:Math.max(0,Math.min(130,100*(x[c[1]]-s.pmp)/Math.max(1e-6,s.cc-s.pmp))));const u=p.capas.find(x=>x.prof_cm==c[0]);
+  return `<div class="tile"><span>Humedad del suelo ${c[0]} cm</span><b>${u&&u.agua_util_pct!=null?u.agua_util_pct+" %":"--"}</b>${spark(pc,"#22c55e")}</div>`}).join(""):"";
+ const sr=b.serie.slice(-7),mx=Math.max(1,...sr.map(x=>Math.max(x.etc||0,x.lluvia||0))),W=260,H=120,bw=W/sr.length;
+ $("hist").innerHTML=`<svg viewBox="0 0 ${W} ${H+16}" style="width:100%;height:auto;background:none">${sr.map((x,i)=>{const a=(x.etc||0)/mx*H,c=(x.lluvia||0)/mx*H;return `<rect x="${i*bw+4}" y="${H-a}" width="${bw/2-4}" height="${a}" fill="#38bdf8"/><rect x="${i*bw+bw/2}" y="${H-c}" width="${bw/2-4}" height="${c}" fill="#22d3ee" opacity=".55"/><text x="${i*bw+bw/2}" y="${H+12}" fill="#8fa89d" font-size="9" text-anchor="middle">${x.f.slice(8)}/${x.f.slice(5,7)}</text>`}).join("")}</svg><p class="mu"><span style="color:#38bdf8">■</span> Consumo del cultivo (mm) &nbsp;<span style="color:#22d3ee">■</span> Lluvia (mm)</p>`}
+async function cargar(){esperaLotes();BAL={};try{const j=await api("/api/riego/resumen");LOTES=j.lotes;
+ renderDash();
+ const a0=LOTES.find(l=>!l.error&&l.id==ACT)||LOTES.find(l=>!l.error);
+ if(a0){try{widgetsLote(await api("/api/riego/lotes/"+a0.id+"/balance"))}catch(e){}}
+ else{["sens","suelo","hist"].forEach(i=>$(i).innerHTML="")}
+ }catch(e){$("lotes").innerHTML=`<p class="mu">${e.message}</p>`;["kps","prog","alertas","efic","anillo"].forEach(i=>{if($(i))$(i).innerHTML=""})}}
 function marca(p){POS=p;if(MK)MK.setLatLng(p);else MK=L.marker(p).addTo(MAP);$("f_p").value=p.lat>-25.6?"Salta":"Tucumán";
  $("pos").textContent="Lote en "+p.lat.toFixed(4)+", "+p.lng.toFixed(4);
  api("/api/riego/suelo?lat="+p.lat+"&lon="+p.lng).then(s=>{$("pos").textContent+=" · suelo: arena "+Math.round(s.arena||0)+"%, arcilla "+Math.round(s.arcilla||0)+"% ("+s.fuente+")"}).catch(()=>{})}
@@ -116,6 +198,9 @@ $("guardar").onclick=async()=>{$("ferr").textContent="";if(!POS)return $("ferr")
  $("guardar").disabled=true;$("guardar").textContent="Guardando…";$("ferr").innerHTML='<span class="rueda" style="display:inline-block;width:16px;height:16px;vertical-align:middle"></span> Guardando el lote y leyendo el suelo…';
  try{await api("/api/riego/lotes",{method:"POST",body:JSON.stringify({nombre:$("f_n").value||"Lote",provincia:$("f_p").value,lat:POS.lat,lon:POS.lng,poligono:POLY,cultivo:$("f_c").value,fecha_siembra:$("f_f").value,ha:+$("f_h").value||null,suelo:$("f_s").value,sistema:$("f_y").value,agua_inicial_pct:+$("f_a").value})});$("form").classList.add("hid");$("ferr").textContent="";cargar()}catch(e){$("ferr").textContent=e.message}$("guardar").disabled=false;$("guardar").textContent="Guardar lote"};
 const fdia=(f,hoy)=>{const d=new Date(f+"T12:00:00"),h=new Date(hoy+"T12:00:00"),n=Math.round((d-h)/864e5),t=d.toLocaleDateString("es-AR",{weekday:"short",day:"numeric",month:"numeric"});return n==0?"Hoy ("+t+")":n==1?"Mañana ("+t+")":t};
+function vivoDet(b){const v=b.vivo||{},st=v.estacion;if(!st)return'<div class="vivo-d">Sin estación cercana con datos en las últimas 3 h: se usa solo el pronóstico y el radar.</div>';
+ const u=[];if(v.lluvia_hoy_mm!=null)u.push("la lluvia de hoy ("+fm(v.lluvia_hoy_mm,1)+" mm)");if(v.dias_lluvia_estaciones>1)u.push("la lluvia de días sin radar");if(v.factor_et0)u.push("la evapotranspiración, corregida con la temperatura real (×"+fm(v.factor_et0,2)+")");
+ return `<div class="vivo-d">📡 En vivo: <b>${st.nombre}</b> (${st.fuente}, a ${fm(st.dist_km,1)} km, ${st.hora}) · ${fm(st.temp,1)} °C${st.hum!=null?" · "+Math.round(st.hum)+" %":""}${st.viento!=null?" · "+fm(st.viento,1)+" km/h":""}${st.lluvia_hoy!=null?" · lluvia hoy "+fm(st.lluvia_hoy,1)+" mm":""}.${u.length?" <b>Se usó en el cálculo:</b> "+u.join(", ")+".":""}</div>`}
 function planHtml(b,id){const p=b.plan;
  if(!p){if(b.decision=="ESPERAR")return `<div class="panel" style="background:#0c1512"><h3 style="margin-top:0">Plan de riego</h3><div class="dec d-ESPERAR">No hace falta regar ahora</div><p>${b.fecha_estres_prudente?"Sin lluvia suficiente el cultivo llegaría al límite el <b>"+fdia(b.fecha_estres_prudente,b.hoy)+"</b>. Volvé a mirar antes de esa fecha.":"No se espera estrés en los próximos 7 días."}</p></div>`;
   return `<div class="panel" style="background:#0c1512"><h3 style="margin-top:0">Plan de riego</h3><p>${b.recomendacion.bruta_mm==null?"Tu lote está marcado sin sistema de riego (secano): la decisión es solo una alerta.":"No se pudo armar un plan con este sistema."} Déficit actual: <b>${b.deficit_mm} mm</b>.</p></div>`}
@@ -152,11 +237,11 @@ function grafico(b){const s=b.serie.slice(-45),fut=b.futuro.prudente,w=700,h=220
  return `<svg viewBox="0 0 ${w} ${h}"><line x1="${p}" x2="${w-p}" y1="${Y(b.raw_mm)}" y2="${Y(b.raw_mm)}" stroke="#ef4444" stroke-dasharray="4"/><text x="${p+4}" y="${Y(b.raw_mm)-4}" fill="#ef4444" font-size="11">Umbral de riego (${b.raw_mm} mm de déficit)</text>${bars}<path d="${l1}" fill="none" stroke="#e8f1ec" stroke-width="2"/><path d="${l3}" fill="none" stroke="#22c55e" stroke-dasharray="3"/><path d="${l2}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5"/><text x="${p+4}" y="${h-6}" fill="#8fa89d" font-size="11">Déficit de agua en el suelo (mm) · barras: lluvia · verde: con pronóstico · naranja: con lluvia prudente</text></svg>`}
 async function detalle(id){const d=$("det");d.classList.remove("hid");$("form").classList.add("hid");d.innerHTML='<div class="cargando"><div class="rueda"></div><span><span class="gota">💧</span> Calculando el balance de este lote (la primera vez puede tardar unos segundos)…</span></div>';d.scrollIntoView({behavior:"smooth"});
  try{const b=await api("/api/riego/lotes/"+id+"/balance"),r=b.recomendacion,ev=await api("/api/riego/lotes/"+id+"/eventos");
- const dd=x=>x==null?"más de 7":x;
+ widgetsLote(b);const dd=x=>x==null?"más de 7":x;
  d.innerHTML=`<div style="display:flex;justify-content:space-between"><h2 style="margin:0">${b.lote.nombre}</h2><button class="sec" onclick="borrar(${id})">Eliminar lote</button></div>
  <div class="dec d-${b.decision}">${b.decision}</div><p>${b.motivo}</p>
  <div class="kpi"><div><span class="mu">Agua útil</span><b>${b.agua_util_pct}%</b>${b.agua_util_mm} mm</div><div><span class="mu">Déficit</span><b>${b.deficit_mm} mm</b>umbral ${b.umbral_riego_mm}</div><div><span class="mu">Etapa</span><b>${b.etapa}</b>${b.avance_pct==null?"cultivo perenne":b.avance_pct+"% del ciclo"}${b.periodo_critico?" · crítico":""}</div><div><span class="mu">Estrés en</span><b>${dd(b.dias_hasta_estres_prudente)} d</b>sin lluvia: ${dd(b.dias_hasta_estres_sin_lluvia)} d</div><div><span class="mu">Lluvia 7 días</span><b>${b.lluvia_pronostico_mm} mm</b>prudente ${b.lluvia_prudente_mm}</div></div>
- ${planHtml(b,id)}${lluviaPron(b)}${comoSeCalculo(b)}
+ ${vivoDet(b)}${planHtml(b,id)}${lluviaPron(b)}${comoSeCalculo(b)}
  ${grafico(b)}${perfil(b)}<p class="mu">Humedad: ${b.fuentes.humedad} · Suelo: ${b.fuentes.suelo||"-"} · Lluvia: ${b.fuentes.lluvia} · ET0: ${b.fuentes.et0}${b.sentinel?` · última imagen Sentinel ${b.sentinel.f}`:""}</p>
  <h3>Registrar lluvia o riego</h3><div class="g"><label>Fecha<input id="e_f" placeholder="Elegir en el calendario" readonly></label><label>Tipo<select id="e_t"><option value="lluvia">Lluvia medida en mi lote</option><option value="riego">Riego aplicado (lámina bruta)</option></select></label><label>Milímetros<input id="e_m" type="number" min="0" step="0.1"></label></div><p><button onclick="evento(${id})">Guardar registro</button> <span id="eerr" class="mu"></span></p>
  <table><tr><th>Fecha</th><th>Tipo</th><th>mm</th><th></th></tr>${ev.eventos.map(e=>`<tr><td>${e.f}</td><td>${e.tipo}</td><td>${e.mm}</td><td><a href="#" onclick="delev(${id},${e.id});return false" class="mu">quitar</a></td></tr>`).join("")}</table>`}
