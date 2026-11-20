@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pronóstico · MetricPoint</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root{--bg:#060b14;--pn:#0d1626;--pn2:#0a121f;--ln:#1c2a42;--tx:#e6eefc;--mu:#8197b8;--ac:#22d3ee;--t:#fbbf24;--ll:#38bdf8;--rj:#f43f5e;--am:#f59e0b;--vd:#34d399}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 500px at 70% -10%,#0f2440 0,transparent 60%),var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--ln);backdrop-filter:blur(6px)}
+h1{font-size:18px;margin:0;display:flex;gap:10px;align-items:center}h1 i{color:var(--ac)}
+main{max-width:1180px;margin:0 auto;padding:16px;display:grid;gap:14px}
+.panel{background:linear-gradient(180deg,#0f1a2e,var(--pn));border:1px solid var(--ln);border-radius:14px;padding:14px;min-width:0}
+.panel h3{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--mu)}
+button,select,input{font:inherit;color:var(--tx);background:var(--pn2);border:1px solid var(--ln);border-radius:9px;padding:8px 11px}
+button{cursor:pointer;background:var(--ac);color:#03222b;border:0;font-weight:700}button.sec{background:var(--pn2);color:var(--tx);border:1px solid var(--ln);font-weight:500}
+button:focus-visible,a:focus-visible,.sit:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.mu{color:var(--mu);font-size:13px}.hid{display:none}.g{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}label{display:grid;gap:4px;color:var(--mu);font-size:13px}
+.sitios{display:flex;gap:10px;overflow:auto;padding-bottom:4px;scroll-snap-type:x proximity}
+.sit{flex:0 0 auto;min-width:200px;max-width:240px;background:var(--pn2);border:1px solid var(--ln);border-radius:14px;padding:11px 13px;cursor:pointer;scroll-snap-align:start;position:relative;text-align:left;color:var(--tx);font-weight:400}
+.sit.on{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac) inset,0 0 24px #22d3ee22}
+.sit b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:18px}.sit .tt{font-size:24px;font-weight:700;margin-top:4px}.sit .tt small{font-size:14px;color:var(--mu);font-weight:500}
+.sit .lz{display:flex;gap:8px;margin-top:6px;font-size:12px;color:var(--mu)}
+.pt{position:absolute;right:12px;top:14px;width:11px;height:11px;border-radius:50%}.pt.verde{background:var(--vd);box-shadow:0 0 10px var(--vd)}.pt.amarillo{background:var(--am);box-shadow:0 0 10px var(--am)}.pt.rojo{background:var(--rj);box-shadow:0 0 12px var(--rj);animation:pulso 1.6s ease-in-out infinite}
+@keyframes pulso{50%{opacity:.45}}
+.hd{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}.hd h2{margin:0;font-size:22px}
+.pill{display:inline-flex;gap:7px;align-items:center;border:1px solid;border-radius:999px;padding:3px 12px;font-size:13px;font-weight:700}.pill.verde{color:var(--vd);border-color:#34d39966;background:#34d39912}.pill.amarillo{color:var(--am);border-color:#f59e0b66;background:#f59e0b12}.pill.rojo{color:var(--rj);border-color:#f43f5e66;background:#f43f5e12}
+.corr{font-size:13px;color:var(--mu);margin-top:6px}.corr b{color:var(--tx)}
+.lectura{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));margin:12px 0 6px}
+.lectura div{background:var(--pn2);border:1px solid var(--ln);border-radius:10px;padding:7px 10px}.lectura span{display:block;font-size:11px;color:var(--mu)}.lectura b{font-size:19px}
+.lectura .hora{grid-column:span 2}
+#gr{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;background:var(--pn2);border-radius:10px;border:1px solid var(--ln)}
+.leyenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mu);margin-top:8px}.leyenda i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.dias{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.dia{background:var(--pn2);border:1px solid var(--ln);border-radius:12px;padding:10px 12px}.dia .n{font-size:13px;color:var(--mu);text-transform:capitalize}.dia .t{font-size:22px;font-weight:700;margin:2px 0}.dia .t small{font-size:15px;color:var(--mu);font-weight:500}
+.dia .r{font-size:13px;color:var(--ll)}.dia .v{font-size:12px;color:var(--mu)}
+.op{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;padding:1px 9px;border-radius:999px;border:1px solid}.op.operable{color:var(--vd);border-color:#34d39955}.op.restringido{color:var(--am);border-color:#f59e0b55}.op.parado{color:var(--rj);border-color:#f43f5e55}
+.grid2{display:grid;gap:14px;grid-template-columns:1fr}@media(min-width:900px){.grid2{grid-template-columns:1.15fr .85fr}}
+.al{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--ln)}.al:last-child{border:0}.al .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none;font-size:15px}
+.al.rojo .ic{background:#f43f5e1c;color:var(--rj)}.al.amarillo .ic{background:#f59e0b1c;color:var(--am)}.al.verde .ic{background:#34d3991c;color:var(--vd)}.al small{display:block;color:var(--mu)}
+.ven{display:flex;gap:8px;flex-wrap:wrap}.ven span{background:#34d3991a;border:1px solid #34d39955;color:var(--vd);border-radius:10px;padding:5px 11px;font-size:13px;font-weight:600}
+.riego{display:inline-flex;gap:8px;align-items:center;font-size:13px;margin-top:8px;border:1px solid var(--ln);border-radius:10px;padding:5px 11px;background:var(--pn2)}
+.riego.REGAR b{color:var(--rj)}.riego.VIGILAR b{color:var(--am)}.riego.ESPERAR b{color:var(--vd)}
+.tec h3{color:var(--ac)}table{width:100%;border-collapse:collapse}td,th{padding:5px 7px;border-bottom:1px solid var(--ln);text-align:left;font-size:13px}th{color:var(--mu);font-weight:600}td.n,th.n{text-align:right}
+.scroll{overflow:auto;max-height:340px}.bar{height:10px;background:var(--pn2);border-radius:5px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
+.ko{color:var(--am)}.ok{color:var(--vd)}
+.cargando{display:flex;align-items:center;gap:12px;padding:18px 4px;color:var(--mu)}.rueda{width:26px;height:26px;border-radius:50%;border:3px solid var(--ln);border-top-color:var(--ac);animation:gira .9s linear infinite;flex:none}
+.esq{height:120px;border-radius:12px;border:1px solid var(--ln);background:linear-gradient(100deg,#0d1626 30%,#16253f 50%,#0d1626 70%);background-size:300% 100%;animation:brilla 1.6s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}@keyframes brilla{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.rueda,.esq,.pt.rojo{animation:none}}
+#map{height:300px;border-radius:10px}.busq{display:flex;gap:8px;margin:8px 0}.busq input{flex:1}
+.pie{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 16px 18px;margin-top:8px}
+.pie .logos{display:flex;align-items:center;gap:20px}.pie .logos img{width:48px;height:48px;object-fit:contain;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(15,23,42,.8)}
+.pie .sep{width:1px;height:32px;background:rgba(255,255,255,.2)}
+.pie .redes{display:flex;gap:16px}.pie .redes a{width:40px;height:40px;border-radius:50%;background:rgba(30,41,59,.8);border:1px solid #334155;display:flex;align-items:center;justify-content:center;color:#34d399;text-decoration:none;font-size:18px;transition:.2s}
+.pie .redes a:hover{background:#10b981;color:#fff;border-color:#34d399}.pie small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
+</style></head><body>
+<header><h1><i class="fa-solid fa-cloud-sun-rain"></i>Pronóstico</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
+<main>
+<section id="login" class="panel hid"><h2 style="margin-top:0">Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div><div id="regx" class="g hid"><label>Nombre o razón social<input id="rn"></label><label>Teléfono (WhatsApp)<input id="rt" type="tel"></label></div>
+<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Crear cuenta nueva</button> <span id="lerr" class="mu"></span></p><p class="mu">La cuenta es la misma de MetricPoint: si ya tenés una, ingresá con ella.</p></section>
+<div id="app" class="hid" style="display:grid;gap:14px">
+ <section class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h3 style="margin:0">Mis sitios: lotes de Riego, fincas y minas</h3><button id="nuevo">Agregar sitio</button></div><div id="sitios" class="sitios"></div><p id="vacio" class="mu hid">Todavía no tenés sitios. Los lotes que cargues en Riego aparecen acá solos; también podés agregar una finca o una mina con el botón.</p></section>
+ <section id="form" class="panel hid"><h3>Nuevo sitio</h3><div class="busq"><input id="bus" placeholder="Buscar localidad o camino (ej. Las Lajitas, Salta)"><button class="sec" id="busb">Buscar</button></div><div id="map"></div><p class="mu" id="pos">Tocá el mapa para marcar el punto.</p>
+ <div class="g"><label>Nombre<input id="f_n"></label><label>Tipo<select id="f_t"><option value="campo">Campo / finca</option><option value="mina">Mina / obra</option></select></label></div><p><button id="guardar">Guardar sitio</button> <button class="sec" id="cancel">Cancelar</button> <span id="ferr" class="mu"></span></p></section>
+ <section id="vista" class="hid" style="display:grid;gap:14px"></section>
+</div></main>
+<footer class="pie"><div class="logos"><img src="logo.png" alt="Logo Alerta" onerror="this.style.display='none'"><div class="sep"></div><img src="logo_metric.png" alt="MetricPoint" onerror="this.style.display='none'"></div>
+<div class="redes"><a href="https://www.instagram.com/metricpoint.service/" target="_blank" rel="noopener" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+<a href="https://wa.me/5493876448915?text=Hola%2C%20quiero%20consultar%20por%20el%20Pron%C3%B3stico%20de%20MetricPoint" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+<a href="https://metricpoint.onrender.com" target="_blank" rel="noopener" aria-label="Sitio web"><i class="fa-solid fa-globe"></i></a></div>
+<small>© 2026 MetricPoint AgTech</small></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const API=(window.PRON_API||"https://metricmoisture-backend.onrender.com");
+const $=id=>document.getElementById(id);
+let TOK=null,SIT=[],SEL=null,DATA=null,TEC=false,MAP,MK,POS=null,RIEGO={};
+const ADMIN="ews.sat@gmail.com";
+try{TOK=localStorage.getItem("metric_token")}catch(e){}
+const MSG_SRV="No hay conexión con el servidor del pronóstico. Verificá que pronostico.py esté en modulos/ y registrado en app_moisture.py, y que Render haya terminado de desplegar.";
+async function api(p,o={}){try{return await api0(p,o)}catch(e){if(e instanceof TypeError)throw new Error(MSG_SRV);throw e}}
+async function api0(p,o={}){o.headers=Object.assign({"Content-Type":"application/json","Authorization":"Bearer "+TOK},o.headers||{});
+ const r=await fetch(API+p,o);let j={};try{j=await r.json()}catch(e){}
+ if(r.status==401){TOK=null;try{localStorage.removeItem("metric_token")}catch(e){};mostrar();throw new Error("Sesión vencida")}
+ if(r.status==403&&j.error=="TRIAL_EXPIRED")throw new Error("Tu prueba terminó. Contactanos para activar tu plan.");
+ if(!r.ok)throw new Error(j.error||("Error "+r.status));return j}
+$("ing").onclick=async()=>{$("lerr").textContent="";try{const r=await fetch(API+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo ingresar");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
+let REG=false;
+$("crear").onclick=async()=>{if(!REG){REG=true;$("regx").classList.remove("hid");$("crear").textContent="Registrarme";$("lerr").textContent="Completá los datos y tocá Registrarme.";return}
+ $("lerr").textContent="";try{if(!$("em").value||!$("pw").value)throw new Error("Falta correo o contraseña");const r=await fetch(API+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value,razon_social:$("rn").value||"Usuario",nombre_contacto:$("rn").value,telefono:$("rt").value,cultivo:"Pronóstico"})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo crear la cuenta");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
+$("salir").onclick=()=>{try{localStorage.removeItem("metric_token")}catch(e){};TOK=null;location.reload()};
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const f1=x=>x==null?"—":(Math.round(x*10)/10).toFixed(1),f0=x=>x==null?"—":Math.round(x);
+const dsem=f=>new Date(f+"T12:00:00").toLocaleDateString("es-AR",{weekday:"short",day:"numeric"});
+const dlarg=f=>new Date(f+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
+const hhmm=f=>f.slice(11,16);
+const ICO={helada:"fa-snowflake",calor:"fa-temperature-arrow-up",lluvia:"fa-cloud-showers-heavy",viento:"fa-wind",tormenta:"fa-cloud-bolt"};
+const PUL=["No conviene","Regular","Buena"];
+function mostrar(){$("login").classList.toggle("hid",!!TOK);$("app").classList.toggle("hid",!TOK);if(TOK)iniciar()}
+function esperando(){$("sitios").innerHTML='<div class="cargando"><div class="rueda"></div><span>Cargando tus sitios y el pronóstico…</span></div>';$("vista").classList.add("hid")}
+async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}cargar()}
+async function cargar(){esperando();
+ try{const r=await api("/api/pronostico/resumen");SIT=r.sitios||[];pintarSitios();
+  if(!SIT.length){$("vacio").classList.remove("hid");$("vista").classList.add("hid");return}
+  $("vacio").classList.add("hid");const ok=SIT.find(s=>s.id==SEL&&!s.error)||SIT.find(s=>!s.error)||SIT[0];elegir(ok.id);riegoInfo()}
+ catch(e){$("sitios").innerHTML='<p class="mu" style="color:var(--am)">'+esc(e.message)+'</p>'}}
+function pintarSitios(){$("sitios").innerHTML=SIT.map(s=>{if(s.error)return`<button class="sit" data-id="${s.id}"><b>${esc(s.nombre)}</b><span class="mu">${esc(s.error)}</span></button>`;
+ const d=s.dias[0],ll=s.dias.slice(0,3).reduce((a,x)=>a+(x.lluvia||0),0),n=s.alertas.length;
+ return`<button class="sit ${s.id==SEL?"on":""}" data-id="${s.id}"><span class="pt ${s.semaforo}"></span><b>${esc(s.nombre)}</b><div class="tt">${f0(d.tmax)}°<small> / ${f0(d.tmin)}°</small></div><div class="lz"><span><i class="fa-solid fa-droplet"></i> ${f0(ll)} mm en 3 días</span><span>${n?`<i class="fa-solid fa-triangle-exclamation"></i> ${n}`:"sin alertas"}</span></div></button>`}).join("");
+ document.querySelectorAll(".sit").forEach(b=>b.onclick=()=>elegir(b.dataset.id))}
+async function elegir(id){SEL=id;pintarSitios();const s=SIT.find(x=>x.id==id);if(!s||s.error)return;
+ const v=$("vista");v.classList.remove("hid");v.innerHTML='<div class="cargando"><div class="rueda"></div><span>Armando el pronóstico de '+esc(s.nombre)+'…</span></div>';
+ try{DATA=await api("/api/pronostico/punto?lat="+s.lat+"&lon="+s.lon+"&tipo="+s.tipo);if(SEL!=id)return;vista(s)}catch(e){v.innerHTML='<p class="mu" style="color:var(--am)">'+esc(e.message)+'</p>'}}
+async function riegoInfo(){try{const r=await api("/api/riego/resumen");(r.lotes||r||[]).forEach?.(l=>{RIEGO["L"+l.id]=l});if(DATA){const s=SIT.find(x=>x.id==SEL);if(s)marcaRiego(s)}}catch(e){}}
+function marcaRiego(s){const l=RIEGO[s.id],el=$("riegoChip");if(!el||!l||l.error)return;el.innerHTML=`<span class="riego ${l.decision}"><i class="fa-solid fa-droplet"></i> Riego: <b>${l.decision}</b> · agua útil ${f0(l.agua_util_pct)}%</span>`}
+function corrTxt(c){if(c.nivel=="sin corrección")return`<i class="fa-solid fa-circle-info"></i> ${esc(c.mensaje||"Modelo sin ajustar")}`;
+ return`<i class="fa-solid fa-circle-check" style="color:var(--vd)"></i> Corregido con <b>${esc(c.estacion?c.estacion.nombre:"estaciones de la zona")}</b>${c.estacion?" a "+c.estacion.dist_km+" km":""} · nivel ${c.nivel} · ${c.n_dias} días de historial`}
+function vista(s){const p=DATA,hoy=p.dias[0].f,h0=p.horas[0],sem=p.semaforo;
+ const mina=s.tipo=="mina";
+ const semT={verde:"Sin alertas",amarillo:"Atención",rojo:"Alerta"}[sem];
+ $("vista").innerHTML=`<div class="panel"><div class="hd"><div><h2>${esc(s.nombre)}</h2><div class="mu">${mina?"Mina / obra":"Campo"}${s.cultivo?" · "+esc(s.cultivo):""} · actualizado ${new Date(p.actualizado).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</div></div><div style="text-align:right"><span class="pill ${sem}">${semT}</span>${s.origen=="sitio"?` <button class="sec" id="bdel" style="padding:3px 10px;font-size:12px">Quitar sitio</button>`:""}<div id="riegoChip"></div></div></div>
+ <div class="corr">${corrTxt(p.correccion)}</div>
+ ${p.lluvia_cerca.length?`<div class="corr" style="color:var(--ll)"><i class="fa-solid fa-cloud-rain"></i> Está lloviendo cerca ahora: ${p.lluvia_cerca.map(x=>esc(x.nombre)+" ("+x.dist_km+" km, "+x.mm_40min+" mm en 40 min)").join(" · ")}</div>`:""}
+ <h3 style="margin:14px 0 0">Próximas 72 horas · pasá el dedo o el mouse por el gráfico</h3><div class="lectura" id="lec"></div><svg id="gr" viewBox="0 0 760 330"></svg>
+ <div class="leyenda"><span><i style="background:var(--t)"></i>Temperatura (corregida)</span><span><i style="background:var(--ll);height:8px"></i>Lluvia por hora</span><span><i style="background:#c4b5fd"></i>Ráfagas</span>${mina?"":`<span><i style="background:var(--vd);height:8px;opacity:.5"></i>Buena hora para pulverizar</span>`}</div></div>
+ <div class="panel"><h3>Próximos 5 días</h3><div class="dias">${p.dias.map(d=>`<div class="dia"><div class="n">${d.lead==0?"Hoy":d.lead==1?"Mañana":dsem(d.f)}</div><div class="t">${f0(d.tmax)}°<small> / ${f0(d.tmin)}°</small></div><div class="r"><i class="fa-solid fa-droplet"></i> ${f1(d.lluvia)} mm${d.prob!=null?" · "+f0(d.prob)+"%":""}</div><div class="v"><i class="fa-solid fa-wind"></i> ${f0(d.viento)} km/h · ráf. ${f0(d.rafaga)}</div><span class="op ${d.operativo}">${{operable:mina?"Operable":"Se puede trabajar",restringido:"Restringido",parado:mina?"Parado":"Mal día"}[d.operativo]}</span></div>`).join("")}</div></div>
+ <div class="grid2"><div class="panel"><h3>Alertas de las próximas 72 horas</h3>${p.alertas.length?p.alertas.map(a=>`<div class="al ${a.nivel}"><div class="ic"><i class="fa-solid ${ICO[a.tipo]||"fa-triangle-exclamation"}"></i></div><div><b>${esc(a.titulo)}</b> <span class="mu">${a.desde.length>10?dsem(a.desde.slice(0,10))+" "+hhmm(a.desde):dsem(a.desde)}</span><small>${esc(a.detalle)}</small></div></div>`).join(""):`<div class="al verde"><div class="ic"><i class="fa-solid fa-check"></i></div><div><b>Todo en orden</b><small>No se esperan heladas, calor extremo, viento fuerte ni lluvias importantes.</small></div></div>`}</div>
+ <div class="panel">${mina?`<h3>Dónde se puede operar</h3><p class="mu" style="margin-top:0">Según lluvia y ráfagas esperadas por día. Los umbrales están en el detalle técnico.</p><div class="dias" style="grid-template-columns:repeat(auto-fit,minmax(78px,1fr))">${p.dias.map(d=>`<div style="text-align:center"><div class="mu">${dsem(d.f)}</div><span class="op ${d.operativo}">${{operable:"Operable",restringido:"Restringido",parado:"Parado"}[d.operativo]}</span></div>`).join("")}</div>`
+ :`<h3>Ventanas para pulverizar</h3>${p.pulverizacion.length?`<div class="ven">${p.pulverizacion.slice(0,6).map(w=>`<span>${dsem(w.desde.slice(0,10))} ${hhmm(w.desde)}–${hhmm(w.hasta)} · ${w.horas} h</span>`).join("")}</div><p class="mu">Viento suave, buena diferencia psicrométrica (Delta T), sin lluvia cerca y sin riesgo de inversión térmica nocturna.</p>`:`<p class="mu">No se esperan ventanas buenas en las próximas 72 horas.</p>`}`}</div></div>
+ <div style="text-align:center"><button class="sec" id="btec">${TEC?"Ocultar detalle técnico":"Ver detalle técnico"}</button></div>
+ <div id="tec" class="${TEC?"":"hid"}" style="display:${TEC?"grid":"none"};gap:14px"></div>`;
+ graf(p,s);if($("bdel"))$("bdel").onclick=async()=>{if(!confirm("¿Quitar este sitio?"))return;try{await api("/api/pronostico/sitios/"+s.id.slice(1),{method:"DELETE"});SEL=null;cargar()}catch(e){alert(e.message)}};$("btec").onclick=()=>{TEC=!TEC;vista(s);if(TEC)tecnico(s)};if(TEC)tecnico(s);marcaRiego(s)}
+function graf(p,s){const H=p.horas,n=H.length;if(!n)return;const W=760,PL=38,PR=46,PT=14,PA=214,PB0=236,PB=300,x=i=>PL+i*(W-PL-PR)/Math.max(1,n-1),bw=Math.max(2,(W-PL-PR)/n-1.5);
+ const ts=H.map(h=>h.tc==null?h.t:h.tc).filter(v=>v!=null),paso=Math.max(1,Math.ceil((Math.max(...ts)-Math.min(...ts)+3)/4)),tmn=Math.floor(Math.min(...ts)-1),tmx=tmn+4*paso,yt=v=>PT+(PA-PT)*(1-(v-tmn)/(tmx-tmn||1));
+ const mx=Math.max(4,...H.map(h=>h.pp)),yl=v=>PA-(PA-PT)*0.38*(v/mx);
+ const gm=Math.max(30,...H.map(h=>h.r||0)),yg=v=>PB-(PB-PB0-6)*(v/gm);
+ let g="";if(s.tipo!="mina"){let a=null;H.concat([{pulv:0}]).forEach((h,i)=>{if(h.pulv==2&&a==null)a=i;if(h.pulv!=2&&a!=null){g+=`<rect x="${x(a)-bw/2-.7}" y="${PT}" width="${x(i-1)-x(a)+bw+1.4}" height="${PA-PT}" fill="#34d399" opacity=".13"/>`;a=null}})}
+ H.forEach((h,i)=>{if(h.f.slice(11,13)=="00"){g+=`<line x1="${x(i)}" x2="${x(i)}" y1="${PT}" y2="${PB}" stroke="#1c2a42"/><text x="${x(i)+4}" y="${PT+11}" fill="#8197b8" font-size="11">${dsem(h.f.slice(0,10))}</text>`}});
+ for(let k=0;k<=4;k++){const v=tmn+(tmx-tmn)*k/4,y=yt(v);g+=`<line x1="${PL}" x2="${W-PR}" y1="${y}" y2="${y}" stroke="#14223a"/><text x="${PL-6}" y="${y+4}" text-anchor="end" fill="#8197b8" font-size="11">${Math.round(v)}°</text>`}
+ g+=H.map((h,i)=>h.pp>0?`<rect x="${x(i)-bw/2}" y="${yl(h.pp)}" width="${bw}" height="${PA-yl(h.pp)}" rx="1.5" fill="#38bdf8" opacity=".85"/>`:"").join("");
+ if(H.some(h=>h.pp>0))g+=`<text x="${W-PR+5}" y="${yl(mx)+4}" fill="#38bdf8" font-size="10">${f1(mx)} mm</text>`;
+ const lt=H.map((h,i)=>(h.tc==null?h.t:h.tc)==null?null:[x(i),yt(h.tc==null?h.t:h.tc)]).filter(Boolean);
+ g+=`<path d="M${lt.map(a=>a[0].toFixed(1)+" "+a[1].toFixed(1)).join(" L")}" fill="none" stroke="#fbbf24" stroke-width="2.4" stroke-linejoin="round"/>`;
+ const u=p.umbrales,yv=yg(u.viento_aviso);
+ g+=`<text x="${PL-6}" y="${PB0+8}" text-anchor="end" fill="#8197b8" font-size="10">km/h</text><line x1="${PL}" x2="${W-PR}" y1="${PB}" y2="${PB}" stroke="#14223a"/>`;
+ if(u.viento_aviso<=gm)g+=`<line x1="${PL}" x2="${W-PR}" y1="${yv}" y2="${yv}" stroke="#f59e0b" stroke-dasharray="4 4" opacity=".7"/><text x="${W-PR+5}" y="${yv+4}" fill="#f59e0b" font-size="10">${u.viento_aviso}</text>`;
+ g+=`<path d="M${H.map((h,i)=>x(i).toFixed(1)+" "+yg(h.r||0).toFixed(1)).join(" L")}" fill="none" stroke="#c4b5fd" stroke-width="1.8"/><path d="M${H.map((h,i)=>x(i).toFixed(1)+" "+yg(h.v||0).toFixed(1)).join(" L")}" fill="none" stroke="#8197b8" stroke-width="1.2" opacity=".8"/>`;
+ g+=`<g id="cur"><line id="cl" x1="${x(0)}" x2="${x(0)}" y1="${PT}" y2="${PB}" stroke="#22d3ee" stroke-width="1.5"/><circle id="cc" cx="${x(0)}" cy="${yt(ts[0])}" r="4.5" fill="#22d3ee"/></g><rect id="hit" x="0" y="0" width="${W}" height="330" fill="transparent"/>`;
+ $("gr").innerHTML=g;
+ const lec=i=>{const h=H[i],t=h.tc==null?h.t:h.tc;$("cl").setAttribute("x1",x(i));$("cl").setAttribute("x2",x(i));$("cc").setAttribute("cx",x(i));$("cc").setAttribute("cy",t==null?0:yt(t));
+  $("lec").innerHTML=`<div class="hora"><span>${dsem(h.f.slice(0,10))} · ${hhmm(h.f)} h</span><b>${f1(t)}°C</b></div><div><span>Humedad</span><b>${f0(h.hr)}%</b></div><div><span>Lluvia</span><b>${f1(h.pp)} mm</b></div><div><span>Prob. lluvia</span><b>${f0(h.prob)}%</b></div><div><span>Viento · ráfaga</span><b>${f0(h.v)} · ${f0(h.r)}</b></div>${s.tipo=="mina"?"":`<div><span>Pulverizar</span><b class="${h.pulv==2?"ok":h.pulv==1?"ko":""}">${PUL[h.pulv]}</b></div>`}`};
+ const ev=e=>{const r=$("gr").getBoundingClientRect(),px=((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width*W;lec(Math.max(0,Math.min(n-1,Math.round((px-PL)/((W-PL-PR)/Math.max(1,n-1))))))};
+ const hit=$("hit");hit.addEventListener("pointermove",ev);hit.addEventListener("pointerdown",ev);lec(0)}
+async function tecnico(s){const t=$("tec");if(!t)return;const p=DATA,c=p.correccion,u=p.umbrales,pv=p.umbrales_pulverizacion;
+ t.innerHTML=`<div class="panel tec"><h3>Corrección con tus estaciones</h3><div class="mu" style="margin-bottom:8px">${corrTxt(c)}${c.sesgo_tmax!=null?` · ajuste aplicado: máxima ${c.sesgo_tmax>0?"+":""}${c.sesgo_tmax} °C, mínima ${c.sesgo_tmin>0?"+":""}${c.sesgo_tmin} °C`:""}</div>
+ <div class="scroll"><table><tr><th>Día</th><th class="n">Máx. modelo</th><th class="n">Máx. corregida</th><th class="n">Mín. modelo</th><th class="n">Mín. corregida</th><th class="n">Lluvia mm</th><th class="n">Prob. %</th><th class="n">Ráfaga km/h</th><th class="n">ET0 mm</th></tr>${p.dias.map(d=>`<tr><td>${dsem(d.f)}</td><td class="n">${f1(d.tmax_modelo)}</td><td class="n"><b>${f1(d.tmax)}</b></td><td class="n">${f1(d.tmin_modelo)}</td><td class="n"><b>${f1(d.tmin)}</b></td><td class="n">${f1(d.lluvia)}</td><td class="n">${f0(d.prob)}</td><td class="n">${f0(d.rafaga)}</td><td class="n">${f1(d.et0)}</td></tr>`).join("")}</table></div>
+ <p class="mu">Fuente: ${esc(p.modelo)}. La corrección es el error medio que tuvo el modelo contra la estación más cercana en los últimos 40 días (se aplica cuando hay al menos 5 días verificados y se reduce si hay pocos). Solo corrige temperaturas; la lluvia y el viento se muestran del modelo.</p></div>
+ <div class="grid2"><div class="panel tec"><h3>Umbrales de alerta (${s.tipo=="mina"?"mina":"campo"})</h3><table><tr><td>Helada · riesgo</td><td class="n">mínima ≤ ${u.helada_riesgo} °C</td></tr><tr><td>Helada</td><td class="n">mínima ≤ ${u.helada} °C</td></tr><tr><td>Calor · aviso / alerta</td><td class="n">máxima ≥ ${u.calor_aviso} / ${u.calor} °C</td></tr><tr><td>Viento · aviso / alerta (ráfaga)</td><td class="n">≥ ${u.viento_aviso} / ${u.viento} km/h</td></tr><tr><td>Lluvia · aviso / alerta (por día)</td><td class="n">≥ ${u.lluvia_aviso} / ${u.lluvia} mm</td></tr><tr><td>Tormenta (CAPE)</td><td class="n">≥ ${u.cape} J/kg con prob. ≥ 50%</td></tr></table><p class="mu">Día "parado": lluvia ≥ alerta o ráfaga ≥ ${u.viento+10} km/h. "Restringido": lluvia ≥ aviso o ráfaga ≥ ${u.viento_aviso+10} km/h.</p></div>
+ <div class="panel tec"><h3>Criterio de pulverización</h3><table><tr><td>Viento</td><td class="n">${pv.viento_min}–${pv.viento_max} km/h (regular hasta ${pv.viento_reg})</td></tr><tr><td>Delta T</td><td class="n">${pv.dt_min}–${pv.dt_max} °C (regular hasta ${pv.dt_reg})</td></tr><tr><td>Temperatura</td><td class="n">hasta ${pv.t_max} °C</td></tr><tr><td>Humedad relativa</td><td class="n">≥ ${pv.hr_min}%</td></tr><tr><td>Lluvia</td><td class="n">ninguna en las 3 h siguientes</td></tr><tr><td>Noche (21 a 6 h)</td><td class="n">como máximo "regular"</td></tr></table><p class="mu">Son valores de referencia generales: confirmá con las indicaciones del producto y de tu asesor.</p></div></div>
+ <div class="panel tec"><h3>Pronóstico hora por hora</h3><div class="scroll"><table><tr><th>Hora</th><th class="n">°C</th><th class="n">HR %</th><th class="n">Lluvia mm</th><th class="n">Prob. %</th><th class="n">Viento</th><th class="n">Ráfaga</th><th class="n">Delta T</th><th class="n">CAPE</th><th>Pulv.</th></tr>${p.horas.map(h=>`<tr><td>${dsem(h.f.slice(0,10))} ${hhmm(h.f)}</td><td class="n">${f1(h.tc)}</td><td class="n">${f0(h.hr)}</td><td class="n">${f1(h.pp)}</td><td class="n">${f0(h.prob)}</td><td class="n">${f0(h.v)}</td><td class="n">${f0(h.r)}</td><td class="n">${f1(h.dt)}</td><td class="n">${f0(h.cape)}</td><td>${PUL[h.pulv]}</td></tr>`).join("")}</table></div></div>
+ <div class="panel tec" id="acie"><h3>Monitor de aciertos del pronóstico</h3><div class="cargando"><div class="rueda"></div><span>Calculando aciertos…</span></div></div>
+ <div id="adm"></div>`;
+ try{const a=await api("/api/pronostico/aciertos?provincia="+encodeURIComponent(s.provincia||""));if(!$("acie"))return;
+  const pl=Object.entries(a.por_plazo);
+  $("acie").innerHTML=`<h3>Monitor de aciertos del pronóstico</h3>`+(a.dias_verificados<1?`<p class="mu">Todavía no hay días verificados. Se guardan los pronósticos desde ya y se comparan con lo que miden las estaciones cuando cierra cada día. ${a.emisiones?`Pronósticos guardados: ${a.emisiones}${a.primera_emision?" desde el "+a.primera_emision:""}.`:"Aún no se guardó ningún pronóstico: la primera captura corre unos minutos después de iniciar el servidor."}</p>`:
+  `<p class="mu" style="margin-top:0">${a.dias_verificados} días verificados${a.provincia?"":""} (ventana de ${a.ventana_dias}). Error absoluto medio en °C: cuanto más bajo, mejor. "Corregido" es lo que ve el usuario.</p><div class="scroll"><table><tr><th>Plazo</th><th class="n">Máx. modelo</th><th class="n">Máx. corregida</th><th class="n">Mín. modelo</th><th class="n">Mín. corregida</th><th class="n">Sesgo máx.</th><th class="n">Lluvia: aciertos</th><th class="n">Lluvia: detecta</th><th class="n">Falsas alarmas</th></tr>${pl.map(([k,v])=>`<tr><td>${k=="0"?"Hoy":k=="1"?"Mañana":"+"+k+" días"}</td><td class="n">${f1(v.mae_tmax)}</td><td class="n"><b>${f1(v.mae_tmax_corr)}</b></td><td class="n">${f1(v.mae_tmin)}</td><td class="n"><b>${f1(v.mae_tmin_corr)}</b></td><td class="n">${v.sesgo_tmax==null?"—":(v.sesgo_tmax>0?"+":"")+v.sesgo_tmax}</td><td class="n">${v.lluvia_aciertos_pct==null?"—":v.lluvia_aciertos_pct+"%"}</td><td class="n">${v.lluvia_detecta_pct==null?"—":v.lluvia_detecta_pct+"%"}</td><td class="n">${v.lluvia_falsas_pct==null?"—":v.lluvia_falsas_pct+"%"}</td></tr>`).join("")}</table></div>
+  <h3 style="margin-top:14px">Estaciones: de la que mejor acierta a la que peor</h3><div class="scroll"><table><tr><th>Estación</th><th class="n">Días</th><th class="n">Error máx.</th><th class="n">Error mín.</th><th class="n">Sesgo máx.</th></tr>${a.estaciones.map(e=>`<tr><td>${esc(e.nombre)}</td><td class="n">${e.n_dias}</td><td class="n">${f1(e.mae_tmax)}</td><td class="n">${f1(e.mae_tmin)}</td><td class="n">${e.sesgo_tmax==null?"—":(e.sesgo_tmax>0?"+":"")+e.sesgo_tmax}</td></tr>`).join("")}</table></div><p class="mu">Lluvia: se cuenta como "día con lluvia" desde 1 mm. "Detecta" = de los días con lluvia, cuántos había avisado el modelo. "Falsas alarmas" = de los días con lluvia pronosticada, en cuántos no llovió.</p>`)}
+ catch(e){if($("acie"))$("acie").innerHTML='<h3>Monitor de aciertos del pronóstico</h3><p class="mu">'+esc(e.message)+'</p>'}
+ let em="";try{em=localStorage.getItem("metric_email")||""}catch(e){}
+ if(em.toLowerCase()==ADMIN&&$("adm"))admin()}
+async function admin(){const el=$("adm");let u=null,st=null;try{u=await api("/api/pronostico/uso_bd");st=await api("/api/pronostico/estado")}catch(e){}
+ if(!el)return;const hoy=new Date().toISOString().slice(0,10),ant=new Date(Date.now()-6*864e5).toISOString().slice(0,10);
+ el.innerHTML=`<div class="panel tec"><h3>Administración · base de datos y archivo</h3>${u?`<p style="margin-top:0"><b>${u.total_mb} MB</b> de ${u.limite_gb} GB (${u.usado_pct}%)</p><div class="bar"><i style="width:${Math.max(1,u.usado_pct)}%"></i></div><div class="scroll" style="margin-top:8px"><table><tr><th>Tabla</th><th class="n">MB</th><th class="n">Filas aprox.</th></tr>${u.tablas.slice(0,15).map(t=>`<tr><td>${esc(t.tabla)}</td><td class="n">${t.mb}</td><td class="n">${t.filas_aprox==null?"—":t.filas_aprox.toLocaleString("es-AR")}</td></tr>`).join("")}</table></div>`:'<p class="mu">No se pudo leer el uso de la base.</p>'}
+ ${st?`<p class="mu">Pronósticos guardados: ${st.emisiones} · verificaciones: ${st.verificaciones} (${st.dias_verificados} días) · última captura: ${esc((st.estado.captura||{}).cuando||"—")} ${esc((st.estado.captura||{}).nota||"")}</p>`:""}
+ <h3 style="margin-top:14px">Descargar datos (CSV)</h3><div class="g"><label>Tabla<select id="x_t"><option>pron_emision</option><option>pron_verif</option><option>lluvia_estaciones</option><option>lluvia_dia_stats</option><option>riego_lluvia_dia</option><option>lluvia_est_catalogo</option></select></label><label>Desde<input id="x_d" type="date" value="${ant}"></label><label>Hasta<input id="x_h" type="date" value="${hoy}"></label></div><p><button id="x_go">Descargar</button> <button class="sec" id="x_cap">Capturar pronósticos ahora</button> <span id="x_m" class="mu"></span></p><p class="mu">Máximo 62 días por descarga. No se borra nada automáticamente.</p></div>`;
+ $("x_go").onclick=async()=>{$("x_m").textContent="Preparando…";try{const q=`tabla=${$("x_t").value}&desde=${$("x_d").value}&hasta=${$("x_h").value}`,r=await fetch(API+"/api/pronostico/exportar?"+q,{headers:{Authorization:"Bearer "+TOK}});if(!r.ok){let j={};try{j=await r.json()}catch(e){}throw new Error(j.error||"Error "+r.status)}
+  const b=await r.blob(),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`${$("x_t").value}_${$("x_d").value}_${$("x_h").value}.csv`;document.body.appendChild(a);a.click();a.remove();$("x_m").textContent="Listo: "+(b.size/1024).toFixed(0)+" KB"}catch(e){$("x_m").textContent=e.message}};
+ $("x_cap").onclick=async()=>{$("x_m").textContent="Capturando…";try{const r=await api("/api/pronostico/capturar",{method:"POST",body:"{}"});$("x_m").textContent=r.filas+" pronósticos guardados, "+r.verificaciones_nuevas+" verificaciones nuevas"}catch(e){$("x_m").textContent=e.message}}}
+// ---- agregar sitio
+$("nuevo").onclick=()=>{$("form").classList.remove("hid");$("ferr").textContent="";if(!MAP&&window.L){MAP=L.map("map").setView([-26.9,-65.3],8);L.layerGroup([L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"}),L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19})]).addTo(MAP);
+  MAP.on("click",e=>{POS=[e.latlng.lat,e.latlng.lng];if(MK)MK.setLatLng(e.latlng);else MK=L.marker(e.latlng).addTo(MAP);$("pos").textContent="Punto: "+POS[0].toFixed(4)+", "+POS[1].toFixed(4)})}
+ setTimeout(()=>MAP&&MAP.invalidateSize(),150)};
+$("cancel").onclick=()=>$("form").classList.add("hid");
+$("busb").onclick=async()=>{const q=$("bus").value.trim();if(!q||!MAP)return;try{const r=await (await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+encodeURIComponent(q))).json();if(r[0])MAP.setView([+r[0].lat,+r[0].lon],13);else $("pos").textContent="No encontré ese lugar."}catch(e){$("pos").textContent="La búsqueda no está disponible ahora."}};
+$("guardar").onclick=async()=>{$("ferr").textContent="";try{if(!POS)throw new Error("Tocá el mapa para marcar el punto");await api("/api/pronostico/sitios",{method:"POST",body:JSON.stringify({nombre:$("f_n").value,tipo:$("f_t").value,lat:POS[0],lon:POS[1]})});$("form").classList.add("hid");$("f_n").value="";cargar()}catch(e){$("ferr").textContent=e.message}};
+mostrar();
+</script></body></html>
