@@ -334,35 +334,60 @@
             </div>
             
             <div class="glass-panel p-3 rounded-2xl mb-3 flex flex-col gap-2 shrink-0 border-l-4 border-l-sky-500">
-                <div class="flex justify-between items-center">
-                    <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
-                        <input type="checkbox" id="chk-RMA11" onchange="toggleRadar('RMA11', this.checked)" class="accent-sky-500 w-4 h-4">
-                        <span class="font-bold">RMA11</span><span class="text-slate-400 text-[10px] hidden sm:inline">Termas de R. Hondo</span>
-                    </label>
-                    <span id="rad-estado-RMA11" class="text-[9px] font-mono text-slate-400">Inactivo</span>
-                </div>
-                <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
-                    <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
-                        <input type="checkbox" id="chk-RMA20" onchange="toggleRadar('RMA20', this.checked)" class="accent-sky-500 w-4 h-4">
-                        <span class="font-bold">RMA20</span><span class="text-slate-400 text-[10px] hidden sm:inline">Las Lajitas</span>
-                    </label>
-                    <span id="rad-estado-RMA20" class="text-[9px] font-mono text-slate-400">Inactivo</span>
-                </div>
-                <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
-                    <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
-                        <input type="checkbox" id="chk-RMA7" onchange="toggleRadar('RMA7', this.checked)" class="accent-sky-500 w-4 h-4">
-                        <span class="font-bold">RMA7</span><span class="text-slate-400 text-[10px] hidden sm:inline">Neuquén · Patagonia</span>
-                    </label>
-                    <span id="rad-estado-RMA7" class="text-[9px] font-mono text-slate-400">Inactivo</span>
-                </div>
-                <div class="mt-1 border-t border-slate-700/50 pt-2">
-                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1.5">Vista del radar</span>
-                    <div class="grid grid-cols-2 gap-1 bg-slate-900/80 p-1 rounded-lg border border-sky-500/30">
-                        <button id="btn-campo-COLMAX" onclick="cambiarCampoRadar('COLMAX')" class="py-2 text-[11px] uppercase tracking-wide rounded-md bg-sky-500 text-slate-900 font-black transition-all">Máx. columna</button>
-                        <button id="btn-campo-DBZH" onclick="cambiarCampoRadar('DBZH')" class="py-2 text-[11px] uppercase tracking-wide rounded-md text-slate-400 font-bold transition-all">Z @ 0,5°</button>
-                        <button id="btn-campo-ZDR" onclick="cambiarCampoRadar('ZDR')" class="py-2 text-[11px] uppercase tracking-wide rounded-md text-slate-400 font-bold transition-all">ZDR @ 0,5°</button>
-                        <button id="btn-campo-KDP" onclick="cambiarCampoRadar('KDP')" class="py-2 text-[11px] uppercase tracking-wide rounded-md text-slate-400 font-bold transition-all">KDP @ 0,5°</button>
+                <!-- Radares: lista desplegable (mismos ids que antes: chk-RMAxx y rad-estado-RMAxx) -->
+                <details id="rad-lista" class="group rounded-lg border border-sky-500/30 bg-slate-900/70">
+                    <summary class="flex items-center justify-between gap-2 px-3 py-2 cursor-pointer list-none select-none text-xs text-slate-200">
+                        <span class="flex items-center gap-2 min-w-0">
+                            <i class="fa-solid fa-satellite-dish text-sky-400"></i>
+                            <span class="text-slate-400 text-[10px]">Radares</span>
+                            <span id="rad-resumen" class="font-bold truncate">Ninguno activo</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-down text-sky-400 text-[10px] transition-transform group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-3 pb-2 pt-2 flex flex-col gap-2 border-t border-slate-700/50">
+                        <div class="flex justify-between items-center">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                                <input type="checkbox" id="chk-RMA11" onchange="toggleRadar('RMA11', this.checked)" class="accent-sky-500 w-4 h-4">
+                                <span class="font-bold">Termas de Río Hondo</span>
+                            </label>
+                            <span id="rad-estado-RMA11" class="text-[9px] font-mono text-slate-400">Inactivo</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                                <input type="checkbox" id="chk-RMA20" onchange="toggleRadar('RMA20', this.checked)" class="accent-sky-500 w-4 h-4">
+                                <span class="font-bold">Las Lajitas</span>
+                            </label>
+                            <span id="rad-estado-RMA20" class="text-[9px] font-mono text-slate-400">Inactivo</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                                <input type="checkbox" id="chk-RMA7" onchange="toggleRadar('RMA7', this.checked)" class="accent-sky-500 w-4 h-4">
+                                <span class="font-bold">Neuquén</span>
+                            </label>
+                            <span id="rad-estado-RMA7" class="text-[9px] font-mono text-slate-400">Inactivo</span>
+                        </div>
                     </div>
+                </details>
+                <script>
+                    (function () {
+                        var N = { RMA11: 'Termas de Río Hondo', RMA20: 'Las Lajitas', RMA7: 'Neuquén' };
+                        function resumen() {
+                            var on = Object.keys(N).filter(function (c) { var e = document.getElementById('chk-' + c); return e && e.checked; });
+                            var t = document.getElementById('rad-resumen'); if (!t) return;
+                            t.textContent = !on.length ? 'Ninguno activo' : (on.length === 1 ? N[on[0]] : on.length + ' activos: ' + on.map(function (c) { return N[c]; }).join(', '));
+                        }
+                        Object.keys(N).forEach(function (c) { var e = document.getElementById('chk-' + c); if (e) e.addEventListener('change', resumen); });
+                        resumen();
+                    })();
+                </script>
+                <div class="mt-1">
+                    <label for="sel-campo" class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1.5">Vista del radar</label>
+                    <select id="sel-campo" onchange="cambiarCampoRadar(this.value)" class="w-full bg-slate-900 text-slate-100 text-xs rounded-lg border border-sky-500/40 px-3 py-2 focus:outline-none focus:border-sky-400">
+                        <option value="COLMAX" selected>Máx. columna</option>
+                        <option value="DBZH">Z @ 0,5°</option>
+                        <option value="ZDR">ZDR @ 0,5°</option>
+                        <option value="KDP">KDP @ 0,5°</option>
+                    </select>
                     <p id="radar-campo-desc" class="text-[10px] leading-snug text-slate-400 mt-1.5"></p>
                 </div>
                 <div class="mt-1 border-t border-slate-700/50 pt-2">
@@ -1085,7 +1110,7 @@
         // (10–70 dBZ, cada 2,5 dBZ). El campo filtrado de WebMet no trae ecos por debajo de ~11 dBZ.
         const RADAR_PALETA = [[10,'#439cb3'],[12.5,'#3be580'],[15,'#37dd70'],[17.5,'#2ccc64'],[20,'#22bd5a'],[22.5,'#16ae50'],[25,'#10a144'],[27.5,'#54bc2e'],[30,'#93d61b'],[32.5,'#cbdf0b'],[35,'#f4b701'],[37.5,'#e66003'],[40,'#c72503'],[42.5,'#960701'],[45,'#5d0313'],[47.5,'#650056'],[50,'#9f0089'],[52.5,'#68005b'],[55,'#18586e'],[57.5,'#00c4c4'],[60,'#086a6a'],[62.5,'#7a9e9e'],[65,'#a0a4a4'],[67.5,'#545454'],[70,'#636369']];
 
-        // Por la geometría de sus coberturas: RMA11 = Termas de Río Hondo, RMA20 = Las Lajitas, RMA7 = zona de Neuquén.
+        // Por la geometría de sus coberturas: RMA11 = Termas de Río Hondo, RMA20 = Las Lajitas, RMA7 = zona de Neuquén (en pantalla se muestran con el nombre del lugar).
         // "centrar": el radar queda lejos de Tucumán/Salta, así que al encenderlo se encuadra el mapa sobre su cobertura
         // (y al apagarlo se vuelve a la vista inicial).
         const RADAR_VISTA_INICIAL = { centro: [-26.83, -65.20], zoom: 7 };
@@ -1258,7 +1283,9 @@
             nota.classList.toggle('hidden', esDbz);
             document.getElementById('rad-leyenda-barra').classList.toggle('hidden', !esDbz);
             document.getElementById('rad-leyenda-marcas').classList.toggle('hidden', !esDbz);
-            // Botones de las dos vistas
+            // Lista de vistas
+            const selC = document.getElementById('sel-campo'); if (selC && selC.value !== RADAR_CAMPO) selC.value = RADAR_CAMPO;
+            // Botones de las vistas (si existieran)
             Object.keys(CAMPOS_RADAR).forEach(k => {
                 const b = document.getElementById(`btn-campo-${k}`);
                 if (!b) return;
