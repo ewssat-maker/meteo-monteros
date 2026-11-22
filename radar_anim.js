@@ -37,6 +37,8 @@
     const r = grados * Math.PI / 180;
     return [p[0] + km * Math.cos(r) / 111.32, p[1] + km * Math.sin(r) / (111.32 * Math.cos(p[0] * Math.PI / 180))];
   }
+  const NOMBRES = { RMA11: 'Termas de Río Hondo', RMA20: 'Las Lajitas', RMA7: 'Neuquén' };
+  const nom = code => NOMBRES[String(code).toUpperCase()] || code;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   function crear(cfg) {
@@ -268,7 +270,7 @@
       }
       const c = mejor.celda, col = COLOR_CLASE[c.clase] || '#f59e0b';
       const filas = [];
-      filas.push(`<b style="color:${col}">${esc(mejor.code)} · ${esc(CLASES[c.clase === 'tormenta_severa' ? 'severa' : c.clase].txt)} · ${c.max_dbz} dBZ</b>${c.granizo_posible ? ' <span style="color:#e879f9">· granizo posible</span>' : ''}`);
+      filas.push(`<b style="color:${col}">${esc(nom(mejor.code))} · ${esc(CLASES[c.clase === 'tormenta_severa' ? 'severa' : c.clase].txt)} · ${c.max_dbz} dBZ</b>${c.granizo_posible ? ' <span style="color:#e879f9">· granizo posible</span>' : ''}`);
       if (c.velocidad_kmh === null || c.velocidad_kmh === undefined) {
         filas.push('Movimiento: todavía no se puede estimar (hacen falta al menos 2 imágenes seguidas).');
       } else {
