@@ -7,18 +7,29 @@
 <title>MetricPoint · Administrador</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>body{background:#0b1220}</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  body{background:#0b1220}
+  .tab-on{background:#0ea5e9;color:#0b1220}
+  .campo{width:100%;background:#1e293b;border:1px solid #475569;border-radius:.5rem;padding:.45rem .65rem;font-size:.8rem;color:#f1f5f9}
+  .campo:focus{outline:none;border-color:#38bdf8}
+  .btn{border-radius:.5rem;padding:.4rem .7rem;font-size:.72rem;font-weight:700;background:#334155;color:#e2e8f0}
+  .btn:hover{background:#475569}
+  .btn-p{background:#059669;color:#fff}.btn-p:hover{background:#10b981}
+  .btn-r{background:#7f1d1d;color:#fecaca}.btn-r:hover{background:#b91c1c}
+  #mapa-cuenta{height:220px;border-radius:.6rem;border:1px solid #475569}
+</style>
 </head>
 <body class="text-slate-100 font-sans min-h-screen p-4">
 <!-- © MetricPoint. Todos los derechos reservados. -->
-<div class="max-w-md mx-auto">
+<div class="max-w-3xl mx-auto">
   <h1 class="text-xl font-black text-white text-center mb-1">MetricPoint · Administrador</h1>
-  <p class="text-[11px] text-slate-400 text-center mb-4">Alertas manuales y simulacros</p>
+  <p class="text-[11px] text-slate-400 text-center mb-4">Cuentas, alertas y sistema en un solo lugar</p>
 
   <!-- Acceso -->
-  <form id="f-login" class="bg-slate-900 border border-slate-700 rounded-2xl p-4 space-y-3">
-    <label class="text-xs text-slate-300">Clave de administrador</label>
-    <input id="clave" type="password" autocomplete="current-password" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm" required>
+  <form id="f-login" class="max-w-md mx-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 space-y-3">
+    <label class="text-xs text-slate-300" for="clave">Clave de administrador</label>
+    <input id="clave" type="password" autocomplete="current-password" class="campo" required>
     <button class="w-full bg-emerald-600 text-white font-black rounded-lg py-2 text-sm">Ingresar</button>
     <p id="login-msg" class="text-xs text-red-300 hidden"></p>
   </form>
@@ -30,6 +41,35 @@
       <button id="salir" class="underline">Salir</button>
     </div>
 
+    <nav class="grid grid-cols-4 gap-1 bg-slate-900 border border-slate-700 rounded-xl p-1" role="tablist">
+      <button class="tab rounded-lg py-2 text-xs font-bold" data-tab="cuentas" role="tab"><i class="fa-solid fa-users mr-1"></i>Cuentas</button>
+      <button class="tab rounded-lg py-2 text-xs font-bold" data-tab="solicitudes" role="tab"><i class="fa-solid fa-inbox mr-1"></i>Pedidos <span id="b-sol" class="hidden ml-1 bg-red-500 text-white rounded-full px-1.5 text-[10px]"></span></button>
+      <button class="tab rounded-lg py-2 text-xs font-bold" data-tab="alertas" role="tab"><i class="fa-solid fa-bell mr-1"></i>Alertas</button>
+      <button class="tab rounded-lg py-2 text-xs font-bold" data-tab="sistema" role="tab"><i class="fa-solid fa-server mr-1"></i>Sistema</button>
+    </nav>
+
+    <!-- ============ CUENTAS ============ -->
+    <section id="tab-cuentas" class="space-y-3">
+      <div id="resumen" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+      <div class="flex gap-2">
+        <input id="buscar" class="campo" placeholder="Buscar por nombre, email o cultivo" aria-label="Buscar cuenta">
+        <select id="filtro" class="campo !w-40" aria-label="Filtrar por estado">
+          <option value="">Todas</option><option value="prueba">En prueba</option><option value="por_vencer">Vencen en 3 días</option>
+          <option value="vencida">Vencidas</option><option value="pago">Pagas</option><option value="suspendida">Suspendidas</option>
+        </select>
+        <button id="nueva" class="btn btn-p whitespace-nowrap"><i class="fa-solid fa-plus mr-1"></i>Nueva cuenta</button>
+      </div>
+      <div id="lista" class="space-y-2"></div>
+    </section>
+
+    <!-- ============ PEDIDOS ============ -->
+    <section id="tab-solicitudes" class="hidden space-y-2">
+      <p class="text-[11px] text-slate-400">Pedidos de prueba que llegan desde el formulario público. «Crear cuenta» abre el alta con los datos ya cargados.</p>
+      <div id="lista-sol" class="space-y-2"></div>
+    </section>
+
+    <!-- ============ ALERTAS ============ -->
+    <section id="tab-alertas" class="hidden space-y-4">
     <div id="activas" class="space-y-2"></div>
 
     <form id="f-emitir" class="bg-slate-900 border border-slate-700 rounded-2xl p-4 space-y-3">
@@ -95,11 +135,68 @@
       <div id="historial" class="mt-2 space-y-1 text-[11px] text-slate-300"></div>
     </details>
     <p class="text-[10px] text-slate-500 leading-snug">Una alerta manual reemplaza al estado automático de la estación mientras dure (o hasta cancelarla) y aparece con banner y sonido en la app. Los simulacros se muestran con la leyenda «SIMULACRO».</p>
+    </section>
+
+    <!-- ============ SISTEMA ============ -->
+    <section id="tab-sistema" class="hidden space-y-3">
+      <div id="sis" class="bg-slate-900 border border-slate-700 rounded-2xl p-4 text-xs text-slate-300">Cargando…</div>
+    </section>
   </div>
 </div>
 
+<!-- Modal alta / edición de cuenta -->
+<div id="m-cuenta" class="hidden fixed inset-0 z-50 bg-black/70 overflow-y-auto p-3" role="dialog" aria-modal="true" aria-labelledby="m-titulo">
+  <form id="f-cuenta" class="max-w-lg mx-auto my-4 bg-slate-900 border border-slate-600 rounded-2xl p-4 space-y-3">
+    <div class="flex justify-between items-center">
+      <h2 id="m-titulo" class="text-sm font-black">Nueva cuenta</h2>
+      <button type="button" id="m-cerrar" class="text-slate-400 text-lg leading-none" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <label class="col-span-2 text-[11px] text-slate-400">Cliente o empresa *<input id="c-razon" class="campo mt-1" required maxlength="200"></label>
+      <label class="text-[11px] text-slate-400">Persona de contacto<input id="c-contacto" class="campo mt-1" maxlength="200"></label>
+      <label class="text-[11px] text-slate-400">Teléfono<input id="c-tel" class="campo mt-1" maxlength="40" inputmode="tel"></label>
+      <label class="col-span-2 text-[11px] text-slate-400">Email (es el usuario) *<input id="c-email" type="email" class="campo mt-1" required></label>
+      <label class="text-[11px] text-slate-400">Cultivo principal<input id="c-cultivo" list="cultivos" class="campo mt-1" maxlength="80"></label>
+      <datalist id="cultivos"><option>Limón</option><option>Caña de azúcar</option><option>Soja</option><option>Maíz</option><option>Arándano</option><option>Palta</option><option>Poroto</option><option>Trigo</option><option>Citrus</option></datalist>
+      <label class="text-[11px] text-slate-400">Hectáreas<input id="c-ha" type="number" step="any" min="0" class="campo mt-1"></label>
+      <label id="w-dias" class="text-[11px] text-slate-400">Días de prueba<input id="c-dias" type="number" min="1" max="365" value="15" class="campo mt-1"></label>
+      <label class="text-[11px] text-slate-400">CUIT (opcional)<input id="c-cuit" class="campo mt-1" maxlength="40"></label>
+      <label class="col-span-2 text-[11px] text-slate-400">Notas internas (el cliente no las ve)<textarea id="c-notas" rows="2" class="campo mt-1" maxlength="1000"></textarea></label>
+    </div>
+    <div>
+      <p class="text-[11px] text-slate-400 mb-1">Punto de referencia <span class="text-slate-500">(clic en el mapa, o pegá «lat, lon»)</span></p>
+      <div class="grid grid-cols-3 gap-2 mb-2">
+        <input id="c-lat" class="campo" placeholder="Latitud" inputmode="decimal" aria-label="Latitud">
+        <input id="c-lon" class="campo" placeholder="Longitud" inputmode="decimal" aria-label="Longitud">
+        <input id="c-pegar" class="campo" placeholder="Pegar: -27.1, -65.5" aria-label="Pegar coordenadas">
+      </div>
+      <div id="mapa-cuenta"></div>
+    </div>
+    <p id="c-msg" class="text-xs text-red-300 min-h-[1rem]" role="alert"></p>
+    <div class="flex gap-2 justify-end">
+      <button type="button" id="c-cancelar" class="btn">Cancelar</button>
+      <button id="c-guardar" class="btn btn-p">Crear cuenta</button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal clave temporal -->
+<div id="m-clave" class="hidden fixed inset-0 z-50 bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
+  <div class="w-full max-w-md bg-slate-900 border border-emerald-600 rounded-2xl p-4 space-y-3">
+    <h2 class="text-sm font-black text-emerald-300"><i class="fa-solid fa-key mr-1"></i><span id="k-titulo">Cuenta creada</span></h2>
+    <p class="text-[11px] text-amber-300">Esta clave se muestra una sola vez. Copiá el mensaje y enviáselo al cliente.</p>
+    <textarea id="k-texto" rows="8" readonly class="campo font-mono !text-[11px]"></textarea>
+    <div class="flex gap-2 justify-end">
+      <button id="k-copiar" class="btn btn-p"><i class="fa-regular fa-copy mr-1"></i>Copiar mensaje</button>
+      <button id="k-cerrar" class="btn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 const BASE = 'https://metricmoisture-backend.onrender.com';
+const SUITE_URL = 'https://metricpoint.onrender.com';
 const COL = { verde: '#10b981', amarillo: '#eab308', naranja: '#f97316', rojo: '#ef4444', bordo: '#9f1239' };
 const NOM = { verde: 'Normal', amarillo: 'Vigilancia', naranja: 'Alerta', rojo: 'Alerta severa', bordo: 'Emergencia' };
 const $ = id => document.getElementById(id);
@@ -107,9 +204,10 @@ const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&a
 let token = null, nivel = 'rojo';
 try { token = sessionStorage.getItem('mp_admin_tok'); } catch (e) { }
 
-async function api(ruta, cuerpo) {
+async function api(ruta, cuerpo, metodo) {
+  const m = metodo || (cuerpo === undefined ? 'GET' : 'POST');
   const r = await fetch(BASE + ruta, {
-    method: cuerpo === undefined ? 'GET' : 'POST',
+    method: m,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
     body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo)
   });
@@ -121,6 +219,217 @@ async function api(ruta, cuerpo) {
 function salir() { token = null; try { sessionStorage.removeItem('mp_admin_tok'); } catch (e) { } $('panel').classList.add('hidden'); $('f-login').classList.remove('hidden'); }
 $('salir').onclick = salir;
 
+// ---------------------------------------------------------------- pestañas
+const TABS = ['cuentas', 'solicitudes', 'alertas', 'sistema'];
+function irA(t) {
+  if (!TABS.includes(t)) t = 'cuentas';
+  TABS.forEach(k => $('tab-' + k).classList.toggle('hidden', k !== t));
+  document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('tab-on', on); b.setAttribute('aria-selected', on); if (!on) b.classList.add('text-slate-300'); else b.classList.remove('text-slate-300'); });
+  try { sessionStorage.setItem('mp_admin_tab', t); } catch (e) { }
+  if (t === 'cuentas') cargarCuentas().catch(e => alert(e.message));
+  if (t === 'solicitudes') cargarSol().catch(e => alert(e.message));
+  if (t === 'alertas') cargar().catch(e => alert(e.message));
+  if (t === 'sistema') cargarSistema().catch(e => { $('sis').textContent = e.message; });
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => irA(b.dataset.tab));
+
+// ---------------------------------------------------------------- utilidades de fecha
+const utc = s => s ? new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + 'Z') : null;
+function hace(s) {
+  const d = utc(s); if (!d) return 'nunca ingresó';
+  const m = Math.round((Date.now() - d.getTime()) / 60000);
+  if (m < 2) return 'recién'; if (m < 60) return 'hace ' + m + ' min';
+  if (m < 1440) return 'hace ' + Math.round(m / 60) + ' h';
+  return 'hace ' + Math.round(m / 1440) + (Math.round(m / 1440) === 1 ? ' día' : ' días');
+}
+const fecha = s => { const d = utc(s); return d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' }) : '—'; };
+
+// ---------------------------------------------------------------- cuentas
+let CUENTAS = [];
+const ETQ = {
+  prueba: ['En prueba', '#0ea5e9'], vencida: ['Prueba vencida', '#ef4444'], pago: ['Activa', '#10b981'],
+  suspendida: ['Suspendida', '#64748b'], admin: ['Administrador', '#a78bfa']
+};
+function diasTxt(c) {
+  if (c.estado === 'pago') return 'Plan ' + esc(c.nivel);
+  if (c.estado === 'suspendida') return 'Acceso suspendido';
+  if (c.estado === 'admin') return 'Sin vencimiento';
+  const d = c.dias_restantes; if (d == null) return '—';
+  if (d <= 0) { const a = Math.ceil(-d); return a <= 1 ? 'Venció hoy' : 'Venció hace ' + a + ' días'; }
+  if (d < 1) return 'Vence en ' + Math.max(1, Math.round(d * 24)) + ' h';
+  return 'Quedan ' + Math.ceil(d) + ' días (hasta el ' + fecha(c.prueba_hasta || new Date(Date.now() + d * 864e5).toISOString()) + ')';
+}
+const porVencer = c => c.estado === 'prueba' && c.dias_restantes != null && c.dias_restantes <= 3;
+async function cargarCuentas() {
+  const d = await api('/api/admin/cuentas');
+  CUENTAS = d.cuentas; pintarCuentas();
+}
+function pintarCuentas() {
+  const n = e => CUENTAS.filter(c => c.estado === e).length;
+  const chip = (t, v, col, f) => `<button data-f="${f}" class="chip text-left bg-slate-900 border border-slate-700 rounded-xl px-3 py-2"><span class="block text-[10px] text-slate-400">${t}</span><span class="text-lg font-black" style="color:${col}">${v}</span></button>`;
+  $('resumen').innerHTML = chip('En prueba', n('prueba'), '#38bdf8', 'prueba') + chip('Vencen en 3 días', CUENTAS.filter(porVencer).length, '#fbbf24', 'por_vencer') +
+    chip('Pruebas vencidas', n('vencida'), '#f87171', 'vencida') + chip('Cuentas activas', n('pago'), '#34d399', 'pago');
+  $('resumen').querySelectorAll('.chip').forEach(b => b.onclick = () => { $('filtro').value = b.dataset.f; pintarCuentas(); });
+  const q = $('buscar').value.trim().toLowerCase(), f = $('filtro').value;
+  const lista = CUENTAS.filter(c => (!q || [c.razon_social, c.email, c.cultivo, c.contacto].join(' ').toLowerCase().includes(q)) &&
+    (!f || (f === 'por_vencer' ? porVencer(c) : c.estado === f)));
+  $('lista').innerHTML = lista.map(c => {
+    const [et, col] = ETQ[c.estado] || ['—', '#64748b'];
+    const urg = c.estado === 'prueba' && c.dias_restantes != null && c.dias_restantes <= 3;
+    return `<article class="bg-slate-900 border border-slate-700 rounded-xl p-3" style="border-left:4px solid ${col}">
+      <div class="flex justify-between gap-2">
+        <div class="min-w-0"><p class="text-sm font-black truncate">${esc(c.razon_social)}</p>
+          <p class="text-[11px] text-slate-400 truncate">${esc(c.email)}${c.telefono ? ' · ' + esc(c.telefono) : ''}</p></div>
+        <span class="text-[10px] font-black rounded px-2 py-0.5 h-fit whitespace-nowrap" style="background:${col}22;color:${col}">${et}</span></div>
+      <p class="text-[11px] mt-1 ${urg ? 'text-amber-300 font-bold' : 'text-slate-300'}">${diasTxt(c)}</p>
+      <p class="text-[10px] text-slate-500 mt-0.5">Último ingreso: ${hace(c.ultimo_ingreso)} · ${c.lotes} lote${c.lotes === 1 ? '' : 's'}${c.cultivo ? ' · ' + esc(c.cultivo) : ''}${c.lat != null ? ' · <i class="fa-solid fa-location-dot"></i> ' + c.lat.toFixed(3) + ', ' + c.lon.toFixed(3) : ''}${c.debe_cambiar_clave ? ' · <span class="text-amber-400">aún no cambió la clave temporal</span>' : ''}</p>
+      ${c.notas ? `<p class="text-[10px] text-slate-400 italic mt-1">${esc(c.notas)}</p>` : ''}
+      <div class="flex flex-wrap gap-1.5 mt-2">
+        ${c.estado !== 'admin' ? `<button class="btn" data-a="extender" data-id="${c.id}">+ Días</button>` : ''}
+        <button class="btn" data-a="clave" data-id="${c.id}">Clave nueva</button>
+        ${c.estado === 'pago' ? `<button class="btn" data-a="volver" data-id="${c.id}">Volver a prueba</button>` : (c.estado !== 'admin' ? `<button class="btn" data-a="pago" data-id="${c.id}">Pasar a plan</button>` : '')}
+        ${c.estado === 'suspendida' ? `<button class="btn btn-p" data-a="reactivar" data-id="${c.id}">Reactivar</button>` : (c.estado !== 'admin' ? `<button class="btn" data-a="suspender" data-id="${c.id}">Suspender</button>` : '')}
+        <button class="btn" data-a="editar" data-id="${c.id}">Editar</button>
+        ${c.estado !== 'admin' ? `<button class="btn btn-r" data-a="eliminar" data-id="${c.id}">Eliminar</button>` : ''}
+      </div></article>`;
+  }).join('') || '<p class="text-[11px] text-slate-500 text-center py-6">No hay cuentas para mostrar. Creá la primera con «Nueva cuenta».</p>';
+  $('lista').querySelectorAll('button[data-a]').forEach(b => b.onclick = () => accion(b.dataset.a, +b.dataset.id));
+}
+$('buscar').oninput = pintarCuentas; $('filtro').onchange = pintarCuentas;
+
+function mensajeCliente(nombre, email, clave, dias, vence) {
+  return `Hola ${nombre}! Te creamos tu acceso a MetricPoint${dias ? ' (prueba de ' + dias + ' días)' : ''}.\n\nIngresá en: ${SUITE_URL}\nUsuario: ${email}\nClave temporal: ${clave}\n\nAl entrar te va a pedir que elijas tu propia clave. La clave temporal sirve hasta el ${fecha(vence)}.`;
+}
+function mostrarClave(titulo, texto) {
+  $('k-titulo').textContent = titulo; $('k-texto').value = texto; $('m-clave').classList.remove('hidden'); $('k-texto').focus(); $('k-texto').select();
+}
+$('k-cerrar').onclick = () => { $('m-clave').classList.add('hidden'); $('k-texto').value = ''; };
+$('k-copiar').onclick = async () => { try { await navigator.clipboard.writeText($('k-texto').value); $('k-copiar').textContent = 'Copiado ✔'; } catch (e) { $('k-texto').select(); document.execCommand('copy'); $('k-copiar').textContent = 'Copiado ✔'; } setTimeout(() => { $('k-copiar').innerHTML = '<i class="fa-regular fa-copy mr-1"></i>Copiar mensaje'; }, 2000); };
+
+async function accion(a, id) {
+  const c = CUENTAS.find(x => x.id === id); if (!c) return;
+  try {
+    if (a === 'editar') return abrirCuenta(c);
+    if (a === 'extender') {
+      const v = prompt('¿Cuántos días sumar a la prueba de ' + c.razon_social + '?', '15'); if (!v) return;
+      await api('/api/admin/cuentas/' + id, { accion: 'extender', dias: parseInt(v, 10) });
+    } else if (a === 'clave') {
+      if (!confirm('Se genera una clave temporal nueva para ' + c.email + ' y se cierran sus sesiones abiertas. ¿Seguir?')) return;
+      const d = await api('/api/admin/cuentas/' + id, { accion: 'regenerar_clave' });
+      mostrarClave('Clave temporal nueva', mensajeCliente(c.razon_social, d.email, d.clave_temporal, null, d.clave_vence));
+    } else if (a === 'pago') {
+      const v = prompt('Nombre del plan (ej. Pro, Campo, Minería):', 'Pro'); if (!v) return;
+      await api('/api/admin/cuentas/' + id, { accion: 'activar_pago', nivel: v });
+    } else if (a === 'volver') {
+      if (!confirm('La cuenta vuelve a modo prueba. ¿Seguir?')) return;
+      await api('/api/admin/cuentas/' + id, { accion: 'volver_prueba' });
+    } else if (a === 'suspender') {
+      if (!confirm('Se bloquea el acceso de ' + c.email + ' y se cierran sus sesiones. Sus datos no se borran. ¿Seguir?')) return;
+      await api('/api/admin/cuentas/' + id, { accion: 'suspender' });
+    } else if (a === 'reactivar') {
+      await api('/api/admin/cuentas/' + id, { accion: 'reactivar' });
+    } else if (a === 'eliminar') {
+      const v = prompt('Eliminar es definitivo (se borra la cuenta y su historial de consultas).\nPara confirmar, escribí el email:\n' + c.email); if (!v) return;
+      await api('/api/admin/cuentas/' + id, { confirmar_email: v }, 'DELETE');
+    }
+    await cargarCuentas();
+  } catch (e) { alert(e.message); }
+}
+
+// ---- alta / edición con mapa
+let mapa = null, marca = null, editando = null, desdeSol = null;
+function fijarPunto(lat, lon, centrar) {
+  if (!isFinite(lat) || !isFinite(lon)) return;
+  $('c-lat').value = (+lat).toFixed(6); $('c-lon').value = (+lon).toFixed(6);
+  if (!mapa) return;
+  if (!marca) { marca = L.marker([lat, lon], { draggable: true }).addTo(mapa); marca.on('dragend', () => { const p = marca.getLatLng(); fijarPunto(p.lat, p.lng, false); }); }
+  else marca.setLatLng([lat, lon]);
+  if (centrar) mapa.setView([lat, lon], Math.max(mapa.getZoom(), 12));
+}
+function iniciarMapa() {
+  if (mapa) { setTimeout(() => mapa.invalidateSize(), 50); return; }
+  if (typeof L === 'undefined') { $('mapa-cuenta').innerHTML = '<p class="text-[11px] text-slate-400 p-3">No se pudo cargar el mapa. Podés escribir la latitud y la longitud a mano.</p>'; return; }
+  mapa = L.map('mapa-cuenta').setView([-26.9, -65.3], 7);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(mapa);
+  mapa.on('click', e => fijarPunto(e.latlng.lat, e.latlng.lng, false));
+  setTimeout(() => mapa.invalidateSize(), 50);
+}
+function abrirCuenta(c, pre) {
+  editando = c ? c.id : null; desdeSol = pre && pre.sol ? pre.sol : null;
+  const v = c || pre || {};
+  $('m-titulo').textContent = c ? 'Editar cuenta' : 'Nueva cuenta';
+  $('c-guardar').textContent = c ? 'Guardar cambios' : 'Crear cuenta';
+  $('w-dias').classList.toggle('hidden', !!c);
+  $('c-email').readOnly = !!c;
+  $('c-razon').value = v.razon_social || ''; $('c-contacto').value = v.contacto || ''; $('c-tel').value = v.telefono || '';
+  $('c-email').value = v.email || ''; $('c-cultivo').value = v.cultivo || ''; $('c-ha').value = v.hectareas != null ? v.hectareas : '';
+  $('c-cuit').value = v.cuit || ''; $('c-notas').value = v.notas || ''; $('c-dias').value = 15;
+  $('c-lat').value = v.lat != null ? v.lat : ''; $('c-lon').value = v.lon != null ? v.lon : ''; $('c-pegar').value = ''; $('c-msg').textContent = '';
+  $('m-cuenta').classList.remove('hidden'); iniciarMapa();
+  if (marca && mapa) { mapa.removeLayer(marca); marca = null; }
+  if (v.lat != null && v.lon != null) { fijarPunto(v.lat, v.lon, true); } else if (mapa) mapa.setView([-26.9, -65.3], 7);
+  $('c-razon').focus();
+}
+const cerrarCuenta = () => $('m-cuenta').classList.add('hidden');
+$('m-cerrar').onclick = $('c-cancelar').onclick = cerrarCuenta;
+$('nueva').onclick = () => abrirCuenta(null);
+$('c-pegar').oninput = () => { const m = $('c-pegar').value.match(/(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)/); if (m) fijarPunto(parseFloat(m[1].replace(',', '.')), parseFloat(m[2].replace(',', '.')), true); };
+const _sync = () => { const a = parseFloat($('c-lat').value.replace(',', '.')), b = parseFloat($('c-lon').value.replace(',', '.')); if (isFinite(a) && isFinite(b)) fijarPunto(a, b, true); };
+$('c-lat').onchange = $('c-lon').onchange = _sync;
+$('f-cuenta').onsubmit = async e => {
+  e.preventDefault(); $('c-msg').textContent = ''; $('c-guardar').disabled = true;
+  const cuerpo = {
+    razon_social: $('c-razon').value, contacto: $('c-contacto').value, telefono: $('c-tel').value, email: $('c-email').value,
+    cultivo: $('c-cultivo').value, hectareas: $('c-ha').value, cuit: $('c-cuit').value, notas: $('c-notas').value,
+    lat: $('c-lat').value, lon: $('c-lon').value
+  };
+  try {
+    if (editando) { await api('/api/admin/cuentas/' + editando, { accion: 'editar', ...cuerpo }); cerrarCuenta(); }
+    else {
+      cuerpo.dias = $('c-dias').value;
+      const d = await api('/api/admin/cuentas', cuerpo);
+      cerrarCuenta();
+      mostrarClave('Cuenta creada', mensajeCliente(cuerpo.contacto || cuerpo.razon_social, d.email, d.clave_temporal, cuerpo.dias, d.clave_vence));
+      if (desdeSol) { try { await api('/api/admin/solicitudes/' + desdeSol, { estado: 'atendida' }); } catch (x) { } desdeSol = null; }
+    }
+    await cargarCuentas(); cargarSol(true).catch(() => { });
+  } catch (err) { $('c-msg').textContent = err.message; }
+  $('c-guardar').disabled = false;
+};
+
+// ---------------------------------------------------------------- pedidos de prueba
+let SOL = [];
+async function cargarSol(silencioso) {
+  const d = await api('/api/admin/solicitudes'); SOL = d.solicitudes;
+  const nuevas = SOL.filter(s => s.estado === 'nueva').length;
+  $('b-sol').textContent = nuevas; $('b-sol').classList.toggle('hidden', !nuevas);
+  if (silencioso) return;
+  $('lista-sol').innerHTML = SOL.map(s => `<article class="bg-slate-900 border border-slate-700 rounded-xl p-3 ${s.estado !== 'nueva' ? 'opacity-60' : ''}">
+    <div class="flex justify-between gap-2"><p class="text-sm font-black">${esc(s.nombre)}${s.empresa ? ' · ' + esc(s.empresa) : ''}</p>
+      <span class="text-[10px] text-slate-400">${hace(s.creado).replace('nunca ingresó', '—')}</span></div>
+    <p class="text-[11px] text-slate-300">${esc(s.email)}${s.telefono ? ' · ' + esc(s.telefono) : ''}${s.localidad ? ' · ' + esc(s.localidad) : ''}${s.cultivo ? ' · ' + esc(s.cultivo) : ''}</p>
+    ${s.mensaje ? `<p class="text-[11px] text-slate-400 italic mt-1">${esc(s.mensaje)}</p>` : ''}
+    <div class="flex gap-1.5 mt-2">${s.estado === 'nueva' ? `<button class="btn btn-p" data-s="crear" data-id="${s.id}">Crear cuenta</button><button class="btn" data-s="atendida" data-id="${s.id}">Marcar atendida</button><button class="btn" data-s="descartada" data-id="${s.id}">Descartar</button>` : `<span class="text-[10px] text-slate-500">${esc(s.estado)}</span><button class="btn" data-s="nueva" data-id="${s.id}">Reabrir</button>`}</div></article>`).join('')
+    || '<p class="text-[11px] text-slate-500 text-center py-6">No hay pedidos todavía.</p>';
+  $('lista-sol').querySelectorAll('button[data-s]').forEach(b => b.onclick = async () => {
+    const s = SOL.find(x => x.id === +b.dataset.id); if (!s) return;
+    if (b.dataset.s === 'crear') { irA('cuentas'); abrirCuenta(null, { razon_social: s.empresa || s.nombre, contacto: s.nombre, email: s.email, telefono: s.telefono, cultivo: s.cultivo, notas: [s.localidad, s.mensaje].filter(Boolean).join(' · '), sol: s.id }); return; }
+    try { await api('/api/admin/solicitudes/' + s.id, { estado: b.dataset.s }); await cargarSol(); } catch (e) { alert(e.message); }
+  });
+}
+
+// ---------------------------------------------------------------- sistema
+async function cargarSistema() {
+  const d = await api('/api/admin/sistema');
+  const barra = d.bd_pct != null ? `<div class="h-2 bg-slate-800 rounded-full overflow-hidden mt-1"><div class="h-full ${d.bd_pct > 80 ? 'bg-red-500' : d.bd_pct > 50 ? 'bg-amber-400' : 'bg-emerald-500'}" style="width:${Math.min(100, d.bd_pct)}%"></div></div>` : '';
+  $('sis').innerHTML = `<p class="font-black text-sm mb-2">Estado del sistema</p>
+    <p>Cuentas registradas: <b>${esc(d.cuentas)}</b> · Hora del servidor: <b>${esc(d.hora_servidor)}</b> (UTC)</p>
+    ${d.bd_mb != null ? `<p class="mt-3">Base de datos: <b>${d.bd_mb} MB</b> de ${d.limite_gb} GB (${d.bd_pct} %)</p>${barra}
+    <table class="w-full mt-3 text-[11px]"><thead><tr class="text-slate-500 text-left"><th class="font-normal py-1">Tabla</th><th class="font-normal text-right">MB</th></tr></thead><tbody>${d.tablas.map(t => `<tr class="border-t border-slate-800"><td class="py-1">${esc(t.tabla)}</td><td class="text-right">${t.mb}</td></tr>`).join('')}</tbody></table>`
+      : '<p class="mt-3 text-slate-500">No se pudo medir el uso de la base de datos.</p>'}`;
+}
+
+// ---------------------------------------------------------------- alertas (igual que antes)
 function pintarNiveles() {
   $('niveles').innerHTML = Object.keys(COL).map(k => `<button type="button" data-n="${k}" class="rounded-lg py-2 text-[10px] font-black text-white border-2 ${k === nivel ? 'border-white' : 'border-transparent opacity-60'}" style="background:${COL[k]}">${NOM[k]}</button>`).join('');
   $('niveles').querySelectorAll('button').forEach(b => b.onclick = () => { nivel = b.dataset.n; pintarNiveles(); });
@@ -159,19 +468,7 @@ async function cargar() {
     : '<p class="text-[11px] text-slate-500 text-center">Sin alertas manuales vigentes: la app usa el estado automático.</p>';
   $('historial').innerHTML = d.historial.map(a => `<p>${fh(a.creado)} · ${esc(a.estacion)} · ${NOM[a.estado]} · ${a.simulacro ? 'simulacro' : 'real'}${a.activa ? ' · <b>activa</b>' : ''}${a.mensaje ? ' · ' + esc(a.mensaje) : ''}</p>`).join('') || '—';
 }
-function mostrarPanel(estaciones) {
-  $('f-login').classList.add('hidden'); $('panel').classList.remove('hidden');
-  if (estaciones) $('estacion').innerHTML = Object.entries(estaciones).map(([k, v]) => `<option value="${esc(k)}">${esc(v)} (${esc(k)})</option>`).join('');
-  pintarNiveles(); cargar().catch(e => alert(e.message));
-}
-$('f-login').onsubmit = async e => {
-  e.preventDefault(); const m = $('login-msg'); m.classList.add('hidden');
-  try {
-    const d = await api('/api/admin/login', { password: $('clave').value });
-    token = d.token; try { sessionStorage.setItem('mp_admin_tok', token); sessionStorage.setItem('mp_admin_est', JSON.stringify(d.estaciones)); } catch (e) { }
-    $('clave').value = ''; mostrarPanel(d.estaciones);
-  } catch (err) { m.textContent = err.message; m.classList.remove('hidden'); }
-};
+
 $('f-emitir').onsubmit = async e => {
   e.preventDefault(); const sim = $('simulacro').checked, m = $('emitir-msg');
   if (!sim && !confirm(`Vas a emitir una alerta REAL de nivel ${NOM[nivel]}. ¿Confirmás?`)) return;
@@ -189,6 +486,25 @@ $('push-prueba').onclick = async () => {
   const m = $('push-msg'); m.textContent = 'Enviando…';
   try { const d = await api('/api/admin/push_prueba', {}); m.textContent = `Enviadas: ${d.enviados} · fallidas: ${d.fallidas ?? d.fallidos} · dadas de baja: ${d.eliminados}${d.errores && d.errores.length ? ' · ' + d.errores.join(' | ') : ''}`; }
   catch (e) { m.textContent = e.message; }
+};
+
+// ---------------------------------------------------------------- ingreso
+function mostrarPanel(estaciones) {
+  $('f-login').classList.add('hidden'); $('panel').classList.remove('hidden');
+  if (estaciones) $('estacion').innerHTML = Object.entries(estaciones).map(([k, v]) => `<option value="${esc(k)}">${esc(v)} (${esc(k)})</option>`).join('');
+  pintarNiveles();
+  api('/api/admin/alertas').then(d => { $('n-push').textContent = d.push_suscriptores ?? 0; }).catch(() => { });
+  cargarSol(true).catch(() => { });
+  let t = 'cuentas'; try { t = sessionStorage.getItem('mp_admin_tab') || 'cuentas'; } catch (e) { }
+  irA(t);
+}
+$('f-login').onsubmit = async e => {
+  e.preventDefault(); const m = $('login-msg'); m.classList.add('hidden');
+  try {
+    const d = await api('/api/admin/login', { password: $('clave').value });
+    token = d.token; try { sessionStorage.setItem('mp_admin_tok', token); sessionStorage.setItem('mp_admin_est', JSON.stringify(d.estaciones)); } catch (e) { }
+    $('clave').value = ''; mostrarPanel(d.estaciones);
+  } catch (err) { m.textContent = err.message; m.classList.remove('hidden'); }
 };
 if (token) { let est = null; try { est = JSON.parse(sessionStorage.getItem('mp_admin_est') || 'null'); } catch (e) { } mostrarPanel(est || { '10474': 'Marapa - La Madrid' }); }
 </script>
