@@ -56,8 +56,8 @@ button:focus-visible,a:focus-visible,.sit:focus-visible{outline:2px solid var(--
 </style></head><body>
 <header><h1><i class="fa-solid fa-cloud-sun-rain"></i>Pronóstico inteligente</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
 <main>
-<section id="login" class="panel hid"><h2 style="margin-top:0">Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div><div id="regx" class="g hid"><label>Nombre o razón social<input id="rn"></label><label>Teléfono (WhatsApp)<input id="rt" type="tel"></label></div>
-<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Crear cuenta nueva</button> <span id="lerr" class="mu"></span></p><p class="mu">La cuenta es la misma de MetricPoint: si ya tenés una, ingresá con ella.</p></section>
+<section id="login" class="panel hid"><h2 style="margin-top:0">Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div>
+<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Solicitar acceso</button> <span id="lerr" class="mu"></span></p><p class="mu">El acceso es por invitación. ¿Todavía no tenés cuenta? Escribí tu correo y tocá «Solicitar acceso»: te contactamos para dártela. La cuenta es la misma de MetricPoint.</p></section>
 <div id="app" class="hid" style="display:grid;gap:14px">
  <section class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h3 style="margin:0">Mis sitios: lotes de Riego, fincas y minas</h3><button id="nuevo">Agregar sitio</button></div><div id="sitios" class="sitios"></div><p id="vacio" class="mu hid">Todavía no tenés sitios. Los lotes que cargues en Riego aparecen acá solos; también podés agregar una finca o una mina con el botón.</p></section>
  <section id="form" class="panel hid"><h3>Nuevo sitio</h3><div class="busq"><input id="bus" placeholder="Buscar localidad o camino (ej. Las Lajitas, Salta)"><button class="sec" id="busb">Buscar</button></div><div id="map"></div><p class="mu" id="pos">Tocá el mapa para marcar el punto.</p>
@@ -84,9 +84,8 @@ async function api0(p,o={}){o.headers=Object.assign({"Content-Type":"application
  if(r.status==403&&j.error=="TRIAL_EXPIRED")throw new Error("Tu prueba terminó. Contactanos para activar tu plan.");
  if(!r.ok)throw new Error(j.error||("Error "+r.status));return j}
 $("ing").onclick=async()=>{$("lerr").textContent="";try{const r=await fetch(API+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo ingresar");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
-let REG=false;
-$("crear").onclick=async()=>{if(!REG){REG=true;$("regx").classList.remove("hid");$("crear").textContent="Registrarme";$("lerr").textContent="Completá los datos y tocá Registrarme.";return}
- $("lerr").textContent="";try{if(!$("em").value||!$("pw").value)throw new Error("Falta correo o contraseña");const r=await fetch(API+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value,razon_social:$("rn").value||"Usuario",nombre_contacto:$("rn").value,telefono:$("rt").value,cultivo:"Pronóstico inteligente"})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo crear la cuenta");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
+$("crear").onclick=async()=>{$("lerr").textContent="";const em=($("em").value||"").trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){$("lerr").textContent="Escribí tu correo en el campo de arriba y volvé a tocar «Solicitar acceso».";$("em").focus();return}
+ $("crear").disabled=true;try{const r=await fetch(API+"/api/solicitar_prueba",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo enviar el pedido");$("lerr").textContent="¡Listo! Recibimos tu pedido. Te escribimos a "+em+" para darte acceso."}catch(e){$("lerr").textContent=e.message}$("crear").disabled=false};
 $("salir").onclick=()=>{try{localStorage.removeItem("metric_token")}catch(e){};TOK=null;location.reload()};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const f1=x=>x==null?"—":(Math.round(x*10)/10).toFixed(1),f0=x=>x==null?"—":Math.round(x);
@@ -184,4 +183,5 @@ $("cancel").onclick=()=>$("form").classList.add("hid");
 $("busb").onclick=async()=>{const q=$("bus").value.trim();if(!q||!MAP)return;try{const r=await (await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+encodeURIComponent(q))).json();if(r[0])MAP.setView([+r[0].lat,+r[0].lon],13);else $("pos").textContent="No encontré ese lugar."}catch(e){$("pos").textContent="La búsqueda no está disponible ahora."}};
 $("guardar").onclick=async()=>{$("ferr").textContent="";try{if(!POS)throw new Error("Tocá el mapa para marcar el punto");await api("/api/pronostico/sitios",{method:"POST",body:JSON.stringify({nombre:$("f_n").value,tipo:$("f_t").value,lat:POS[0],lon:POS[1]})});$("form").classList.add("hid");$("f_n").value="";cargar()}catch(e){$("ferr").textContent=e.message}};
 mostrar();
-</script></body></html>
+</script><script src="cambio_clave.js"></script>
+</body></html>
