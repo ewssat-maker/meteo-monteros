@@ -54,8 +54,8 @@ table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;border-bottom:1p
 </style></head><body>
 <header><h1>Riego inteligente</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
 <main>
-<section id="login" class="panel hid"><h2>Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div><div id="regx" class="g hid"><label>Nombre o razón social<input id="rn"></label><label>Teléfono (WhatsApp)<input id="rt" type="tel"></label></div>
-<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Crear cuenta nueva</button> <span id="lerr" class="mu"></span></p><p class="mu">La cuenta es la misma de MetricPoint: si ya tenés una, ingresá con ella.</p></section>
+<section id="login" class="panel hid"><h2>Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div>
+<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Solicitar acceso</button> <span id="lerr" class="mu"></span></p><p class="mu">El acceso es por invitación. ¿Todavía no tenés cuenta? Escribí tu correo y tocá «Solicitar acceso»: te contactamos para dártela. La cuenta es la misma de MetricPoint.</p></section>
 <div id="app" class="hid">
 <section id="dash" class="dg">
 <div class="panel s12 vivo"><div><div style="font-size:20px;font-weight:800">Sistema de riego inteligente</div><div class="est" id="vivoEst">Monitoreo y control en tiempo real</div></div><div class="chips" id="vivoChips"></div></div>
@@ -98,9 +98,8 @@ async function api0(p,o={}){o.headers=Object.assign({"Content-Type":"application
  if(!r.ok)throw new Error(j.error||("Error "+r.status));return j}
 function mostrar(){if(TOK&&$("lotes"))esperaLotes();$("login").classList.toggle("hid",!!TOK);$("app").classList.toggle("hid",!TOK);if(TOK)iniciar()}
 $("ing").onclick=async()=>{$("lerr").textContent="";try{const r=await fetch(API+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo ingresar");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
-let REG=false;
-$("crear").onclick=async()=>{if(!REG){REG=true;$("regx").classList.remove("hid");$("crear").textContent="Registrarme";$("lerr").textContent="Completá los datos y tocá Registrarme.";return}
- $("lerr").textContent="";try{if(!$("em").value||!$("pw").value)throw new Error("Falta correo o contraseña");const r=await fetch(API+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value,razon_social:$("rn").value||"Usuario",nombre_contacto:$("rn").value,telefono:$("rt").value,cultivo:"Riego inteligente"})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo crear la cuenta");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
+$("crear").onclick=async()=>{$("lerr").textContent="";const em=($("em").value||"").trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){$("lerr").textContent="Escribí tu correo en el campo de arriba y volvé a tocar «Solicitar acceso».";$("em").focus();return}
+ $("crear").disabled=true;try{const r=await fetch(API+"/api/solicitar_prueba",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo enviar el pedido");$("lerr").textContent="¡Listo! Recibimos tu pedido. Te escribimos a "+em+" para darte acceso."}catch(e){$("lerr").textContent=e.message}$("crear").disabled=false};
 $("salir").onclick=()=>{try{localStorage.removeItem("metric_token")}catch(e){};TOK=null;location.reload()};
 function opts(sel,obj,def){sel.innerHTML=(sel.id=="f_s"?'<option value="">Automático (el de MetricMoisture)</option>':"")+Object.entries(obj).map(([k,v])=>`<option value="${k}">${v.nombre}</option>`).join("")}
 async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}
@@ -258,4 +257,5 @@ async function delev(id,e){await api("/api/riego/lotes/"+id+"/eventos?id="+e,{me
 async function borrar(id){if(!confirm("¿Eliminar este lote y sus registros?"))return;await api("/api/riego/lotes/"+id,{method:"DELETE"});$("det").classList.add("hid");cargar()}
 function cal(id){flatpickr("#"+id,{locale:"es",dateFormat:"Y-m-d",altInput:true,altFormat:"j \\de F \\de Y",allowInput:false,maxDate:"today",disableMobile:true})}
 cal("f_f");mostrar();
-</script></body></html>
+</script><script src="cambio_clave.js"></script>
+</body></html>
