@@ -405,7 +405,7 @@ async function cargarSol(silencioso) {
   $('b-sol').textContent = nuevas; $('b-sol').classList.toggle('hidden', !nuevas);
   if (silencioso) return;
   $('lista-sol').innerHTML = SOL.map(s => `<article class="bg-slate-900 border border-slate-700 rounded-xl p-3 ${s.estado !== 'nueva' ? 'opacity-60' : ''}">
-    <div class="flex justify-between gap-2"><p class="text-sm font-black">${esc(s.nombre)}${s.empresa ? ' · ' + esc(s.empresa) : ''}</p>
+    <div class="flex justify-between gap-2"><p class="text-sm font-black">${esc(s.nombre || s.email)}${s.empresa ? ' · ' + esc(s.empresa) : ''}</p>
       <span class="text-[10px] text-slate-400">${hace(s.creado).replace('nunca ingresó', '—')}</span></div>
     <p class="text-[11px] text-slate-300">${esc(s.email)}${s.telefono ? ' · ' + esc(s.telefono) : ''}${s.localidad ? ' · ' + esc(s.localidad) : ''}${s.cultivo ? ' · ' + esc(s.cultivo) : ''}</p>
     ${s.mensaje ? `<p class="text-[11px] text-slate-400 italic mt-1">${esc(s.mensaje)}</p>` : ''}
@@ -413,7 +413,7 @@ async function cargarSol(silencioso) {
     || '<p class="text-[11px] text-slate-500 text-center py-6">No hay pedidos todavía.</p>';
   $('lista-sol').querySelectorAll('button[data-s]').forEach(b => b.onclick = async () => {
     const s = SOL.find(x => x.id === +b.dataset.id); if (!s) return;
-    if (b.dataset.s === 'crear') { irA('cuentas'); abrirCuenta(null, { razon_social: s.empresa || s.nombre, contacto: s.nombre, email: s.email, telefono: s.telefono, cultivo: s.cultivo, notas: [s.localidad, s.mensaje].filter(Boolean).join(' · '), sol: s.id }); return; }
+    if (b.dataset.s === 'crear') { irA('cuentas'); abrirCuenta(null, { razon_social: s.empresa || s.nombre || '', contacto: s.nombre || '', email: s.email, telefono: s.telefono, cultivo: s.cultivo, notas: [s.localidad, s.mensaje].filter(Boolean).join(' · '), sol: s.id }); return; }
     try { await api('/api/admin/solicitudes/' + s.id, { estado: b.dataset.s }); await cargarSol(); } catch (e) { alert(e.message); }
   });
 }
