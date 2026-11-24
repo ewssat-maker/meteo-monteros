@@ -57,7 +57,7 @@
   fetch(BACK + "/api/lluvia/eeaoc/estaciones").then(function (r) { return r.json(); }).then(function (j) {
     var lista = (j && j.estaciones) || [], nuevas = 0;
     lista.forEach(function (e) {
-      var prov = e.provincia === "Tucumán" ? "tucuman" : (e.provincia === "Salta" ? "salta" : (e.provincia === "Catamarca" ? "catamarca" : null));
+      var prov = e.provincia === "Tucumán" ? "tucuman" : (e.provincia === "Salta" ? "salta" : null);
       if (!prov || !estacionesData[prov]) return;
       if (estacionesData[prov].some(function (x) { return x.val.indexOf(e.id + "|") === 0; })) return;
       estacionesData[prov].push({ val: e.id + "|" + e.lat + "|" + e.lon + "|" + e.nombre + " (EEAOC)|EEAOC", txt: e.nombre + " (EEAOC)" });
@@ -66,7 +66,7 @@
     leyenda();
     if (!nuevas) return;
     try {                                                    // si el mapa ya estaba dibujado, se redibuja sin cambiar la estación elegida
-      var prov = "tucuman"; ["salta", "catamarca"].forEach(function (q) { var b = $("tab-" + q); if (b && b.className.indexOf("bg-emerald-500") > -1) prov = q; });
+      var salta = $("tab-salta") && $("tab-salta").className.indexOf("bg-emerald-500") > -1, prov = salta ? "salta" : "tucuman";
       if (telemetriaMarkers.length && estacionActualVal === estacionesData[prov][0].val) window.cambiarProvincia(prov);
       else pintar();
     } catch (e) {}
