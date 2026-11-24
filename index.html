@@ -156,10 +156,6 @@
         <h2 class="text-xl font-black tracking-wider text-emerald-400">MetricPoint - live</h2>
         <p class="text-xs text-slate-400 mt-1">Sincronizando Módulos...</p>
     </div>
-    <script>
-        // Seguro: si algún recurso externo se cuelga, la pantalla de bienvenida no queda para siempre
-        setTimeout(function () { var s = document.getElementById('splash-screen'); if (s) { s.style.opacity = '0'; setTimeout(function () { s.style.display = 'none'; }, 500); } }, 8000);
-    </script>
 
     <!-- Header Fijo simplificado -->
     <header class="sticky top-0 p-4 border-b border-white/10 glass-panel flex flex-col items-center justify-center z-[500]">
@@ -210,7 +206,6 @@
             <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-emerald-500/30 shadow-lg">
                 <button id="tab-tucuman" onclick="cambiarProvincia('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all">Tucumán</button>
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
-                <button id="tab-catamarca" onclick="cambiarProvincia('catamarca')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Catamarca</button>
             </div>
 
             <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
@@ -519,25 +514,11 @@
                 { val: "ILASLA1|-24.72|-64.19|Las Lajitas|WU", txt: "Las Lajitas" },
                 { val: "IAPOLI10|-24.79|-64.05|San Antonio|WU", txt: "San Antonio" },
                 { val: "ICORON52|-24.57|-64.09|Coronel Mollinedo|WU", txt: "Coronel Mollinedo" },
-                { val: "ICORON64|-22.86|-64.06|Valle Blanco|WU", txt: "Valle Blanco" },
-                { val: "ICORON109|-22.89|-63.69|La Escondida|WU", txt: "La Escondida" },
-                { val: "ICORON110|-22.90|-63.78|San Ignacio|WU", txt: "San Ignacio" },
-                { val: "ICORON111|-22.96|-63.93|Rio Colorado|WU", txt: "Rio Colorado" },
                 { val: "IJERON7|-23.79|-64.07|La Esquina|WU", txt: "La Esquina" },
                 { val: "IPICHA27|-23.35|-63.88|Rio Grande|WU", txt: "Rio Grande" },
-                { val: "ITARTA6|-22.61|-63.57|El Cebilar|WU", txt: "El Cebilar" },
-                { val: "ICOLON100|-23.37|-64.46|Colonia Santa Rosa|WU", txt: "Colonia Santa Rosa" },
                 { val: "IEMBAR5|-23.20|-64.21|Zanja del Tigre|WU", txt: "Zanja del Tigre" },
                 { val: "IROSARIO12|-24.91|-65.64|Campo Quijano|WU", txt: "Campo Quijano" },
                 { val: "IROSAR120|-25.78|-64.97|Rosario de la Frontera|WU", txt: "Rosario de la Frontera" }
-            ],
-            catamarca: [
-                { val: "IANDAL8|-27.59|-66.32|Andalgalá 8 (ubic. aprox.)|WU", txt: "Andalgalá 8" },
-                { val: "IANDAL5|-27.59|-66.32|Andalgalá 5 (ubic. aprox.)|WU", txt: "Andalgalá 5" },
-                { val: "IHUALF2|-27.22|-66.83|Hualfín (ubic. aprox.)|WU", txt: "Hualfín" },
-                { val: "IELROD3|-27.91|-65.88|El Bolsón|WU", txt: "El Bolsón" },
-                { val: "IAMBATOD3|-28.17|-65.89|Bella Vista (El Rodeo)|WU", txt: "Bella Vista (El Rodeo)" },
-                { val: "ISANFE161|-28.45|-65.77|San José (Catamarca)|WU", txt: "San José (Catamarca)" }
             ]
         };
 
@@ -576,19 +557,15 @@
         let telemetriaMarkers = [];
         let caucesMarkers = [];
 
-        let splashOculto = false, appIniciada = false, domListo = false;
-        function ocultarSplash() {
-            if (splashOculto) return;
-            splashOculto = true;
-            const splash = document.getElementById('splash-screen');
-            if(splash) {
-                splash.style.opacity = '0';
-                setTimeout(() => { splash.style.display = 'none'; }, 500);
-            }
-        }
-        function iniciarApp() {
-            if (appIniciada || typeof L === 'undefined') return;
-            appIniciada = true;
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if(splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => { splash.style.display = 'none'; }, 500);
+                }
+            }, 1500);
+
             try {
                 inicializarMapas();
                 cambiarProvincia('tucuman'); 
@@ -596,11 +573,7 @@
             } catch (e) {
                 console.error("Error al inicializar:", e);
             }
-        }
-        window.addEventListener('load', () => { setTimeout(ocultarSplash, 1500); iniciarApp(); });
-        // Si un recurso externo (CDN, imagen) tarda en llegar, la pantalla de bienvenida no queda colgada y la app arranca apenas esté lista
-        document.addEventListener('DOMContentLoaded', () => { domListo = true; setTimeout(ocultarSplash, 5000); });
-        const esperaApp = setInterval(() => { if (domListo && typeof L !== 'undefined') { iniciarApp(); clearInterval(esperaApp); } else if (appIniciada) clearInterval(esperaApp); }, 400);
+        });
 
         function inicializarMapas() {
             // Mapa 1: Telemetría
@@ -639,12 +612,16 @@
         // LÓGICA DE TELEMETRÍA (Sin Cambios)
         // ==========================================
         function cambiarProvincia(prov) {
-            const on = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
-            const off = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
-            ['tucuman', 'salta', 'catamarca'].forEach(p => {
-                const b = document.getElementById('tab-' + p);
-                if (b) b.className = (p === prov) ? on : off;
-            });
+            const btnTuc = document.getElementById('tab-tucuman');
+            const btnSal = document.getElementById('tab-salta');
+            
+            if(prov === 'tucuman') {
+                btnTuc.className = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
+                btnSal.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
+            } else {
+                btnSal.className = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
+                btnTuc.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
+            }
 
             telemetriaMarkers.forEach(item => mapTelemetria.removeLayer(item.marker));
             telemetriaMarkers = [];
@@ -1377,4 +1354,36 @@
             rojo:     () => { for (let i = 0; i < 3; i++) { tono(960, 960, i * 0.5, 0.22, 0.25); tono(720, 720, i * 0.5 + 0.24, 0.22, 0.25); } },
             bordo:    () => { for (let i = 0; i < 3; i++) { tono(600, 1250, i * 1.1, 0.55, 0.3); tono(1250, 600, i * 1.1 + 0.55, 0.55, 0.3); } }
         };
-        const VIBRA = { amarillo: [200], naranja: [200, 100, 200], rojo: [400, 150, 400, 150, 400], bordo: [800, 2
+        const VIBRA = { amarillo: [200], naranja: [200, 100, 200], rojo: [400, 150, 400, 150, 400], bordo: [800, 200, 800, 200, 800] };
+        function sonar(estado) {
+            if (!sonidoOn || !PATRON[estado]) return;
+            PATRON[estado]();
+            try { if (navigator.vibrate) navigator.vibrate(VIBRA[estado]); } catch (e) { }
+        }
+
+        // ---------- Botón de sonido ----------
+        function pintarBoton() {
+            btn.setAttribute('aria-pressed', sonidoOn ? 'true' : 'false');
+            btn.title = sonidoOn ? 'Sonido de alertas activado (tocar para silenciar)' : 'Activar sonido de alertas';
+            btn.className = 'w-11 h-11 rounded-full shadow-xl backdrop-blur-md flex items-center justify-center text-base border ' +
+                (sonidoOn ? 'bg-emerald-600 border-emerald-300 text-white' : 'bg-slate-900/90 border-slate-600 text-slate-300');
+            btn.innerHTML = `<i class="fa-solid ${sonidoOn ? 'fa-bell' : 'fa-bell-slash'}"></i>`;
+            btnProbar.classList.toggle('hidden', !sonidoOn);
+        }
+        btn.addEventListener('click', () => {
+            sonidoOn = !sonidoOn; ls.set('mp_sonido_alertas', sonidoOn ? '1' : '0');
+            pintarBoton();
+            if (sonidoOn) {
+                audio(); tono(660, 660, 0, 0.2, 0.15);          // confirma que suena (y desbloquea el audio del navegador)
+                try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { }
+                evaluar(actuales);                               // si ya hay una alerta vigente, suena ahora
+            }
+        });
+        btnProbar.addEventListener('click', () => { audio(); PATRON.rojo(); });
+        // El navegador exige un gesto del usuario para reproducir audio: cualquier toque lo desbloquea si el sonido ya estaba activado.
+        const desbloquear = () => { if (sonidoOn) audio(); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach(e => window.addEventListener(e, desbloquear, { passive: true }));
+        pintarBoton();
+
+        // ---------- Banner ----------
+        function clave(a) { return `${a.estacion}|${a.estado}|${a.manual_id || ''}`; }
