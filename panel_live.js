@@ -9,10 +9,6 @@
   var REDES = [["WU", "Estándar (WU)", "#3b82f6"], ["SNIH", "Oficial (SNIH)", "#f59e0b"], ["EEAOC", "Agromet (EEAOC)", "#a855f7"]];
   try { var g = JSON.parse(localStorage.getItem("mp_redes") || "null"); if (g) REDES.forEach(function (r) { if (g[r[0]] === false) S.redes[r[0]] = false; }); } catch (e) {}
 
-  var NOMPROV = { tucuman: "Tucumán", salta: "Salta", catamarca: "Catamarca" };
-  function provDe(p) { p = String(p || "").toLowerCase(); return p.indexOf("catamarca") > -1 ? "catamarca" : (p.indexOf("salta") > -1 ? "salta" : "tucuman"); }
-  function provActiva() { var o = ["salta", "catamarca"]; for (var i = 0; i < o.length; i++) { var b = document.getElementById("tab-" + o[i]); if (b && b.className.indexOf("bg-emerald-500") > -1) return o[i]; } return "tucuman"; }
-
   function $(id) { return document.getElementById(id); }
   function f(v, d) { return (v === null || v === undefined || isNaN(v)) ? "--" : Number(v).toFixed(d).replace(".", ","); }
   function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -54,7 +50,7 @@
   // ---------- resumen provincial (arriba del mapa)
   function pintarResumen() {
     var b = $("mpResumen"); if (!b) return;
-    var e = S.ext, nom = NOMPROV[S.prov] || "Tucumán";
+    var e = S.ext, nom = S.prov === "salta" ? "Salta" : "Tucumán";
     if (!e) { b.innerHTML = '<div class="mp-tit"><span>Resumen de hoy · ' + nom + '</span></div><div class="mp-vacio mp-pulso">💧 Leyendo las estaciones…</div>'; return; }
     if (e.error) { b.innerHTML = '<div class="mp-tit"><span>Resumen de hoy · ' + nom + '</span></div><div class="mp-vacio">No se pudo cargar el resumen ahora.</div>'; return; }
     var cards = [["temp_max", "Temp. máx.", "°C", 1, "#fb923c"], ["temp_min", "Temp. mín.", "°C", 1, "#38bdf8"], ["lluvia_dia", "Lluvia del día", "mm", 1, "#22d3ee"]];
@@ -69,7 +65,7 @@
   // ---------- extremos (debajo de la estación): carrusel de 3 diapositivas
   function pintarExtremos() {
     var b = $("mpExtremos"); if (!b) return;
-    var e = S.ext, nom = NOMPROV[S.prov] || "Tucumán";
+    var e = S.ext, nom = S.prov === "salta" ? "Salta" : "Tucumán";
     var cab = '<div class="mp-tit"><span>Extremos de hoy · <b>' + nom + '</b></span><div class="mp-flechas"><button onclick="__mpCar(-1)" aria-label="Anterior">‹</button><button onclick="__mpCar(1)" aria-label="Siguiente">›</button></div></div>';
     if (!e) { b.innerHTML = cab + '<div class="mp-vacio mp-pulso">Calculando extremos…</div>'; return; }
     if (e.error) { b.innerHTML = cab + '<div class="mp-vacio">No se pudo cargar ahora.</div>'; return; }
@@ -187,13 +183,13 @@
     var gr = document.createElement("div"); gr.id = "mpGrafico"; gr.className = "mp-bloque";
     var ex = document.createElement("div"); ex.id = "mpExtremos"; ex.className = "mp-bloque";
     ancla.parentNode.insertBefore(gr, ancla.nextSibling); gr.parentNode.insertBefore(ex, gr.nextSibling);
-    try { S.prov = provActiva(); } catch (e) {}
+    try { S.prov = ($("tab-salta") && $("tab-salta").className.indexOf("bg-emerald-500") > -1) ? "salta" : "tucuman"; } catch (e) {}
     pintarRedes(); pintarGrafico(); cargarExt();
     return true;
   }
 
   var camb = window.cambiarProvincia, carg = window.cargarDatosActuales;
-  if (typeof camb === "function") window.cambiarProvincia = function (p) { S.prov = provDe(p); S.est = null; S.serie = null; pintarGrafico(); cargarExt(); var r = camb.apply(this, arguments); aplicarRedes(); setTimeout(aplicarRedes, 800); setTimeout(aplicarRedes, 2500); return r; };
+  if (typeof camb === "function") window.cambiarProvincia = function (p) { S.prov = String(p).toLowerCase().indexOf("salta") > -1 ? "salta" : "tucuman"; S.est = null; S.serie = null; pintarGrafico(); cargarExt(); var r = camb.apply(this, arguments); aplicarRedes(); setTimeout(aplicarRedes, 800); setTimeout(aplicarRedes, 2500); return r; };
   if (typeof carg === "function") window.cargarDatosActuales = function (id, fuente, nombre) { try { cargarSerie(String(id), nombre || String(id)); } catch (e) {} return carg.apply(this, arguments); };
 
   var n = 0, iv = setInterval(function () { n++; if (montar() || n > 40) clearInterval(iv); }, 500);
