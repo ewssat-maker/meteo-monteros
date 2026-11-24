@@ -516,7 +516,1601 @@
                 { val: "ICORON52|-24.57|-64.09|Coronel Mollinedo|WU", txt: "Coronel Mollinedo" },
                 { val: "IJERON7|-23.79|-64.07|La Esquina|WU", txt: "La Esquina" },
                 { val: "IPICHA27|-23.35|-63.88|Rio Grande|WU", txt: "Rio Grande" },
+                <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MetricPoint - live</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet para el Mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#022c22">
+
+    <script>
+        if ('caches' in window) {
+            caches.keys().then((names) => { names.forEach(name => caches.delete(name)); });
+        }
+        // (El service worker sw.js se usa solo para avisos push y no guarda nada en caché.)
+    </script>
+
+    <style>
+        html { background-color: #030712; }
+        body { background: transparent; min-height: 100vh; }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: linear-gradient(rgba(2, 44, 34, 0.85), rgba(3, 7, 18, 0.95)),
+                        url('fondo.jpg') no-repeat center center;
+            background-size: cover;
+            pointer-events: none;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .menu-card { transition: all 0.3s ease; }
+        .menu-card:active { transform: scale(0.97); }
+        #splash-screen {
+            position: fixed; inset: 0; background: #022c22; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; transition: opacity 0.5s ease;
+        }
+        .leaflet-popup-content-wrapper { background: #0f172a; color: #34d399; border: 1px solid #059669; border-radius: 8px; font-family: monospace; font-weight: bold; text-align: center; }
+        .leaflet-popup-tip { background: #0f172a; }
+        .fade-in { animation: fadeIn 0.4s ease forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== Panel de control: movimiento sutil (solo transform/opacity; se desactiva con "reducir movimiento") ===== */
+        /* 1) Entrada escalonada de las tarjetas, una sola vez cada vez que se abre el panel */
+        #vista-menu.fade-in { animation: none; }
+        #vista-menu > .menu-card { animation: tarjetaEntra .55s cubic-bezier(.2,.8,.2,1) backwards; }   /* backwards: al terminar vuelve al estilo normal (hover y toque siguen funcionando) */
+        #vista-menu > .menu-card:nth-child(1) { animation-delay: .04s; }
+        #vista-menu > .menu-card:nth-child(2) { animation-delay: .12s; }
+        #vista-menu > .menu-card:nth-child(3) { animation-delay: .20s; }
+        #vista-menu > .menu-card:nth-child(4) { animation-delay: .28s; }
+        #vista-menu > .menu-card:nth-child(5) { animation-delay: .36s; }
+        @keyframes tarjetaEntra { from { opacity: 0; transform: translateX(-18px) scale(.985); } to { opacity: 1; transform: none; } }
+        /* 2) Cada ícono tiene un gesto propio, acorde a lo que mide */
+        #vista-menu > .menu-card > div:first-child { position: relative; }
+        #vista-menu > .menu-card > div:first-child > i { display: inline-block; will-change: transform; }
+        #vista-menu > .menu-card:nth-child(1) > div:first-child > i { animation: icoOscila 4.2s ease-in-out 1s infinite; transform-origin: 50% 70%; }   /* antena */
+        #vista-menu > .menu-card:nth-child(2) > div:first-child > i { animation: icoOla 3.4s ease-in-out 1.2s infinite; }                              /* agua */
+        #vista-menu > .menu-card:nth-child(4) > div:first-child > i { animation: icoFlota 5s ease-in-out 1.4s infinite; }                              /* relieve */
+        #vista-menu > .menu-card:nth-child(5) > div:first-child > i { animation: icoLatido 3.6s ease-in-out 1.6s infinite; }                           /* pronóstico */
+        @keyframes icoOscila { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+        @keyframes icoOla { 0%, 100% { transform: translateY(1.5px); } 50% { transform: translateY(-2.5px); } }
+        @keyframes icoFlota { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-3px); } }
+        @keyframes icoLatido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        /* 3) Señal "en vivo": un aro que se expande y se desvanece detrás del ícono (Tiempo Real, Cauces) */
+        #vista-menu > .menu-card:nth-child(-n+2) > div:first-child::after {
+            content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1.5px solid currentColor; opacity: 0; pointer-events: none;
+            animation: aroVivo 3.6s ease-out 1.5s infinite; }
+        #vista-menu > .menu-card:nth-child(2) > div:first-child::after { animation-delay: 2.7s; }
+        @keyframes aroVivo { 0% { opacity: .55; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.38); } }
+        /* 4) Radar: barrido giratorio dentro del ícono */
+        #vista-menu > .menu-card:nth-child(3) > div:first-child { overflow: hidden; }
+        #vista-menu > .menu-card:nth-child(3) > div:first-child::before {
+            content: ''; position: absolute; inset: -40%; pointer-events: none;
+            background: conic-gradient(from 0deg, transparent 0 78%, rgba(56, 189, 248, .38) 96%, transparent 100%);
+            animation: barrido 3.2s linear infinite; }
+        @keyframes barrido { to { transform: rotate(360deg); } }
+        /* 5) Respuesta al tocar / pasar el cursor */
+        .menu-card { transition: transform .25s ease, box-shadow .3s ease, border-color .3s ease; }
+        @media (hover: hover) { .menu-card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -8px rgba(16, 185, 129, .28); } }
+        /* 6) Encabezado: línea de luz que recorre el borde inferior (la app está "viva") */
+        header.glass-panel { position: sticky; overflow: hidden; }
+        header.glass-panel::after {
+            content: ''; position: absolute; left: 0; bottom: 0; height: 2px; width: 38%;
+            background: linear-gradient(90deg, transparent, rgba(52, 211, 153, .85), transparent);
+            animation: lineaLuz 5.5s ease-in-out infinite; pointer-events: none; }
+        @keyframes lineaLuz { 0% { transform: translateX(-100%); } 100% { transform: translateX(270%); } }
+        @media (prefers-reduced-motion: reduce) {
+            #vista-menu > .menu-card, #vista-menu > .menu-card * , #vista-menu > .menu-card > div:first-child::before,
+            #vista-menu > .menu-card > div:first-child::after, header.glass-panel::after { animation: none !important; }
+            #vista-menu > .menu-card { opacity: 1; }
+            .menu-card:hover { transform: none; }
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans antialiased flex flex-col min-h-screen">
+
+
+    <!-- ===== Alertas globales: banner + sonido (se alimenta de /api/alertas_rio) ===== -->
+
+    <!-- ===== Panel de avisos en el celular (push + zona) ===== -->
+    <div id="panel-push" class="hidden fixed inset-0 z-[950] bg-black/60 flex items-end sm:items-center justify-center p-3" role="dialog" aria-modal="true" aria-labelledby="push-titulo">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-600 rounded-2xl p-4 shadow-2xl text-slate-100">
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="push-titulo" class="text-sm font-black"><i class="fa-solid fa-mobile-screen-button mr-2 text-sky-400"></i>Avisos en el celular</h3>
+                <span class="text-[10px] font-bold bg-sky-600 text-white rounded px-2 py-0.5">Activados</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mb-3">Recibís las alertas aunque la app esté cerrada. Elegí cuáles:</p>
+            <label class="flex gap-2 items-start bg-slate-800/70 border border-slate-700 rounded-xl p-2.5 mb-2 cursor-pointer">
+                <input type="radio" name="push-modo" value="zona" class="mt-1 accent-sky-500">
+                <span><b class="text-xs">Solo alertas de mi zona</b><br><span class="text-[10px] text-slate-400">Usa tu ubicación aproximada (unos 5 km de precisión) para avisarte únicamente cuando la alerta te afecta.</span></span>
+            </label>
+            <label class="flex gap-2 items-start bg-slate-800/70 border border-slate-700 rounded-xl p-2.5 mb-2 cursor-pointer">
+                <input type="radio" name="push-modo" value="todas" class="mt-1 accent-sky-500">
+                <span><b class="text-xs">Todas las alertas, aunque no esté en el área afectada</b><br><span class="text-[10px] text-slate-400">No se usa tu ubicación. Recomendado si seguís el río desde lejos.</span></span>
+            </label>
+            <p id="push-loc" class="text-[10px] text-slate-400 mb-1"></p>
+            <p id="push-msg" class="text-[10px] text-amber-300 mb-2 hidden"></p>
+            <p class="text-[9px] text-slate-500 leading-snug mb-3">La ubicación se actualiza cuando abrís la app (si hace días que no la abrís, se usa la última guardada). Se guarda solo aproximada y se borra al desactivar los avisos.</p>
+            <div class="flex gap-2">
+                <button id="push-actualizar" type="button" class="flex-1 bg-slate-700 text-white text-[11px] font-bold rounded-lg py-2">Actualizar ubicación</button>
+                <button id="push-desactivar" type="button" class="flex-1 bg-red-700 text-white text-[11px] font-bold rounded-lg py-2">Desactivar avisos</button>
+            </div>
+            <button id="push-cerrar" type="button" class="w-full mt-2 bg-white text-slate-900 text-xs font-black rounded-lg py-2">Listo</button>
+        </div>
+    </div>
+
+    <div id="alerta-global" class="hidden fixed top-0 inset-x-0 z-[900] text-white shadow-2xl" role="alert" aria-live="assertive"></div>
+    <div class="fixed bottom-4 left-4 z-[900] flex items-center gap-2">
+        <button id="btn-sonido-alertas" type="button" aria-pressed="false" title="Activar sonido de alertas"
+            class="w-11 h-11 rounded-full bg-slate-900/90 border border-slate-600 text-slate-300 shadow-xl backdrop-blur-md flex items-center justify-center text-base">
+            <i class="fa-solid fa-bell-slash"></i></button>
+        <button id="btn-push" type="button" aria-pressed="false" title="Recibir avisos en el celular aunque la app esté cerrada"
+            class="w-11 h-11 rounded-full bg-slate-900/90 border border-slate-600 text-slate-300 shadow-xl backdrop-blur-md flex items-center justify-center text-base">
+            <i class="fa-solid fa-mobile-screen-button"></i></button>
+        <button id="btn-probar-sonido" type="button" class="hidden px-2.5 h-8 rounded-full bg-slate-900/90 border border-slate-600 text-[10px] text-slate-300 shadow-xl">Probar</button>
+    </div>
+
+    <div id="splash-screen">
+        <div class="flex items-center space-x-4 mb-4">
+            <img src="logo.png" alt="Alerta" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 shadow-2xl animate-pulse">
+            <img src="logo_metric.png" alt="INTA" class="w-16 h-16 object-contain rounded-full border-2 border-emerald-500 bg-slate-900 shadow-2xl" onerror="this.style.display='none'">
+        </div>
+        <h2 class="text-xl font-black tracking-wider text-emerald-400">MetricPoint - live</h2>
+        <p class="text-xs text-slate-400 mt-1">Sincronizando Módulos...</p>
+    </div>
+
+    <!-- Header Fijo simplificado -->
+    <header class="sticky top-0 p-4 border-b border-white/10 glass-panel flex flex-col items-center justify-center z-[500]">
+        <div class="text-center">
+            <h1 class="text-2xl font-black tracking-tight text-white">MetricPoint - live</h1>
+            <p id="header-subtitle" class="text-[11px] text-emerald-400 font-semibold tracking-wide uppercase mt-0.5">Terminal Central</p>
+        </div>
+    </header>
+
+    <main class="p-4 max-w-md mx-auto w-full flex-1 flex flex-col pb-6">
+        
+        <!-- VISTA MENÚ PRINCIPAL -->
+        <div id="vista-menu" class="flex flex-col justify-center space-y-4 fade-in mt-4">
+            <button onclick="cambiarVista('vista-telemetria')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-emerald-400 w-full text-left">
+                <div class="bg-emerald-500/20 p-4 rounded-2xl text-emerald-400 text-2xl border border-emerald-500/30 shrink-0"><i class="fa-solid fa-satellite-dish"></i></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Tiempo Real</h3><p class="text-[11px] text-slate-400">Telemetría meteorológica viva</p></div>
+            </button>
+            
+            <!-- NUEVO MÓDULO: CAUCES DE RÍOS -->
+            <button onclick="cambiarVista('vista-cauces')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-blue-500 w-full text-left">
+                <div class="bg-blue-500/20 p-4 rounded-2xl text-blue-400 text-2xl border border-blue-500/30 shrink-0"><i class="fa-solid fa-water"></i></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Cauces de Ríos</h3><p class="text-[11px] text-slate-400">Monitoreo hidrológico INA</p></div>
+            </button>
+
+            <button onclick="cambiarVista('vista-radar')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-sky-400 w-full text-left">
+                <div class="bg-sky-500/20 p-4 rounded-2xl text-sky-400 text-2xl border border-sky-500/30 shrink-0"><i class="fa-solid fa-satellite"></i></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Imagen Radar</h3><p class="text-[11px] text-slate-400">Mapeo satelital y celdas de tormenta</p></div>
+            </button>
+
+            <!-- Radar 3D (página aparte: radar3d.html) -->
+            <a href="radar3d.html" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-violet-400 w-full text-left no-underline">
+                <div class="bg-violet-500/20 p-4 rounded-2xl text-violet-400 text-2xl border border-violet-500/30 shrink-0"><i class="fa-solid fa-mountain-sun"></i></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Radar 3D</h3><p class="text-[11px] text-slate-400">Relieve del Aconquija con radar</p></div>
+            </a>
+            
+            <button onclick="cambiarVista('vista-pronostico')" class="menu-card glass-panel p-5 rounded-3xl flex items-center space-x-4 border-l-4 border-l-amber-400 opacity-80 w-full text-left">
+                <div class="bg-amber-500/20 p-4 rounded-2xl text-amber-400 text-2xl border border-amber-500/30 shrink-0"><i class="fa-solid fa-chart-line"></i></div>
+                <div><h3 class="text-lg font-black text-white uppercase">Pronóstico</h3><p class="text-[11px] text-slate-400">Modelos predictivos a 72hs</p></div>
+            </button>
+        </div>
+
+        <!-- MÓDULO 1: TELEMETRÍA (Sin Cambios) -->
+        <div id="vista-telemetria" class="hidden flex-col space-y-3.5 fade-in">
+            <button onclick="volverMenu()" class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center self-start bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30 mb-1 mt-2 hover:bg-emerald-800/50">
+                <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
+            </button>
+
+            <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-emerald-500/30 shadow-lg">
+                <button id="tab-tucuman" onclick="cambiarProvincia('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all">Tucumán</button>
+                <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
+            </div>
+
+            <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
+                <div id="mapaTelemetria" class="absolute inset-0 bg-[#0a0a0a]"></div>
+                <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Estándar (WU)</span></div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Oficial (SNIH)</span></div>
+                </div>
+            </div>
+
+            <div id="status-box" class="text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md">
+                <i class="fa-solid fa-hand-pointer animate-bounce mr-1"></i> Selecciona un punto en el mapa
+            </div>
+
+            <div id="panel-datos" class="scroll-mt-40 glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-sky-400">
+                <div>
+                    <span class="text-xs font-bold text-sky-400 tracking-wider uppercase">Temperatura Ambiente</span>
+                    <div class="flex items-baseline space-x-2 mt-1">
+                        <span id="val-temp" class="text-5xl font-black tracking-tighter text-white">--</span>
+                        <span class="text-2xl text-slate-300 font-semibold">°C</span>
+                    </div>
+                </div>
+                <div class="bg-sky-500/20 p-4 rounded-2xl text-sky-400 text-3xl border border-sky-500/30"><i class="fa-solid fa-temperature-arrow-up"></i></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-blue-500 shadow-lg">
+                    <div class="text-blue-400 text-[11px] font-bold uppercase flex justify-between"><span>Humedad</span><i class="fa-solid fa-droplet"></i></div>
+                    <div class="my-2"><span id="val-hum" class="text-3xl font-extrabold text-white">--</span><span class="text-sm text-slate-300">%</span></div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-indigo-400 shadow-lg">
+                    <div class="text-indigo-300 text-[11px] font-bold uppercase flex justify-between"><span>Presión</span><i class="fa-solid fa-gauge-high"></i></div>
+                    <div class="my-2"><span id="val-pres" class="text-2xl font-extrabold text-white">--</span><span class="text-xs text-slate-300">hPa</span></div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-teal-400 shadow-lg">
+                    <div class="text-teal-300 text-[11px] font-bold uppercase flex justify-between"><span>Viento</span><i class="fa-solid fa-wind"></i></div>
+                    <div class="my-2"><span id="val-wind" class="text-2xl font-extrabold text-white">--</span><span class="text-xs text-slate-300">km/h</span></div>
+                    <span id="val-winddir" class="text-[10px] text-teal-200">Dir: --</span>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-cyan-400 shadow-lg">
+                    <div class="text-cyan-300 text-[11px] font-bold uppercase flex justify-between"><span>Lluvia Día</span><i class="fa-solid fa-cloud-rain"></i></div>
+                    <div class="my-2"><span id="val-precip" class="text-2xl font-extrabold text-white">--</span><span class="text-xs text-slate-300">mm</span></div>
+                </div>
+            </div>
+
+            <button onclick="sincronizarTelemetria()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-emerald-400/40 text-white mt-2 mb-4 cursor-pointer">
+                <i class="fa-solid fa-rotate-right"></i><span>Actualizar Telemetría</span>
+            </button>
+        </div>
+
+        <!-- NUEVO MÓDULO 2: CAUCES DE RÍOS -->
+        <div id="vista-cauces" class="hidden flex-col space-y-3.5 fade-in">
+            <button onclick="volverMenu()" class="text-[11px] font-bold text-blue-400 uppercase tracking-widest flex items-center self-start bg-blue-900/30 px-3 py-1.5 rounded-lg border border-blue-500/30 mb-1 mt-2 hover:bg-blue-800/50">
+                <i class="fa-solid fa-chevron-left mr-2"></i> Volver al panel
+            </button>
+
+            <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-blue-500/30 shadow-lg">
+                <button id="ctab-tucuman" onclick="cambiarProvinciaCauces('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-blue-500 text-slate-900 shadow transition-all">Tucumán</button>
+                <button id="ctab-salta" onclick="cambiarProvinciaCauces('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
+            </div>
+            <p class="text-[9px] text-slate-500 text-center -mt-1.5">Cauces · versión 5-nov (Tucumán y Salta)</p>
+
+            <!-- Mapa Selector Hidrológico -->
+            <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-blue-500/40 shadow-lg glass-panel z-0">
+                <div id="mapaCauces" class="absolute inset-0 bg-[#0a0a0a]"></div>
+                <div class="absolute bottom-2 left-2 z-[400] bg-slate-900/80 border border-slate-700 p-1.5 rounded-lg backdrop-blur-sm flex flex-col gap-1 pointer-events-none">
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 border border-white"></span><span class="text-[9px] text-slate-300 font-bold">Sensores INA</span></div>
+                </div>
+            </div>
+
+            <div id="status-cauces" class="text-xs text-center text-blue-300 bg-blue-950/80 border border-blue-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md">
+                <i class="fa-solid fa-hand-pointer animate-bounce mr-1"></i> Selecciona un cauce en el mapa
+            </div>
+
+            <!-- Panel de Datos Hidrológicos -->
+            <div id="panel-datos-cauces" class="scroll-mt-40 glass-panel p-5 rounded-3xl relative overflow-hidden flex items-center justify-between border-l-4 border-l-cyan-400">
+                <div class="w-full">
+                    <div class="flex justify-between items-center w-full">
+                        <span class="text-[10px] font-bold text-cyan-400 tracking-wider uppercase" id="cauce-nombre">Nombre del Río</span>
+                        <span class="text-[9px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-600" id="cauce-fecha">--/--/--</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2 mt-2">
+                        <span id="val-cauce-nivel" class="text-5xl font-black tracking-tighter text-white">--</span>
+                        <span class="text-2xl text-slate-300 font-semibold">m</span>
+                    </div>
+                </div>
+                <div class="bg-cyan-500/20 p-4 rounded-2xl text-cyan-400 text-3xl border border-cyan-500/30 shrink-0 ml-4"><i class="fa-solid fa-water"></i></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-blue-400 shadow-lg">
+                    <div class="text-blue-300 text-[10px] font-bold uppercase flex justify-between"><span>Tendencia</span><i class="fa-solid fa-arrow-trend-up"></i></div>
+                    <div class="my-2"><span id="val-cauce-tendencia" class="text-xl font-extrabold text-white capitalize">--</span></div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between border-l-4 border-l-indigo-400 shadow-lg">
+                    <div class="text-indigo-300 text-[10px] font-bold uppercase flex justify-between"><span>Precedente</span><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div class="my-2"><span id="val-cauce-precedente" class="text-xl font-extrabold text-white">--</span><span class="text-xs text-slate-300"> m</span></div>
+                </div>
+            </div>
+
+            <!-- Estado de alerta (solo estaciones con umbrales, p. ej. La Madrid) -->
+            <div id="cauce-alerta" class="hidden glass-panel p-4 rounded-3xl border-l-4 shadow-lg" role="status" aria-live="polite"></div>
+
+            <!-- Gráfico de nivel (últimos 10 días) -->
+            <div class="glass-panel p-4 rounded-3xl border-l-4 border-l-sky-400 shadow-lg">
+                <div class="flex justify-between items-baseline mb-2 gap-2">
+                    <span class="text-[10px] font-bold text-sky-400 tracking-wider uppercase">Nivel · últimos 10 días</span>
+                    <span id="cauce-rango" class="text-[10px] font-mono text-slate-400 text-right"></span>
+                </div>
+                <div id="cauce-grafico" class="w-full"></div>
+                <p id="cauce-grafico-pie" class="text-[9px] leading-snug text-slate-500 mt-1.5"></p>
+            </div>
+
+            <button onclick="sincronizarCauce()" class="w-full bg-blue-600 hover:bg-blue-500 font-bold text-sm py-3.5 rounded-2xl shadow-xl flex items-center justify-center space-x-2 border border-blue-400/40 text-white mt-2 mb-4 cursor-pointer">
+                <i class="fa-solid fa-rotate-right"></i><span>Actualizar Cauce</span>
+            </button>
+        </div>
+
+        <!-- MÓDULO 3: RADAR -->
+        <div id="vista-radar" class="hidden flex-col flex-1 pb-2 fade-in mt-2">
+            <div class="flex justify-between items-center mb-3">
+                <button onclick="volverMenu()" class="text-[11px] font-bold text-sky-400 uppercase tracking-widest flex items-center bg-sky-900/30 px-3 py-1.5 rounded-lg border border-sky-500/30 hover:bg-sky-800/50 transition">
+                    <i class="fa-solid fa-chevron-left mr-2"></i> Volver
+                </button>
+                <span class="text-[10px] font-mono text-sky-400 uppercase tracking-widest"><i class="fa-solid fa-satellite mr-1"></i> Satélite Activo</span>
+            </div>
+            
+            <div class="glass-panel p-3 rounded-2xl mb-3 flex flex-col gap-2 shrink-0 border-l-4 border-l-sky-500">
+                <!-- Radares: lista desplegable (mismos ids que antes: chk-RMAxx y rad-estado-RMAxx) -->
+                <details id="rad-lista" class="group rounded-lg border border-sky-500/30 bg-slate-900/70">
+                    <summary class="flex items-center justify-between gap-2 px-3 py-2 cursor-pointer list-none select-none text-xs text-slate-200">
+                        <span class="flex items-center gap-2 min-w-0">
+                            <i class="fa-solid fa-satellite-dish text-sky-400"></i>
+                            <span class="text-slate-400 text-[10px]">Radares</span>
+                            <span id="rad-resumen" class="font-bold truncate">Ninguno activo</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-down text-sky-400 text-[10px] transition-transform group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-3 pb-2 pt-2 flex flex-col gap-2 border-t border-slate-700/50">
+                        <div class="flex justify-between items-center">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                                <input type="checkbox" id="chk-RMA11" onchange="toggleRadar('RMA11', this.checked)" class="accent-sky-500 w-4 h-4">
+                                <span class="font-bold">Termas de Río Hondo</span>
+                            </label>
+                            <span id="rad-estado-RMA11" class="text-[9px] font-mono text-slate-400">Inactivo</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                                <input type="checkbox" id="chk-RMA20" onchange="toggleRadar('RMA20', this.checked)" class="accent-sky-500 w-4 h-4">
+                                <span class="font-bold">Las Lajitas</span>
+                            </label>
+                            <span id="rad-estado-RMA20" class="text-[9px] font-mono text-slate-400">Inactivo</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                                <input type="checkbox" id="chk-RMA7" onchange="toggleRadar('RMA7', this.checked)" class="accent-sky-500 w-4 h-4">
+                                <span class="font-bold">Neuquén</span>
+                            </label>
+                            <span id="rad-estado-RMA7" class="text-[9px] font-mono text-slate-400">Inactivo</span>
+                        </div>
+                    </div>
+                </details>
+                <script>
+                    (function () {
+                        var N = { RMA11: 'Termas de Río Hondo', RMA20: 'Las Lajitas', RMA7: 'Neuquén' };
+                        function resumen() {
+                            var on = Object.keys(N).filter(function (c) { var e = document.getElementById('chk-' + c); return e && e.checked; });
+                            var t = document.getElementById('rad-resumen'); if (!t) return;
+                            t.textContent = !on.length ? 'Ninguno activo' : (on.length === 1 ? N[on[0]] : on.length + ' activos: ' + on.map(function (c) { return N[c]; }).join(', '));
+                        }
+                        Object.keys(N).forEach(function (c) { var e = document.getElementById('chk-' + c); if (e) e.addEventListener('change', resumen); });
+                        resumen();
+                    })();
+                </script>
+                <div class="mt-1">
+                    <label for="sel-campo" class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1.5">Vista del radar</label>
+                    <select id="sel-campo" onchange="cambiarCampoRadar(this.value)" class="w-full bg-slate-900 text-slate-100 text-xs rounded-lg border border-sky-500/40 px-3 py-2 focus:outline-none focus:border-sky-400">
+                        <option value="COLMAX" selected>Máx. columna</option>
+                        <option value="DBZH">Z @ 0,5°</option>
+                        <option value="ZDR">ZDR @ 0,5°</option>
+                        <option value="KDP">KDP @ 0,5°</option>
+                    </select>
+                    <p id="radar-campo-desc" class="text-[10px] leading-snug text-slate-400 mt-1.5"></p>
+                </div>
+                <div class="mt-1 border-t border-slate-700/50 pt-2">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1"><i class="fa-solid fa-film mr-1"></i> Animación · últimas 6 imágenes</span>
+                    <div id="radar-anim"></div>
+                </div>
+                <div class="mt-1 flex items-center gap-3 border-t border-slate-700/50 pt-2">
+                    <i class="fa-solid fa-droplet-slash text-sky-500/50 text-[10px]"></i>
+                    <input type="range" min="20" max="100" value="70" oninput="cambiarOpacidadRadar(this.value)" class="flex-1 accent-sky-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    <i class="fa-solid fa-droplet text-sky-500 text-[10px]"></i>
+                </div>
+            </div>
+
+            <div class="flex-1 min-h-[50vh] relative border-2 border-sky-500/40 rounded-2xl overflow-hidden glass-panel shadow-[0_0_20px_rgba(2,132,199,0.15)] z-0">
+                <div id="mapaRadar" class="absolute inset-0 bg-[#0a0a0a]"></div>
+            </div>
+
+            <!-- Leyenda del radar (visible solo con algún radar activo) -->
+            <div id="rad-leyenda" class="hidden glass-panel mt-3 px-3 py-2.5 rounded-2xl border-l-4 border-l-sky-500">
+                <div class="flex items-baseline justify-between mb-1.5">
+                    <span id="rad-leyenda-titulo" class="text-[10px] font-black tracking-widest text-sky-400 uppercase">Reflectividad · dBZ</span>
+                    <span class="text-[9px] text-slate-500">escala WebMet</span>
+                </div>
+                <p id="rad-leyenda-nota" class="hidden text-[10px] leading-snug text-slate-300"></p>
+                <div id="rad-leyenda-barra" class="h-3 rounded-sm border border-slate-600"></div>
+                <div id="rad-leyenda-marcas" class="relative h-4 mt-0.5 text-[9px] font-mono text-slate-300"></div>
+            </div>
+            <p class="text-[9px] leading-snug text-slate-500 mt-3 px-1">
+                Fuente: SMN / SINARAME, vía WebMet (OHMC Córdoba).<br>
+                Información orientativa: requiere interpretación técnica.
+            </p>
+        </div>
+
+        <!-- MÓDULO 4: PRONÓSTICO -->
+        <div id="vista-pronostico" class="hidden flex-col h-full flex-1 fade-in mt-4">
+            <button onclick="volverMenu()" class="text-[11px] font-bold text-amber-400 uppercase tracking-widest flex items-center self-start bg-amber-900/30 px-3 py-1.5 rounded-lg border border-amber-500/30 mb-auto hover:bg-amber-800/50">
+                <i class="fa-solid fa-chevron-left mr-2"></i> Volver
+            </button>
+            <div class="glass-panel p-8 rounded-3xl text-center border border-amber-500/30 my-auto shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+                <div class="text-amber-500 text-6xl mb-4 animate-bounce"><i class="fa-solid fa-person-digging"></i></div>
+                <h3 class="text-xl font-black text-white tracking-widest uppercase mb-2">Módulo en Desarrollo</h3>
+                <p class="text-sm text-slate-400">Los modelos predictivos y proyecciones a 72hs están siendo calibrados.</p>
+            </div>
+            <div class="mt-auto"></div>
+        </div>
+
+        <!-- FOOTER GLOBAL: Logos y Redes Sociales -->
+        <footer class="mt-auto pt-8 pb-2 flex flex-col items-center space-y-5 fade-in">
+            <div class="flex items-center justify-center space-x-5">
+                <img src="logo.png" alt="Logo Alerta" class="w-12 h-12 object-contain rounded-full border border-white/20 shadow-lg">
+                <div class="h-8 w-px bg-white/20"></div>
+                <img src="logo_metric.png" alt="INTA" class="w-12 h-12 object-contain rounded-full border border-white/20 bg-slate-900/80 shadow-lg" onerror="this.style.display='none'">
+            </div>
+            
+            <div class="flex space-x-4">
+                <a href="https://www.instagram.com/metricpoint.service/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de MetricPoint" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <i class="fa-brands fa-instagram text-lg"></i>
+                </a>
+                <a href="https://x.com/metric_point" target="_blank" rel="noopener noreferrer" aria-label="X (ex Twitter) de MetricPoint" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <svg viewBox="0 0 24 24" class="w-[18px] h-[18px] fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </a>
+                <a href="https://wa.me/5493876448915?text=Hola%20MetricPoint%2C%20quiero%20hacer%20una%20consulta" target="_blank" rel="noopener noreferrer" aria-label="Escribinos por WhatsApp" class="w-10 h-10 rounded-full ..." target="_blank" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <i class="fa-brands fa-whatsapp text-lg"></i>
+                </a>
+                <a href="#" target="_blank" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all shadow-md">
+                    <i class="fa-solid fa-globe text-lg"></i>
+                </a>
+            </div>
+            <p class="text-[10px] text-slate-500 tracking-wider uppercase">© 2026 MetricPoint AgTech</p>
+        </footer>
+
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="radar_anim.js?v=4"></script>
+    <script>
+        // ==========================================
+        // DATA DE ESTACIONES METEOROLÓGICAS
+        // ==========================================
+        const estacionesData = {
+            tucuman: [
+                { val: "IMONTE1127|-27.17|-65.50|Monteros (INTA)|WU", txt: "Monteros" },
+                { val: "220274|-27.63|-65.25|Lamadrid (SNIH)|SNIH", txt: "Lamadrid (Oficial)" },
+                { val: "10419|-26.20|-65.20|El Brete (SNIH)|SNIH", txt: "El Brete (Oficial)" },
+                { val: "280488|-27.30|-65.70|Las Lenguas (RMET)|SNIH", txt: "Las Lenguas (Oficial)" },
+                { val: "220273|-27.33|-65.57|Concepción (SNIH)|SNIH", txt: "Concepción (Oficial)" },
+                { val: "220278|-26.84|-65.21|SMT UNT (SNIH)|SNIH", txt: "SMT UNT (Oficial)" },
+                { val: "280489|-26.42|-64.98|Río Nío (RMET)|SNIH", txt: "Río Nío (Oficial)" },
+                { val: "280485|-26.74|-65.77|Infiernillo (RMET)|SNIH", txt: "Infiernillo (Oficial)" },
+                { val: "280486|-27.32|-65.81|Toma Los Reales (RMET)|SNIH", txt: "T. Los Reales (Oficial)" },
+                { val: "ISARGE7|-27.23|-65.65|Sargento Moya|WU", txt: "Sargento Moya" },
+                { val: "ISANMI169|-26.82|-65.20|Barrio Norte|WU", txt: "Barrio Norte" },
+                { val: "ISANMI87|-26.83|-65.20|Centro SMT|WU", txt: "Centro SMT" },
+                { val: "IBARRI105|-26.78|-65.28|Barrio San José|WU", txt: "Barrio San José" },
+                { val: "IVILLA1124|-26.41|-64.80|El Puestito|WU", txt: "El Puestito" },
+                { val: "IDEABR3|-26.29|-64.50|7 de Abril|WU", txt: "7 de Abril" },
+                { val: "ICHORO9|-26.48|-65.35|Vipos|WU", txt: "Vipos" },
+                { val: "IBURRU13|-26.68|-64.82|Santa Rosa|WU", txt: "Santa Rosa" },
+                { val: "IESCUE2|-26.50|-64.52|Gob. Garmendia|WU", txt: "Garmendia" },
+                { val: "IYERBA8|-26.81|-65.32|Praderas YB|WU", txt: "Praderas YB" },
+                { val: "IYERBA10|-26.81|-65.32|Jumbo YB|WU", txt: "Jumbo YB" },
+                { val: "IYERBA5|-26.81|-65.29|Colinas YB|WU", txt: "Colinas YB" },
+                { val: "ICONCE101|-27.34|-65.59|Concepción|WU", txt: "Concepción (WU)" },
+                { val: "ILEALE3|-27.22|-64.86|Mujer Muerta|WU", txt: "Mujer Muerta" },
+                { val: "ILEALE2|-27.13|-64.81|Tacanas|WU", txt: "Tacanas" }
+            ],
+            salta: [
+                { val: "IANTIL2|-25.71|-64.39|Antillas|WU", txt: "Antillas" },
+                { val: "ICERRI11|-25.11|-65.42|Calvimonte|WU", txt: "Calvimonte" },
+                { val: "ISALTA51|-24.80|-65.47|La Cienaga|WU", txt: "La Cienaga" },
+                { val: "ISALTA48|-24.78|-65.46|Divino Niño (capital)|WU", txt: "Divino Niño (Capital)" },
+                { val: "ISALTA30|-24.78|-65.42|Central Norte|WU", txt: "Central Norte" },
+                { val: "ISALTA31|-24.73|-65.42|Barrio El Parque|WU", txt: "Barrio El Parque" },
+                { val: "ISALTA10|-24.78|-65.40|San Bernardo|WU", txt: "San Belgrano" },
+                { val: "ISALTA65|-24.74|-65.41|B° Castañares|WU", txt: "B° Castañares" },
+                { val: "ICERRI10|-24.90|-65.48|Cerrillos|WU", txt: "Cerrillos" },
+                { val: "ILASIL1|-24.88|-65.59|La Silleta|WU", txt: "La Silleta" },
+                { val: "IVILLA1560|-24.73|-65.49|Villa San Lorenzo|WU", txt: "Villa San Lorenzo" },
+                { val: "IVILLA1417|-24.74|-65.49|San Lorenzo (Santi)|WU", txt: "San Lorenzo (Santi)" },
+                { val: "ICANGR1|-25.23|-65.66|Potrero de Diaz|WU", txt: "Potrero de Diaz" },
+                { val: "IMETND3|-25.52|-64.98|Metán|WU", txt: "Metán" },
+                { val: "ICAFAY1|-26.09|-66.01|Cafayate|WU", txt: "Cafayate" },
+                { val: "ICEIBA6|-25.09|-64.22|Coronel Olleros|WU", txt: "Coronel Olleros" },
+                { val: "ILASLA1|-24.72|-64.19|Las Lajitas|WU", txt: "Las Lajitas" },
+                { val: "IAPOLI10|-24.79|-64.05|San Antonio|WU", txt: "San Antonio" },
+                { val: "ICORON52|-24.57|-64.09|Coronel Mollinedo|WU", txt: "Coronel Mollinedo" },
+                { val: "ICORON64|-22.86|-64.06|Valle Blanco|WU", txt: "Valle Blanco" },
+                { val: "ICORON109|-22.89|-63.69|La Escondida|WU", txt: "La Escondida" },
+                { val: "ICORON110|-22.90|-63.78|San Ignacio|WU", txt: "San Ignacio" },
+                { val: "ICORON111|-22.96|-63.93|Rio Colorado|WU", txt: "Rio Colorado" },
+                { val: "IJERON7|-23.79|-64.07|La Esquina|WU", txt: "La Esquina" },
+                { val: "IPICHA27|-23.35|-63.88|Rio Grande|WU", txt: "Rio Grande" },
+                { val: "ITARTA6|-22.61|-63.57|El Cebilar|WU", txt: "El Cebilar" },
                 { val: "ICOLON100|-23.37|-64.46|Colonia Santa Rosa|WU", txt: "Colonia Santa Rosa" },
+                { val: "IEMBAR5|-23.20|-64.21|Zanja del Tigre|WU", txt: "Zanja del Tigre" },
+                { val: "IROSARIO12|-24.91|-65.64|Campo Quijano|WU", txt: "Campo Quijano" },
+                { val: "IROSAR120|-25.78|-64.97|Rosario de la Frontera|WU", txt: "Rosario de la Frontera" }
+            ]
+        };
+
+        // ==========================================
+        // DATA DE CAUCES DE RÍOS (INA)
+        // ==========================================
+        // Coordenadas oficiales de cada estación (campo geom de la serie en el INA, red RHN - SAT).
+        const caucesData = {
+          tucuman: [
+            { id: 33882, lat: -27.5211, lon: -65.2664, txt: "Río Chico - RN Nº157" },
+            { id: 32292, lat: -27.4325, lon: -65.2714, txt: "Río Gastona - RN Nº157" },
+            { id: 32679, lat: -27.3361, lon: -65.3175, txt: "Río Seco - RN Nº157" },
+            { id: 33520, lat: -27.1333, lon: -65.3156, txt: "Río Salí - RP Nº323" },
+            { id: 33966, lat: -26.7192, lon: -65.1619, txt: "Río Salí - Alta Gracia" },
+            { id: 32028, lat: -26.4775, lon: -65.3164, txt: "Río Vipos - Toma OS" },
+            { id: 32820, lat: -26.2189, lon: -64.5119, txt: "Río Urueña - 7 de Abril" },
+            // Estaciones hidrológicas del SNIH (fuente: "SNIH"). Posición aproximada: ajustar si hace falta.
+            { id: 10474, fuente: "SNIH", lat: -27.64, lon: -65.25, txt: "La Madrid - Est. 10474" },
+            { id: 10419, fuente: "SNIH", lat: -26.20, lon: -65.20, txt: "El Brete - Est. 10419" }
+          ],
+          salta: [
+            // Estación SNIH 10611 (611, La Punilla, Río Las Conchas). Posición aproximada: ajustar con la oficial.
+            { id: 10611, fuente: "SNIH", lat: -25.70, lon: -65.62, txt: "Las Conchas - La Punilla - Est. 611" }
+          ]
+        };
+        let provCauces = 'tucuman';
+        let caucesINA = caucesData.tucuman;
+
+        let estacionActualVal = null;
+        let cauceActualVal = null;
+        
+        let mapTelemetria = null;
+        let mapCauces = null;
+        let mapRadar = null;
+        
+        let telemetriaMarkers = [];
+        let caucesMarkers = [];
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if(splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => { splash.style.display = 'none'; }, 500);
+                }
+            }, 1500);
+
+            try {
+                inicializarMapas();
+                cambiarProvincia('tucuman'); 
+                cargarCauces(); // Cargar los puntos del INA al iniciar
+            } catch (e) {
+                console.error("Error al inicializar:", e);
+            }
+        });
+
+        function inicializarMapas() {
+            // Mapa 1: Telemetría
+            if (!mapTelemetria) {
+                mapTelemetria = L.map('mapaTelemetria', { zoomControl: false, attributionControl: false, dragging: !L.Browser.mobile, tap: false }).setView([-26.83, -65.20], 8);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapTelemetria);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapTelemetria);
+                mapTelemetria.createPane('labelsPane').style.zIndex = 300;
+                mapTelemetria.getPane('labelsPane').style.pointerEvents = 'none';
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapTelemetria);
+            }
+            
+            // Mapa 2: Cauces de Ríos
+            if (!mapCauces) {
+                mapCauces = L.map('mapaCauces', { zoomControl: false, attributionControl: false, dragging: !L.Browser.mobile, tap: false }).setView([-26.83, -65.20], 8);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapCauces);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapCauces);
+                mapCauces.createPane('labelsPane').style.zIndex = 300;
+                mapCauces.getPane('labelsPane').style.pointerEvents = 'none';
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapCauces);
+            }
+
+            // Mapa 3: Radar
+            if (!mapRadar) {
+                mapRadar = L.map('mapaRadar', { zoomControl: false, dragging: !L.Browser.mobile, tap: false }).setView([-26.83, -65.20], 7);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapRadar);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(mapRadar);
+                mapRadar.createPane('radarPane').style.zIndex = 250;
+                mapRadar.createPane('labelsPane').style.zIndex = 300;
+                mapRadar.getPane('labelsPane').style.pointerEvents = 'none';
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, pane: 'labelsPane' }).addTo(mapRadar);
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DE TELEMETRÍA (Sin Cambios)
+        // ==========================================
+        function cambiarProvincia(prov) {
+            const btnTuc = document.getElementById('tab-tucuman');
+            const btnSal = document.getElementById('tab-salta');
+            
+            if(prov === 'tucuman') {
+                btnTuc.className = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
+                btnSal.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
+            } else {
+                btnSal.className = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
+                btnTuc.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
+            }
+
+            telemetriaMarkers.forEach(item => mapTelemetria.removeLayer(item.marker));
+            telemetriaMarkers = [];
+            
+            let bounds = L.latLngBounds();
+
+            estacionesData[prov].forEach((est, index) => {
+                const data = est.val.split('|');
+                const lat = parseFloat(data[1]);
+                const lon = parseFloat(data[2]);
+                const isSNIH = est.val.includes('|SNIH');
+                const color = isSNIH ? '#f59e0b' : '#3b82f6'; 
+
+                const marker = L.circleMarker([lat, lon], { radius: 7, fillColor: color, color: "#ffffff", weight: 2, fillOpacity: 0.8 }).addTo(mapTelemetria);
+                marker.bindTooltip(est.txt, {direction: 'top', offset: [0, -10], className: 'text-xs font-bold'});
+                marker.on('click', () => seleccionarEstacion(est.val, marker, false));
+
+                telemetriaMarkers.push({ marker: marker, val: est.val });
+                bounds.extend([lat, lon]);
+                if(index === 0) seleccionarEstacion(est.val, marker, true);
+            });
+
+            if(telemetriaMarkers.length > 0) {
+                try { mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e) {}
+            }
+        }
+
+        function seleccionarEstacion(val, markerLayer, isInitial) {
+            estacionActualVal = val;
+
+            telemetriaMarkers.forEach(item => {
+                const isSNIH = item.val.includes('|SNIH');
+                const color = isSNIH ? '#f59e0b' : '#3b82f6';
+                item.marker.setStyle({ fillColor: color, weight: 2, color: '#ffffff', fillOpacity: 0.8 });
+                item.marker.setRadius(7);
+            });
+
+            if(markerLayer) {
+                markerLayer.setStyle({ fillColor: '#10b981', weight: 3, color: '#ffffff', fillOpacity: 1 });
+                markerLayer.setRadius(10);
+                if(!isInitial) { try { mapTelemetria.flyTo(markerLayer.getLatLng(), 8, {duration: 0.5}); } catch(e){} }
+            }
+
+            sincronizarTelemetria();
+
+            if (!isInitial) {
+                setTimeout(() => {
+                    const panel = document.getElementById('panel-datos');
+                    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 250);
+            }
+        }
+
+        function sincronizarTelemetria() {
+            if(!estacionActualVal) return;
+            const data = estacionActualVal.split('|');
+            cargarDatosActuales(data[0], data[4] || 'WU', data[3]);
+        }
+
+        async function cargarDatosActuales(stationId, fuente, nombreEstacion) {
+            const statusBox = document.getElementById('status-box');
+            statusBox.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Sincronizando...';
+            try {
+                if (fuente === 'SNIH') {
+                    const response = await fetch(`https://metricmoisture-backend.onrender.com/api/snih/${stationId}`);
+                    if (!response.ok) throw new Error('Error Red SNIH');
+                    const data = await response.json();
+                    if (data.status === 'offline') throw new Error('SNIH Caído');
+
+                    document.getElementById('val-temp').innerText = data.temp !== '--' ? parseFloat(data.temp).toFixed(1) : '--';
+                    document.getElementById('val-hum').innerText = data.humedad !== '--' ? Math.round(data.humedad) : '--';
+                    document.getElementById('val-pres').innerText = data.presion !== '--' ? parseFloat(data.presion).toFixed(1) : '--';
+                    document.getElementById('val-wind').innerText = data.viento !== '--' ? parseFloat(data.viento).toFixed(1) : '--';
+                    document.getElementById('val-winddir').innerText = `Dir: --`;
+                    document.getElementById('val-precip').innerText = data.lluvia !== '--' ? parseFloat(data.lluvia).toFixed(1) : '--';
+                    
+                    statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                    statusBox.innerHTML = `<i class="fa-solid fa-building-columns mr-1"></i> <b>${nombreEstacion}</b> • SNIH Oficial • ${data.hora}`;
+                } else {
+                    const response = await fetch(`https://metricmoisture-backend.onrender.com/api/wu/${encodeURIComponent(stationId)}`);
+                    const wu = await response.json().catch(() => ({}));
+                    if (!response.ok || !wu.observation) throw new Error(wu.error || 'Error Red WU');
+                    const obs = wu.observation;
+                    
+                    document.getElementById('val-temp').innerText = ((obs.imperial.temp - 32) * 5 / 9).toFixed(1);
+                    document.getElementById('val-hum').innerText = obs.humidity;
+                    document.getElementById('val-pres').innerText = (obs.imperial.pressure * 33.8639).toFixed(1);
+                    document.getElementById('val-wind').innerText = (obs.imperial.windSpeed * 1.60934).toFixed(1);
+                    document.getElementById('val-winddir').innerText = `Dir: ${obs.winddir}°`;
+                    document.getElementById('val-precip').innerText = (obs.imperial.precipTotal * 25.4).toFixed(1);
+                    
+                    statusBox.className = "text-xs text-center text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                    statusBox.innerHTML = wu.stale
+                        ? `<i class="fa-solid fa-clock-rotate-left mr-1"></i> <b>${nombreEstacion}</b> • WU: último dato guardado (hace ${Math.round(wu.edad_s / 60)} min) • ${obs.obsTimeLocal}`
+                        : `<i class="fa-solid fa-satellite-dish mr-1"></i> <b>${nombreEstacion}</b> • En línea (WU) • ${obs.obsTimeLocal}`;
+                    if (wu.stale) statusBox.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                }
+            } catch (error) {
+                statusBox.className = "text-xs text-center text-red-300 bg-red-950/80 border border-red-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> <b>${nombreEstacion}</b> • Sensor Offline`;
+                ['val-temp', 'val-hum', 'val-pres', 'val-wind', 'val-precip'].forEach(id => document.getElementById(id).innerText = '--');
+                document.getElementById('val-winddir').innerText = `Dir: --`;
+            }
+        }
+        setInterval(sincronizarTelemetria, 300000);
+
+        // ==========================================
+        // LÓGICA DE CAUCES DE RÍOS (NUEVO)
+        // ==========================================
+        function cambiarProvinciaCauces(prov) {
+            if (!caucesData[prov]) return;
+            provCauces = prov;
+            caucesINA = caucesData[prov];
+            const on = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-blue-500 text-slate-900 shadow transition-all";
+            const off = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
+            document.getElementById('ctab-tucuman').className = prov === 'tucuman' ? on : off;
+            document.getElementById('ctab-salta').className = prov === 'salta' ? on : off;
+            cauceActualVal = null;
+            limpiarPanelCauce();
+            cargarCauces();
+        }
+
+        function cargarCauces() {
+            caucesMarkers.forEach(item => { try { mapCauces.removeLayer(item.marker); } catch (e) { } });
+            caucesMarkers = [];
+            let bounds = L.latLngBounds();
+            caucesINA.forEach((cauce, index) => {
+                const marker = L.circleMarker([cauce.lat, cauce.lon], { radius: 7, fillColor: '#22d3ee', color: "#ffffff", weight: 2, fillOpacity: 0.8 }).addTo(mapCauces);
+                marker.bindTooltip(cauce.txt, {direction: 'top', offset: [0, -10], className: 'text-xs font-bold'});
+                marker.on('click', () => seleccionarCauce(cauce, marker, false));
+
+                caucesMarkers.push({ marker: marker, id: cauce.id, txt: cauce.txt });
+                bounds.extend([cauce.lat, cauce.lon]);
+
+                if(index === 0) seleccionarCauce(cauce, marker, true);
+            });
+            if(caucesMarkers.length > 0) {
+                try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: caucesINA.length === 1 ? 10 : 8}); } catch(e) {}
+            }
+        }
+
+        function seleccionarCauce(cauceObj, markerLayer, isInitial) {
+            cauceActualVal = cauceObj;
+
+            caucesMarkers.forEach(item => {
+                item.marker.setStyle({ fillColor: '#22d3ee', weight: 2, color: '#ffffff', fillOpacity: 0.8 });
+                item.marker.setRadius(7);
+            });
+
+            if(markerLayer) {
+                markerLayer.setStyle({ fillColor: '#10b981', weight: 3, color: '#ffffff', fillOpacity: 1 });
+                markerLayer.setRadius(10);
+                if(!isInitial) { try { mapCauces.flyTo(markerLayer.getLatLng(), 8, {duration: 0.5}); } catch(e){} }
+            }
+
+            sincronizarCauce();
+
+            if (!isInitial) {
+                setTimeout(() => {
+                    const panel = document.getElementById('panel-datos-cauces');
+                    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 250);
+            }
+        }
+
+        function sincronizarCauce() {
+            if(!cauceActualVal) return;
+            document.getElementById('cauce-nombre').innerText = cauceActualVal.txt;
+            fetchCauceData(cauceActualVal.id, cauceActualVal.fuente);
+        }
+
+        const CAUCES_API = 'https://metricmoisture-backend.onrender.com/api/ina';
+        const CAUCES_SNIH_API = 'https://metricmoisture-backend.onrender.com/api/snih_nivel';
+        const CAUCE_ATRASO_HORAS = 6;   // aviso si el último dato del INA tiene más de 6 h
+
+        function limpiarPanelCauce() {
+            document.getElementById('val-cauce-nivel').innerText = '--';
+            document.getElementById('val-cauce-tendencia').innerText = '--';
+            document.getElementById('val-cauce-precedente').innerText = '--';
+            document.getElementById('cauce-fecha').innerText = '--/--/--';
+            renderGraficoCauce(null, null);
+            renderAlertaCauce(null);
+        }
+
+        // ---------- Gráfico de nivel (SVG propio, sin librerías) ----------
+        const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+        const ART_MS = -3 * 3600 * 1000;      // Argentina: UTC-3 todo el año
+        const DIA_MS = 86400000;
+        const pad2 = n => String(n).padStart(2, '0');
+        const fmtDia = ms => { const d = new Date(ms + ART_MS); return `${d.getUTCDate()} ${MESES_CORTOS[d.getUTCMonth()]}`; };
+        const fmtHora = ms => { const d = new Date(ms + ART_MS); return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`; };
+
+        // ---------- Tarjeta de estado de alerta ----------
+        const escHtml = x => String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        function renderAlertaCauce(a) {
+            const el = document.getElementById('cauce-alerta');
+            if (!el) return;
+            if (!a) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+            el.classList.remove('hidden');
+            el.style.borderLeftColor = a.color;
+            const conf = a.valor_confirmado != null ? `${Number(a.valor_confirmado).toFixed(2)} m` : '--';
+            const prox = a.proximo ? `Próximo umbral: ${escHtml(a.proximo.nombre)} ${Number(a.proximo.valor).toFixed(2)} m${a.modo === 'subida' && a.nivel_base != null ? ' (+' + (a.proximo.valor - a.nivel_base).toFixed(2) + ' m sobre la base)' : ''} (faltan ${Number(a.proximo.falta_m).toFixed(2)} m)` : 'Superó el umbral más alto configurado.';
+            const avisos = (a.aviso || []).map(x => `<li>${escHtml(x)}</li>`).join('');
+            el.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <span class="px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wide text-white" style="background:${escHtml(a.color)}">${escHtml(a.etiqueta)}</span>
+                    <span class="text-[10px] font-mono text-slate-300">Confirmado: ${conf}${a.max_24h != null ? ' · máx 24 h ' + Number(a.max_24h).toFixed(2) + ' m' : ''}</span>
+                </div>
+                ${a.simulacro ? '<p class="text-[10px] font-black text-white bg-slate-700 rounded px-2 py-0.5 mt-2 inline-block">SIMULACRO · ejercicio de prueba</p>' : (a.origen === 'manual' ? '<p class="text-[10px] font-black text-slate-900 bg-white/90 rounded px-2 py-0.5 mt-2 inline-block">EMITIDA MANUALMENTE</p>' : '')}
+                ${a.mensaje ? `<p class="text-xs text-white font-bold mt-1 leading-snug">${escHtml(a.mensaje)}</p>` : ''}
+                <p class="text-xs text-slate-200 mt-2 leading-snug">${escHtml(a.accion)}</p>
+                ${a.modo === 'subida' && a.nivel_base != null ? `<div class="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                    <div class="bg-slate-900/60 rounded-lg py-1.5"><p class="text-[8px] text-slate-400 uppercase">Nivel base 30 d</p><p class="text-xs font-black text-slate-100">${Number(a.nivel_base).toFixed(2)} m</p></div>
+                    <div class="bg-slate-900/60 rounded-lg py-1.5"><p class="text-[8px] text-slate-400 uppercase">Sobre la base</p><p class="text-xs font-black text-slate-100">${a.sobre_base != null ? (a.sobre_base >= 0 ? '+' : '') + Number(a.sobre_base).toFixed(2) + ' m' : '--'}</p></div>
+                    <div class="bg-slate-900/60 rounded-lg py-1.5"><p class="text-[8px] text-slate-400 uppercase">Velocidad</p><p class="text-xs font-black ${a.subida_rapida ? 'text-amber-300' : 'text-slate-100'}">${a.vel_m_h != null ? (a.vel_m_h >= 0 ? '+' : '') + Number(a.vel_m_h).toFixed(2) + ' m/h' : '--'}</p></div>
+                </div>` : ''}
+                ${(a.estado !== 'sin_datos' && a.estado !== 'sin_umbrales') ? `<p class="text-[10px] text-slate-400 mt-1">${prox}</p>` : ''}
+                ${avisos ? `<ul class="text-[10px] text-amber-300 mt-1.5 list-disc pl-4 space-y-0.5">${avisos}</ul>` : ''}
+                <p class="text-[9px] text-slate-500 mt-2 leading-snug">Herramienta orientativa basada en el historial de la estación; no reemplaza las alertas de Defensa Civil ni de los organismos oficiales.</p>`;
+        }
+
+        function renderGraficoCauce(serie, niveles, umbrales) {
+            const cont = document.getElementById('cauce-grafico');
+            const rango = document.getElementById('cauce-rango');
+            const pie = document.getElementById('cauce-grafico-pie');
+            const vacio = (msg) => {
+                cont.innerHTML = `<p class="text-[11px] text-slate-500 text-center py-10">${msg}</p>`;
+                rango.textContent = ''; pie.textContent = '';
+            };
+            if (!Array.isArray(serie) || serie.length < 2) return vacio('Sin serie de datos para graficar');
+
+            const pts = serie.map(([t, v]) => [new Date(t).getTime(), Number(v)]).filter(p => isFinite(p[0]) && isFinite(p[1]));
+            if (pts.length < 2) return vacio('Sin serie de datos para graficar');
+            pts.sort((x, y) => x[0] - y[0]);
+
+            const W = 340, H = 230, m = { l: 40, r: 12, t: 12, b: 30 };
+            const iw = W - m.l - m.r, ih = H - m.t - m.b;
+            const ahora = Date.now();
+            const t0 = pts[0][0], t1 = Math.max(pts[pts.length - 1][0], ahora);
+
+            // Eje Y: rango de los datos con un poco de aire, ticks "redondos"
+            let vmin = Math.min(...pts.map(p => p[1])), vmax = Math.max(...pts.map(p => p[1]));
+            const aire = Math.max(0.05, (vmax - vmin) * 0.12);
+            let y0 = vmin - aire, y1 = vmax + aire;
+            const pasos = [0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100];
+            const paso = pasos.find(p => (y1 - y0) / p <= 5) || 100;
+            const ticksY = [];
+            for (let v = Math.ceil(y0 / paso) * paso; v <= y1 + 1e-9; v += paso) ticksY.push(+v.toFixed(4));
+            const decimales = paso >= 1 ? 0 : (paso >= 0.1 ? 1 : 2);
+
+            // Eje X: una marca por medianoche (hora argentina)
+            const primeraMedianoche = Math.floor((t0 + ART_MS) / DIA_MS) * DIA_MS - ART_MS + DIA_MS;
+            const nDias = Math.floor((t1 - primeraMedianoche) / DIA_MS) + 1;
+            const cadaDias = nDias > 8 ? 2 : 1;
+            const ticksX = [];
+            for (let t = primeraMedianoche; t <= t1; t += DIA_MS * cadaDias) ticksX.push(t);
+
+            const X = t => m.l + ((t - t0) / (t1 - t0)) * iw;
+            const Y = v => m.t + (1 - (v - y0) / (y1 - y0)) * ih;
+
+            const linea = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('');
+            const area = `${linea}L${X(pts[pts.length - 1][0]).toFixed(1)},${m.t + ih}L${X(pts[0][0]).toFixed(1)},${m.t + ih}Z`;
+
+            // Niveles de alerta (solo se dibujan los que caen dentro del rango visible)
+            const defNiveles = [
+                ['alerta', 'Alerta', '#f59e0b'], ['evacuacion', 'Evacuación', '#ef4444'], ['aguas_bajas', 'Aguas bajas', '#60a5fa']
+            ].map(([k, nombre, color]) => ({ nombre, color, valor: niveles && niveles[k] != null ? Number(niveles[k]) : null }))
+             .filter(n => n.valor != null && isFinite(n.valor));
+            const defUmbrales = (umbrales || []).map(u => ({ nombre: u.nombre, color: u.color, valor: Number(u.valor) })).filter(n => isFinite(n.valor));
+            defNiveles.push(...defUmbrales);
+            const lineasNivel = defNiveles.filter(n => n.valor >= y0 && n.valor <= y1).map(n =>
+                `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(n.valor)}" y2="${Y(n.valor)}" stroke="${n.color}" stroke-width="1" stroke-dasharray="5 3"/>
+                 <text x="${W - m.r - 2}" y="${Y(n.valor) - 3}" text-anchor="end" font-size="8" fill="${n.color}">${n.nombre} ${n.valor.toFixed(2)} m</text>`).join('');
+
+            const grillaY = ticksY.map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#94a3b8" stroke-opacity="0.15"/>
+                <text x="${m.l - 5}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="#94a3b8">${v.toFixed(decimales)}</text>`).join('');
+            const grillaX = ticksX.map(t => `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t + ih}" y2="${m.t + ih + 4}" stroke="#94a3b8" stroke-opacity="0.6"/>
+                <text x="${X(t)}" y="${m.t + ih + 16}" text-anchor="middle" font-size="9" fill="#94a3b8">${fmtDia(t)}</text>`).join('');
+
+            const xAhora = X(ahora);
+            const lineaAhora = (ahora >= t0 && ahora <= t1) ? `<line x1="${xAhora}" x2="${xAhora}" y1="${m.t}" y2="${m.t + ih}" stroke="#cbd5e1" stroke-opacity="0.6" stroke-dasharray="3 3"/>
+                <text transform="translate(${xAhora - 3},${m.t + 4}) rotate(-90)" text-anchor="end" font-size="8" fill="#cbd5e1">ahora</text>` : '';
+
+            cont.innerHTML = `
+              <svg id="cauce-svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;touch-action:pan-y;max-width:100%;height:auto" role="img" aria-label="Gráfico del nivel del río en los últimos 10 días">
+                <defs><linearGradient id="cauceGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02"/></linearGradient></defs>
+                ${grillaY}${grillaX}
+                <line x1="${m.l}" x2="${W - m.r}" y1="${m.t + ih}" y2="${m.t + ih}" stroke="#94a3b8" stroke-opacity="0.6"/>
+                ${lineasNivel}
+                <path d="${area}" fill="url(#cauceGrad)"/>
+                <path d="${linea}" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                ${lineaAhora}
+                <circle cx="${X(pts[pts.length - 1][0])}" cy="${Y(pts[pts.length - 1][1])}" r="3.5" fill="#38bdf8" stroke="#fff" stroke-width="1.5"/>
+                <g id="cauce-cursor" style="display:none;pointer-events:none">
+                  <line id="cauce-cursor-x" y1="${m.t}" y2="${m.t + ih}" stroke="#e2e8f0" stroke-opacity="0.5"/>
+                  <circle id="cauce-cursor-pt" r="4" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+                  <g id="cauce-tip"><rect id="cauce-tip-bg" rx="4" height="26" fill="#0f172a" fill-opacity="0.92" stroke="#38bdf8" stroke-opacity="0.6"/>
+                    <text id="cauce-tip-v" font-size="10" font-weight="700" fill="#fff"></text>
+                    <text id="cauce-tip-t" font-size="8" fill="#94a3b8"></text></g>
+                </g>
+                <rect id="cauce-capa" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/>
+              </svg>`;
+
+            // Valor al tocar / pasar el mouse. touch-action:pan-y deja que la página siga scrolleando en vertical.
+            const svg = document.getElementById('cauce-svg');
+            const cursor = document.getElementById('cauce-cursor');
+            const mostrar = (ev) => {
+                const r = svg.getBoundingClientRect();
+                const xs = (ev.clientX - r.left) * (W / r.width);
+                const t = t0 + ((xs - m.l) / iw) * (t1 - t0);
+                let mejor = pts[0], d = Infinity;
+                for (const p of pts) { const dd = Math.abs(p[0] - t); if (dd < d) { d = dd; mejor = p; } }
+                const cx = X(mejor[0]), cy = Y(mejor[1]);
+                document.getElementById('cauce-cursor-x').setAttribute('x1', cx);
+                document.getElementById('cauce-cursor-x').setAttribute('x2', cx);
+                const c = document.getElementById('cauce-cursor-pt'); c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+                const v = document.getElementById('cauce-tip-v'), tt = document.getElementById('cauce-tip-t'), bg = document.getElementById('cauce-tip-bg');
+                v.textContent = `${mejor[1].toFixed(2)} m`; tt.textContent = fmtHora(mejor[0]);
+                const ancho = 62, bx = Math.min(Math.max(cx - ancho / 2, m.l), W - m.r - ancho), by = m.t + 2;
+                bg.setAttribute('x', bx); bg.setAttribute('y', by); bg.setAttribute('width', ancho);
+                v.setAttribute('x', bx + 6); v.setAttribute('y', by + 11); tt.setAttribute('x', bx + 6); tt.setAttribute('y', by + 21);
+                cursor.style.display = '';
+            };
+            const capa = document.getElementById('cauce-capa');
+            capa.addEventListener('pointermove', mostrar);
+            capa.addEventListener('pointerdown', mostrar);
+            capa.addEventListener('pointerleave', () => { cursor.style.display = 'none'; });
+
+            rango.textContent = `Máx ${vmax.toFixed(2)} · Mín ${vmin.toFixed(2)} m`;
+            pie.textContent = defNiveles.length
+                ? (defUmbrales.length ? 'Umbrales orientativos: ' : 'Niveles INA: ') + defNiveles.map(n => `${n.nombre} ${n.valor.toFixed(2)} m`).join(' · ')
+                : 'Esta estación todavía no tiene niveles de alerta definidos. Tocá el gráfico para ver cada valor.';
+        }
+
+        async function fetchCauceData(seriesId, fuente) {
+            const esSNIH = fuente === 'SNIH', etiqueta = esSNIH ? 'SNIH' : 'INA';
+            const statusBox = document.getElementById('status-cauces');
+            statusBox.className = "text-xs text-center text-blue-300 bg-blue-950/80 border border-blue-500/30 py-2 px-3 rounded-xl shadow-lg backdrop-blur-md";
+            statusBox.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Consultando ${etiqueta}...`;
+
+            try {
+                const fin = new Date();
+                const ini = new Date(fin.getTime() - 10 * 24 * 3600 * 1000);   // últimos 10 días
+                const url = esSNIH ? `${CAUCES_SNIH_API}/${seriesId}`
+                    : `${CAUCES_API}/${seriesId}?timeStart=${encodeURIComponent(ini.toISOString())}&timeEnd=${encodeURIComponent(fin.toISOString())}`;
+                const response = await fetch(url);
+                const data = await response.json().catch(() => ({}));
+                if (!cauceActualVal || cauceActualVal.id !== seriesId) return;   // ya eligieron otro río
+                if (!response.ok || data.status === 'offline' || data.valor === undefined) {
+                    window.__alertaManualCaida = data.alerta_manual || null;   // sensor caído pero hay alerta manual vigente
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+
+                const fecha = data.fecha ? new Date(data.fecha) : null;
+                const fechaValida = fecha && !isNaN(fecha);
+                const horas = fechaValida ? (Date.now() - fecha.getTime()) / 3600000 : null;
+                const iconos = { ascendente: '▲ Ascendente', creciente: '▲ Ascendente', descendente: '▼ Descendente', estable: '■ Estable' };
+
+                document.getElementById('val-cauce-nivel').innerText = parseFloat(data.valor).toFixed(2);
+                document.getElementById('val-cauce-tendencia').innerText = iconos[data.tendencia] || data.tendencia || '--';
+                document.getElementById('val-cauce-precedente').innerText = data.valor_precedente != null ? parseFloat(data.valor_precedente).toFixed(2) : '--';
+                document.getElementById('cauce-fecha').innerText = fechaValida
+                    ? fecha.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' })
+                    : '--/--/--';
+                renderGraficoCauce(data.serie, data.niveles, data.alerta && data.alerta.umbrales);
+                renderAlertaCauce(data.alerta);
+
+                const atrasado = horas !== null && horas > CAUCE_ATRASO_HORAS;
+                statusBox.className = atrasado
+                    ? "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg transition"
+                    : "text-xs text-center text-cyan-300 bg-cyan-950/80 border border-cyan-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                const edad = horas === null ? '' : ` • hace ${horas < 1 ? Math.round(horas * 60) + ' min' : horas.toFixed(1) + ' h'}`;
+                statusBox.innerHTML = `<i class="fa-solid ${atrasado ? 'fa-triangle-exclamation' : 'fa-circle-check'} mr-1"></i> <b>${cauceActualVal.txt}</b> • ${etiqueta}${edad}${atrasado ? ' ⚠ dato atrasado' : ''}`;
+            } catch (error) {
+                if (!cauceActualVal || cauceActualVal.id !== seriesId) return;
+                console.error('Cauce INA:', error);
+                limpiarPanelCauce();
+                if (window.__alertaManualCaida) { renderAlertaCauce(window.__alertaManualCaida); window.__alertaManualCaida = null; }
+                statusBox.className = "text-xs text-center text-red-300 bg-red-950/80 border border-red-500/30 py-2 px-3 rounded-xl shadow-lg transition";
+                statusBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> <b>${cauceActualVal.txt}</b> • ${String(error.message || error).slice(0, 120)}`;
+            }
+        }
+
+        // El INA actualiza cada tanto: refrescar cada 10 min solo si se está mirando Cauces.
+        setInterval(() => {
+            const v = document.getElementById('vista-cauces');
+            if (v && !v.classList.contains('hidden')) sincronizarCauce();
+        }, 600000);
+
+        // ==========================================
+        // NAVEGADOR DE MÓDULOS
+        // ==========================================
+        function cambiarVista(idVista) {
+            window.scrollTo(0, 0);
+
+            document.getElementById('vista-menu').classList.add('hidden');
+            document.getElementById('vista-menu').classList.remove('flex');
+            
+            ['vista-telemetria', 'vista-cauces', 'vista-radar', 'vista-pronostico'].forEach(vista => {
+                document.getElementById(vista).classList.add('hidden');
+                document.getElementById(vista).classList.remove('flex');
+            });
+            
+            document.getElementById(idVista).classList.remove('hidden');
+            document.getElementById(idVista).classList.add('flex');
+            
+            const titulos = { 
+                'vista-telemetria': 'Módulo: Tiempo Real', 
+                'vista-cauces': 'Módulo: Cauces de Ríos',
+                'vista-radar': 'Módulo: Satélite & Radar', 
+                'vista-pronostico': 'Módulo: Pronóstico Extendido' 
+            };
+            document.getElementById('header-subtitle').innerText = titulos[idVista] || 'Terminal Central';
+            
+            setTimeout(() => { 
+                if(idVista === 'vista-telemetria' && mapTelemetria) {
+                    mapTelemetria.invalidateSize();
+                    if(telemetriaMarkers.length > 0) {
+                        let bounds = L.latLngBounds();
+                        telemetriaMarkers.forEach(item => bounds.extend(item.marker.getLatLng()));
+                        try { mapTelemetria.fitBounds(bounds, {padding: [20, 20], maxZoom: 8}); } catch(e){}
+                    }
+                }
+                if(idVista === 'vista-cauces' && mapCauces) {
+                    mapCauces.invalidateSize();
+                    sincronizarCauce();
+                    if(caucesMarkers.length > 0) {
+                        let bounds = L.latLngBounds();
+                        caucesMarkers.forEach(item => bounds.extend(item.marker.getLatLng()));
+                        try { mapCauces.fitBounds(bounds, {padding: [20, 20], maxZoom: caucesMarkers.length === 1 ? 10 : 8}); } catch(e){}
+                    }
+                }
+                if(idVista === 'vista-radar' && mapRadar) { mapRadar.invalidateSize(); refrescarRadares(); }
+            }, 300);
+        }
+
+        function volverMenu() {
+            window.scrollTo(0, 0);
+            ['vista-telemetria', 'vista-cauces', 'vista-radar', 'vista-pronostico'].forEach(vista => {
+                document.getElementById(vista).classList.add('hidden');
+                document.getElementById(vista).classList.remove('flex');
+            });
+            document.getElementById('vista-menu').classList.remove('hidden');
+            document.getElementById('vista-menu').classList.add('flex');
+            document.getElementById('header-subtitle').innerText = 'Terminal Central';
+        }
+
+        // ==========================================
+        // RADAR (RMA11 / RMA20 / RMA7) — datos SMN / SINARAME vía WebMet (OHMC Córdoba)
+        // ==========================================
+        const RADAR_WEBMET = 'https://webmet.ohmc.ar';
+        // Respaldo por tu backend si el navegador no puede consultar WebMet directo (CORS).
+        // Requiere desplegar modulos/radar_webmet.py (versión con soporte de ?campo=).
+        const RADAR_PROXY = 'https://metricmoisture-backend.onrender.com/api/radar';
+        const RADAR_REFRESCO_MS = 5 * 60 * 1000;   // cada 5 min se busca una imagen nueva
+        const RADAR_ATRASO_MIN = 30;               // aviso si la imagen tiene más de 30 min
+        const RADAR_MAX_NATIVE_ZOOM = 10;          // ajustar si los tiles se ven borrosos o faltan
+        let radarOpacidad = 0.7;
+
+        // Campos "abiertos" de WebMet medidos en dBZ.
+        const CAMPOS_RADAR = {
+            COLMAX: {
+                leyenda: 'Máx. de columna · dBZ',
+                descripcion: 'Reflectividad máxima de toda la columna de aire (COLMAX).'
+            },
+            DBZH: {
+                leyenda: 'Z@0.5° · dBZ',
+                descripcion: 'Reflectividad a 0,5° de elevación (Z@0.5): el barrido más cercano al suelo.'
+            },
+            ZDR: {
+                dbz: false, leyenda: 'ZDR @ 0,5° · dB',
+                descripcion: 'Reflectividad diferencial (ZDR): forma de las gotas. Valores altos = gotas grandes y achatadas (lluvia intensa); cerca de 0 con eco fuerte puede indicar granizo.',
+                nota: 'Los colores siguen la escala de WebMet para ZDR (dB). Positivo y alto: gotas grandes; cerca de 0: partículas redondas (granizo, nieve).'
+            },
+            KDP: {
+                dbz: false, leyenda: 'KDP @ 0,5° · °/km',
+                descripcion: 'Fase diferencial específica (KDP): cantidad de agua líquida en el camino del haz. Sirve para estimar lluvia intensa y no se atenúa tanto con el granizo.',
+                nota: 'Los colores siguen la escala de WebMet para KDP (°/km). Valores altos: mucha agua líquida (lluvia muy intensa).'
+            }
+        };
+        let RADAR_CAMPO = 'COLMAX';
+
+        // Escala de referencia (dBZ → color), muestreada de la leyenda del visor de WebMet
+        // (10–70 dBZ, cada 2,5 dBZ). El campo filtrado de WebMet no trae ecos por debajo de ~11 dBZ.
+        const RADAR_PALETA = [[10,'#439cb3'],[12.5,'#3be580'],[15,'#37dd70'],[17.5,'#2ccc64'],[20,'#22bd5a'],[22.5,'#16ae50'],[25,'#10a144'],[27.5,'#54bc2e'],[30,'#93d61b'],[32.5,'#cbdf0b'],[35,'#f4b701'],[37.5,'#e66003'],[40,'#c72503'],[42.5,'#960701'],[45,'#5d0313'],[47.5,'#650056'],[50,'#9f0089'],[52.5,'#68005b'],[55,'#18586e'],[57.5,'#00c4c4'],[60,'#086a6a'],[62.5,'#7a9e9e'],[65,'#a0a4a4'],[67.5,'#545454'],[70,'#636369']];
+
+        // Por la geometría de sus coberturas: RMA11 = Termas de Río Hondo, RMA20 = Las Lajitas, RMA7 = zona de Neuquén (en pantalla se muestran con el nombre del lugar).
+        // "centrar": el radar queda lejos de Tucumán/Salta, así que al encenderlo se encuadra el mapa sobre su cobertura
+        // (y al apagarlo se vuelve a la vista inicial).
+        const RADAR_VISTA_INICIAL = { centro: [-26.83, -65.20], zoom: 7 };
+        const RADARES = {
+            RMA11: { capa: null, registro: null, activo: false, bounds: null },
+            RMA20: { capa: null, registro: null, activo: false, bounds: null },
+            RMA7:  { capa: null, registro: null, activo: false, bounds: null, centrar: true }
+        };
+
+        async function pedirUltimoRadar(code, campo) {
+            const qs = `radar_code=${code}&product_key=${campo}&vol_nr=01&vol_nr=02&strategy=0315`;
+            const viejo = d => !d || (Date.now() - new Date(d.observation_time).getTime()) > 90 * 60000;
+            let directo = null;
+            // ZDR y KDP: el nombre exacto del campo lo resuelve el servidor propio (no se consulta directo)
+            const soloProxy = CAMPOS_RADAR[campo] && CAMPOS_RADAR[campo].dbz === false;
+            if (!soloProxy) try {
+                const r = await fetch(`${RADAR_WEBMET}/api/v1/cogs/latest?${qs}`);
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                directo = await r.json();
+            } catch (errDirecto) {
+                console.warn(`Radar ${code}: consulta directa falló (${errDirecto.message}). Probando backend propio...`);
+            }
+            if (directo && !viejo(directo)) return directo;
+            // sin dato directo, o dato viejo (el radar pudo cambiar de estrategia de barrido): el servidor prueba variantes
+            try {
+                const r2 = await fetch(`${RADAR_PROXY}/${code}/latest?campo=${campo}`);
+                if (!r2.ok) throw new Error('HTTP ' + r2.status);
+                const d2 = await r2.json();
+                if (!directo || new Date(d2.observation_time) > new Date(directo.observation_time)) return d2;
+            } catch (e2) { if (!directo) throw e2; }
+            return directo;
+        }
+
+        function estadoRadar(code, texto, nivel) {
+            const el = document.getElementById(`rad-estado-${code}`);
+            if (!el) return;
+            el.textContent = texto;
+            const color = nivel === 'error' ? 'text-red-400' : (nivel === 'aviso' ? 'text-amber-400' : 'text-slate-400');
+            el.className = `text-[9px] font-mono ${color}`;
+        }
+
+        function describirObservacion(iso) {
+            const f = new Date(iso);
+            if (isNaN(f)) return { texto: 'Hora desconocida', nivel: 'aviso' };
+            const min = Math.max(0, Math.round((Date.now() - f.getTime()) / 60000));
+            const hora = f.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' });
+            const atrasado = min > RADAR_ATRASO_MIN;
+            return { texto: `${hora} (hace ${min} min)${atrasado ? ' ⚠ atrasado' : ''}`, nivel: atrasado ? 'aviso' : 'ok' };
+        }
+
+        async function actualizarRadar(code) {
+            const r = RADARES[code];
+            const campo = RADAR_CAMPO;
+            const reg = await pedirUltimoRadar(code, campo);
+            if (!r.activo || campo !== RADAR_CAMPO) return;   // lo apagaron o cambiaron de campo mientras cargaba
+
+            // Defensa: nunca dibujar un dato que no sea del radar y del campo pedidos.
+            if (reg.radar_code !== code || reg.product_key !== campo) {
+                throw new Error(`La API devolvió ${reg.radar_code}/${reg.product_key} en vez de ${code}/${campo}`);
+            }
+
+            const obs = describirObservacion(reg.observation_time);
+            estadoRadar(code, obs.texto, obs.nivel);
+            if (r.registro && r.registro.id === reg.id) return;   // misma imagen, nada que cambiar
+
+            const bb = reg.bbox;
+            const bounds = L.latLngBounds([bb.min_lat, bb.min_lon], [bb.max_lat, bb.max_lon]);
+            const url = reg.tile_url.startsWith('http') ? reg.tile_url : RADAR_WEBMET + reg.tile_url;
+
+            const nueva = L.tileLayer(url, {
+                pane: 'radarPane', bounds: bounds, opacity: r.oculto ? 0 : radarOpacidad,
+                minZoom: 4, maxNativeZoom: RADAR_MAX_NATIVE_ZOOM, maxZoom: 18
+            }).addTo(mapRadar);
+            if (r.capa) mapRadar.removeLayer(r.capa);   // se saca la vieja recién con la nueva ya puesta
+            r.capa = nueva;
+            r.registro = reg;
+            r.bounds = bounds;
+        }
+
+        async function cargarRadar(code) {
+            iniciarAnimacion();
+            try { await actualizarRadar(code); }
+            catch (e) { console.error(`Radar ${code}:`, e); estadoRadar(code, 'No disponible', 'error'); }
+            if (RA) RA.sincronizar();
+        }
+
+        // Animación de las últimas 6 imágenes + clasificación + seguimiento (radar_anim.js)
+        let RA = null;
+        function ocultarSimple(code, ocultar) {
+            const r = RADARES[code]; if (!r) return;
+            r.oculto = ocultar;
+            if (r.capa) r.capa.setOpacity(ocultar ? 0 : radarOpacidad);
+        }
+
+        async function toggleRadar(code, activo) {
+            const r = RADARES[code];
+            r.activo = activo;
+            actualizarLeyenda();
+            if (!activo) {
+                if (r.capa) mapRadar.removeLayer(r.capa);
+                r.capa = null; r.registro = null; r.bounds = null; r.oculto = false;
+                estadoRadar(code, 'Inactivo');
+                if (RA) RA.sincronizar();
+                if (r.centrar) { try { mapRadar.setView(RADAR_VISTA_INICIAL.centro, RADAR_VISTA_INICIAL.zoom); } catch (e) {} }
+                return;
+            }
+            estadoRadar(code, 'Cargando…');
+            await cargarRadar(code);
+            if (r.centrar && r.activo && r.bounds) { try { mapRadar.fitBounds(r.bounds, { padding: [10, 10] }); } catch (e) {} }
+        }
+
+        function cambiarOpacidadRadar(valor) {
+            radarOpacidad = valor / 100;
+            Object.values(RADARES).forEach(r => { if (r.capa && !r.oculto) r.capa.setOpacity(radarOpacidad); });
+            if (RA) RA.setOpacidad();
+        }
+
+        async function cambiarCampoRadar(valor) {
+            if (!CAMPOS_RADAR[valor]) return;
+            RADAR_CAMPO = valor;
+            actualizarLeyenda();
+            await Promise.all(Object.keys(RADARES).map(async code => {
+                const r = RADARES[code];
+                if (r.capa) mapRadar.removeLayer(r.capa);   // la capa vieja era de otro campo
+                r.capa = null; r.registro = null; r.oculto = false;
+                if (!r.activo) return;
+                estadoRadar(code, 'Cargando…');
+                await cargarRadar(code);
+            }));
+        }
+
+        async function refrescarRadares() {
+            // No gastar consultas si el usuario no está mirando la pantalla del radar.
+            if (document.getElementById('vista-radar').classList.contains('hidden')) return;
+            await Promise.all(Object.keys(RADARES)
+                .filter(code => RADARES[code].activo)
+                .map(code => cargarRadar(code)));
+        }
+
+        function construirLeyenda() {
+            const barra = document.getElementById('rad-leyenda-barra');
+            const marcas = document.getElementById('rad-leyenda-marcas');
+            if (!barra || !marcas) return;
+            const min = RADAR_PALETA[0][0];
+            const max = RADAR_PALETA[RADAR_PALETA.length - 1][0];
+            const paradas = RADAR_PALETA.map(([v, c]) => `${c} ${(((v - min) / (max - min)) * 100).toFixed(1)}%`);
+            barra.style.background = `linear-gradient(to right, ${paradas.join(', ')})`;
+            marcas.innerHTML = '';
+            for (let v = min; v <= max; v += 10) {
+                const pos = ((v - min) / (max - min)) * 100;
+                const t = document.createElement('span');
+                t.textContent = v;
+                t.style.position = 'absolute';
+                t.style.left = pos + '%';
+                t.style.transform = pos === 0 ? 'none' : (pos === 100 ? 'translateX(-100%)' : 'translateX(-50%)');
+                marcas.appendChild(t);
+            }
+        }
+
+        function actualizarLeyenda() {
+            const el = document.getElementById('rad-leyenda');
+            if (!el) return;
+            const algunoActivo = Object.values(RADARES).some(r => r.activo);
+            el.classList.toggle('hidden', !algunoActivo);
+            document.getElementById('rad-leyenda-titulo').textContent = CAMPOS_RADAR[RADAR_CAMPO].leyenda;
+            document.getElementById('radar-campo-desc').textContent = CAMPOS_RADAR[RADAR_CAMPO].descripcion;
+            const esDbz = CAMPOS_RADAR[RADAR_CAMPO].dbz !== false;      // ZDR/KDP no usan la escala dBZ: se muestra una nota
+            const nota = document.getElementById('rad-leyenda-nota');
+            nota.textContent = CAMPOS_RADAR[RADAR_CAMPO].nota || '';
+            nota.classList.toggle('hidden', esDbz);
+            document.getElementById('rad-leyenda-barra').classList.toggle('hidden', !esDbz);
+            document.getElementById('rad-leyenda-marcas').classList.toggle('hidden', !esDbz);
+            // Lista de vistas
+            const selC = document.getElementById('sel-campo'); if (selC && selC.value !== RADAR_CAMPO) selC.value = RADAR_CAMPO;
+            // Botones de las vistas (si existieran)
+            Object.keys(CAMPOS_RADAR).forEach(k => {
+                const b = document.getElementById(`btn-campo-${k}`);
+                if (!b) return;
+                const activo = k === RADAR_CAMPO;
+                b.className = `py-2 text-[11px] uppercase tracking-wide rounded-md transition-all ${activo ? 'bg-sky-500 text-slate-900 font-black' : 'text-slate-400 font-bold'}`;
+            });
+        }
+
+        // El mapa del radar se crea recién al abrir el módulo, por eso la animación se inicia de forma diferida.
+        function iniciarAnimacion() {
+            if (RA || !mapRadar) return;
+        try {   // si radar_anim.js no se cargó, el resto del radar (incluida la escala) sigue funcionando
+                RA = RadarAnim.crear({
+                    map: mapRadar, pane: 'radarPane', contenedor: document.getElementById('radar-anim'),
+                    backend: RADAR_PROXY, webmet: RADAR_WEBMET,
+                    activos: () => Object.keys(RADARES).filter(c => RADARES[c].activo),
+                    campo: () => RADAR_CAMPO, opacidad: () => radarOpacidad, ocultarSimple
+                });
+            } catch (e) {
+                console.warn('Animación del radar no disponible:', e.message);
+                const c = document.getElementById('radar-anim');
+                if (c) c.innerHTML = '<p style="font-size:11px;color:#fbbf24;line-height:1.4">Animación no disponible: ' +
+                    (typeof RadarAnim === 'undefined' ? 'no se encontró radar_anim.js (debe estar en la misma carpeta que esta página; recargá sin caché).' : String(e.message).replace(/[<>&]/g, '')) + '</p>';
+            }
+        }
+        setInterval(refrescarRadares, RADAR_REFRESCO_MS);
+        construirLeyenda();
+        actualizarLeyenda();
+    </script>
+
+    <script>
+    // ================== Alertas sonoras y visuales (Marapa - La Madrid, y toda estación con umbrales) ==================
+    (function () {
+        const API = (typeof CAUCES_SNIH_API !== 'undefined' ? CAUCES_SNIH_API : 'https://metricmoisture-backend.onrender.com/api/snih_nivel')
+            .replace('/api/snih_nivel', '/api/alertas_rio');
+        const ORDEN = ['verde', 'amarillo', 'naranja', 'rojo', 'bordo'];
+        const REPETIR_S = { rojo: 45, bordo: 30 };           // se repite hasta que se marque "Enterado"
+        const banner = document.getElementById('alerta-global');
+        const btn = document.getElementById('btn-sonido-alertas');
+        const btnProbar = document.getElementById('btn-probar-sonido');
+        const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
+
+        let sonidoOn = ls.get('mp_sonido_alertas') === '1';
+        let ctx = null, ultimoSonido = {}, avisadas = {}, enterado = {}, timerRep = null, actuales = {};
+
+        // ---------- Audio ----------
+        function audio() {
+            try {
+                if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ctx = new AC(); }
+                if (ctx.state === 'suspended') ctx.resume();
+                return ctx;
+            } catch (e) { return null; }
+        }
+        function tono(f0, f1, ini, dur, vol) {
+            const c = audio(); if (!c) return;
+            const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + ini;
+            o.type = 'square'; o.frequency.setValueAtTime(f0, t);
+            if (f1 !== f0) o.frequency.linearRampToValueAtTime(f1, t + dur);
+            g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+            g.gain.setValueAtTime(vol, t + dur - 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+        }
+        const PATRON = {
+            amarillo: () => { tono(660, 660, 0, 0.3, 0.12); },
+            naranja:  () => { tono(880, 880, 0, 0.25, 0.18); tono(880, 880, 0.4, 0.25, 0.18); },
+            rojo:     () => { for (let i = 0; i < 3; i++) { tono(960, 960, i * 0.5, 0.22, 0.25); tono(720, 720, i * 0.5 + 0.24, 0.22, 0.25); } },
+            bordo:    () => { for (let i = 0; i < 3; i++) { tono(600, 1250, i * 1.1, 0.55, 0.3); tono(1250, 600, i * 1.1 + 0.55, 0.55, 0.3); } }
+        };
+        const VIBRA = { amarillo: [200], naranja: [200, 100, 200], rojo: [400, 150, 400, 150, 400], bordo: [800, 200, 800, 200, 800] };
+        function sonar(estado) {
+            if (!sonidoOn || !PATRON[estado]) return;
+            PATRON[estado]();
+            try { if (navigator.vibrate) navigator.vibrate(VIBRA[estado]); } catch (e) { }
+        }
+
+        // ---------- Botón de sonido ----------
+        function pintarBoton() {
+            btn.setAttribute('aria-pressed', sonidoOn ? 'true' : 'false');
+            btn.title = sonidoOn ? 'Sonido de alertas activado (tocar para silenciar)' : 'Activar sonido de alertas';
+            btn.className = 'w-11 h-11 rounded-full shadow-xl backdrop-blur-md flex items-center justify-center text-base border ' +
+                (sonidoOn ? 'bg-emerald-600 border-emerald-300 text-white' : 'bg-slate-900/90 border-slate-600 text-slate-300');
+            btn.innerHTML = `<i class="fa-solid ${sonidoOn ? 'fa-bell' : 'fa-bell-slash'}"></i>`;
+            btnProbar.classList.toggle('hidden', !sonidoOn);
+        }
+        btn.addEventListener('click', () => {
+            sonidoOn = !sonidoOn; ls.set('mp_sonido_alertas', sonidoOn ? '1' : '0');
+            pintarBoton();
+            if (sonidoOn) {
+                audio(); tono(660, 660, 0, 0.2, 0.15);          // confirma que suena (y desbloquea el audio del navegador)
+                try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { }
+                evaluar(actuales);                               // si ya hay una alerta vigente, suena ahora
+            }
+        });
+        btnProbar.addEventListener('click', () => { audio(); PATRON.rojo(); });
+        // El navegador exige un gesto del usuario para reproducir audio: cualquier toque lo desbloquea si el sonido ya estaba activado.
+        const desbloquear = () => { if (sonidoOn) audio(); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach(e => window.addEventListener(e, desbloquear, { passive: true }));
+        pintarBoton();
+
+        // ---------- Banner ----------
+        function clave(a) { return `${a.estacion}|${a.estado}|${a.manual_id || ''}`; }
+        function pintarBanner(lista) {
+            if (!lista.length) { banner.classList.add('hidden'); banner.innerHTML = ''; document.body.style.paddingTop = ''; return; }
+            const top = lista[0];
+            const sim = lista.some(a => a.simulacro);
+            banner.classList.remove('hidden');
+            banner.style.background = sim ? `repeating-linear-gradient(45deg, ${top.color}, ${top.color} 14px, #0f172a 14px, #0f172a 22px)` : top.color;
+            const pend = lista.some(a => !enterado[clave(a)]);
+            banner.classList.toggle('animate-pulse', pend && ORDEN.indexOf(top.estado) >= 3);
+            banner.innerHTML = lista.map(a => `
+                <div class="flex items-center gap-3 px-4 py-2.5 ${sim ? 'bg-slate-950/75' : ''}">
+                    <i class="fa-solid fa-triangle-exclamation text-xl shrink-0"></i>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[13px] font-black uppercase tracking-wide leading-tight">
+                            ${a.simulacro ? '<span class="bg-white text-slate-900 rounded px-1.5 py-0.5 mr-1.5 text-[10px]">SIMULACRO</span>' : (a.origen === 'manual' ? '<span class="bg-white/90 text-slate-900 rounded px-1.5 py-0.5 mr-1.5 text-[10px]">MANUAL</span>' : '')}${esc(a.nombre || 'Estación ' + a.estacion)} · ${esc(a.etiqueta)}</p>
+                        <p class="text-[11px] leading-snug opacity-95">${esc(a.mensaje || a.accion || '')}</p>
+                        ${a.area && a.area.tipo && a.area.tipo !== 'red' ? `<p class="text-[10px] leading-snug opacity-90"><i class="fa-solid fa-location-dot mr-1"></i>Zona: ${esc(a.area.nombre || '')} · radio ${esc(a.area.radio_km)} km</p>` : ''}
+                        ${a.valor_confirmado != null && !a.simulacro ? `<p class="text-[10px] opacity-90 font-mono">Nivel confirmado: ${Number(a.valor_confirmado).toFixed(2)} m</p>` : ''}
+                    </div>
+                    ${enterado[clave(a)] ? '' : `<button type="button" data-ack="${esc(clave(a))}" class="shrink-0 bg-white text-slate-900 text-[11px] font-black rounded-lg px-3 py-1.5">Enterado</button>`}
+                </div>`).join('') +
+                `<p class="text-[9px] text-center bg-black/30 py-0.5">Alerta no oficial de MetricPoint · no reemplaza a Defensa Civil ni a los organismos oficiales</p>`;
+            document.body.style.paddingTop = banner.offsetHeight + 'px';
+            banner.querySelectorAll('[data-ack]').forEach(b => b.addEventListener('click', () => {
+                enterado[b.dataset.ack] = true; pintarBanner(lista);
+            }));
+        }
+
+        // ---------- Evaluación ----------
+        function evaluar(alertas) {
+            actuales = alertas;
+            const activas = Object.values(alertas)
+                .filter(a => a && ORDEN.indexOf(a.estado) >= 1)
+                .sort((x, y) => ORDEN.indexOf(y.estado) - ORDEN.indexOf(x.estado));
+            // Sonar cuando la alerta es nueva o escala (la clave incluye el nivel y el id manual); si el sonido está
+            // apagado no se marca como sonada, así suena apenas el usuario lo activa.
+            activas.forEach(a => {
+                const k = clave(a);
+                if (sonidoOn && !(k in ultimoSonido)) { ultimoSonido[k] = Date.now(); sonar(a.estado); }
+                if (!avisadas[k]) {
+                    avisadas[k] = true;
+                    try {
+                        if (document.hidden && 'Notification' in window && Notification.permission === 'granted')
+                            new Notification(`${a.simulacro ? 'SIMULACRO · ' : ''}${a.nombre || 'Alerta'}: ${a.etiqueta}`, { body: a.mensaje || a.accion, tag: k });
+                    } catch (e) { }
+                }
+            });
+            // Si el nivel bajó o se canceló, olvida claves viejas (si vuelve a subir, vuelve a sonar)
+            const vivas = new Set(activas.map(clave));
+            Object.keys(avisadas).forEach(k => { if (!vivas.has(k)) { delete avisadas[k]; delete ultimoSonido[k]; delete enterado[k]; } });
+            pintarBanner(activas);
+            // Repetición para rojo/bordo hasta marcar "Enterado"
+            clearInterval(timerRep);
+            if (activas.some(a => REPETIR_S[a.estado])) {
+                timerRep = setInterval(() => {
+                    activas.forEach(a => {
+                        const r = REPETIR_S[a.estado], k = clave(a);
+                        if (sonidoOn && r && !enterado[k] && Date.now() - (ultimoSonido[k] || 0) >= r * 1000) { ultimoSonido[k] = Date.now(); sonar(a.estado); }
+                    });
+                }, 5000);
+            }
+        }
+
+        async function consultar() {
+            try {
+                const r = await fetch(API, { cache: 'no-store' });
+                const d = await r.json();
+                if (d && d.alertas) evaluar(d.alertas);
+            } catch (e) { /* sin red o backend dormido: se reintenta en el próximo ciclo */ }
+        }
+        window.MP_alertas = { consultar, evaluar, _estado: () => ({ ultimoSonido, enterado }) };
+        setTimeout(consultar, 2500);
+        setInterval(consultar, 60000);
+    })();
+    </script>
+
+    <script>
+    // ================== Avisos push (con la app cerrada), con opción de zona ==================
+    (function () {
+        const BASE = (typeof CAUCES_SNIH_API !== 'undefined' ? CAUCES_SNIH_API : 'https://metricmoisture-backend.onrender.com/api/snih_nivel').replace('/api/snih_nivel', '');
+        const btn = document.getElementById('btn-push');
+        if (!btn) return;
+        const $ = id => document.getElementById(id);
+        const soporta = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const instalada = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+        const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
+        let activo = false;
+        let prefs = { modo: 'todas' };
+        try { const g = JSON.parse(ls.get('mp_push_prefs') || 'null'); if (g && (g.modo === 'zona' || g.modo === 'todas')) prefs = g; } catch (e) { }
+        const guardar = () => ls.set('mp_push_prefs', JSON.stringify(prefs));
+        const gruesa = x => Math.round(x * 20) / 20;      // grilla de ~5 km: no se envía el domicilio exacto
+
+        function pintar() {
+            btn.setAttribute('aria-pressed', activo ? 'true' : 'false');
+            btn.title = activo ? 'Avisos en el celular activados (tocar para ver opciones)' : 'Recibir avisos en el celular aunque la app esté cerrada';
+            btn.className = 'w-11 h-11 rounded-full shadow-xl backdrop-blur-md flex items-center justify-center text-base border ' +
+                (activo ? 'bg-sky-600 border-sky-300 text-white' : 'bg-slate-900/90 border-slate-600 text-slate-300');
+        }
+        const b64uABytes = (b) => { const p = '='.repeat((4 - b.length % 4) % 4); const r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
+        const enviar = (ruta, cuerpo) => fetch(BASE + ruta, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+        async function registro() { return navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready); }
+
+        // ---- ubicación aproximada ----
+        function ubicacion() {
+            return new Promise((ok, mal) => {
+                if (!navigator.geolocation) return mal(new Error('Este dispositivo no informa su ubicación.'));
+                navigator.geolocation.getCurrentPosition(
+                    p => ok({ lat: gruesa(p.coords.latitude), lon: gruesa(p.coords.longitude) }),
+                    e => mal(new Error(e.code === 1 ? 'Permiso de ubicación denegado.' : 'No se pudo obtener la ubicación.')),
+                    { enableHighAccuracy: false, timeout: 12000, maximumAge: 86400000 });
+            });
+        }
+        async function sincronizar(refrescarUbicacion) {
+            const reg = await navigator.serviceWorker.getRegistration();
+            const sub = reg && await reg.pushManager.getSubscription();
+            if (!sub) return;
+            if (prefs.modo === 'zona' && refrescarUbicacion) {
+                try { const u = await ubicacion(); prefs.lat = u.lat; prefs.lon = u.lon; guardar(); } catch (e) { /* se usa la última guardada */ }
+            }
+            const p = prefs.modo === 'zona' && prefs.lat != null ? { modo: 'zona', lat: prefs.lat, lon: prefs.lon } : { modo: prefs.modo };
+            const r = await enviar('/api/push/suscribir', { subscription: sub.toJSON(), prefs: p });
+            if (!r.ok) throw new Error('El servidor rechazó la suscripción');
+        }
+
+        async function activar() {
+            if (esIOS && !instalada) { alert('En iPhone los avisos solo funcionan si agregás la app a la pantalla de inicio: tocá Compartir y elegí «Agregar a pantalla de inicio». Después abrila desde ese ícono y tocá este botón.'); return false; }
+            const permiso = await Notification.requestPermission();
+            if (permiso !== 'granted') { alert('Para recibir avisos tenés que permitir las notificaciones de este sitio en el navegador.'); return false; }
+            const reg = await registro();
+            const k = await (await fetch(BASE + '/api/push/clave')).json();
+            if (!k.publicKey) throw new Error(k.error || 'El servidor no pudo preparar las claves');
+            if (!(await reg.pushManager.getSubscription())) await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uABytes(k.publicKey) });
+            prefs = { modo: 'todas' }; guardar();           // por seguridad, al activar se reciben todas hasta que elija otra cosa
+            await sincronizar(false);
+            activo = true; pintar();
+            return true;
+        }
+        async function desactivar() {
+            const reg = await navigator.serviceWorker.getRegistration();
+            const sub = reg && await reg.pushManager.getSubscription();
+            if (sub) { try { await enviar('/api/push/baja', { endpoint: sub.endpoint }); } catch (e) { } await sub.unsubscribe(); }
+            prefs = { modo: 'todas' }; guardar();
+            activo = false; pintar();
+        }
+
+        // ---- panel ----
+        function msg(t) { const m = $('push-msg'); m.textContent = t || ''; m.classList.toggle('hidden', !t); }
+        function pintarPanel() {
+            document.querySelectorAll('input[name="push-modo"]').forEach(r => { r.checked = r.value === prefs.modo; });
+            $('push-loc').textContent = prefs.modo === 'zona'
+                ? (prefs.lat != null ? `Ubicación aproximada guardada: ${prefs.lat.toFixed(2)}, ${prefs.lon.toFixed(2)}` : 'Todavía sin ubicación: por ahora recibís todas las alertas.')
+                : 'No se usa tu ubicación.';
+            $('push-actualizar').classList.toggle('hidden', prefs.modo !== 'zona');
+        }
+        function abrirPanel() { msg(''); pintarPanel(); $('panel-push').classList.remove('hidden'); }
+        async function cambiarModo(m) {
+            msg('');
+            if (m === 'zona') {
+                try { const u = await ubicacion(); prefs = { modo: 'zona', lat: u.lat, lon: u.lon }; }
+                catch (e) { prefs = { modo: 'todas' }; msg(e.message + ' Seguís recibiendo todas las alertas. Habilitá la ubicación para este sitio y probá de nuevo.'); }
+            } else { prefs = { modo: 'todas' }; }
+            guardar(); pintarPanel();
+            try { await sincronizar(false); } catch (e) { msg('No se pudo guardar en el servidor: ' + e.message); }
+        }
+        document.querySelectorAll('input[name="push-modo"]').forEach(r => r.addEventListener('change', () => cambiarModo(r.value)));
+        $('push-actualizar').addEventListener('click', async () => { msg('Buscando tu ubicación…'); try { await cambiarModo('zona'); if (!$('push-msg').textContent.includes('Seguís')) msg('Ubicación actualizada.'); } catch (e) { msg(e.message); } });
+        $('push-desactivar').addEventListener('click', async () => { try { await desactivar(); $('panel-push').classList.add('hidden'); } catch (e) { msg(e.message); } });
+        $('push-cerrar').addEventListener('click', () => $('panel-push').classList.add('hidden'));
+        $('panel-push').addEventListener('click', e => { if (e.target === $('panel-push')) $('panel-push').classList.add('hidden'); });
+
+        btn.addEventListener('click', async () => {
+            if (!soporta) { alert('Este navegador no permite avisos push. Probá con Chrome (Android) o, en iPhone, agregá la app a la pantalla de inicio.'); return; }
+            btn.disabled = true;
+            try { if (!activo) { if (await activar()) abrirPanel(); } else abrirPanel(); }
+            catch (e) { alert('No se pudieron activar los avisos: ' + (e.message || e)); }
+            btn.disabled = false;
+        });
+
+        // Al abrir la app: si ya estaba activado, se renueva la suscripción y (modo zona, con permiso ya dado) la ubicación.
+        if (soporta && Notification.permission === 'granted') {
+            navigator.serviceWorker.getRegistration().then(async reg => {
+                const sub = reg && await reg.pushManager.getSubscription();
+                if (!sub) return;
+                activo = true; pintar();
+                let puede = false;
+                try { puede = prefs.modo === 'zona' && navigator.permissions && (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted'; } catch (e) { }
+                sincronizar(puede).catch(() => { });
+            }).catch(() => { });
+        }
+        pintar();
+    })();
+    </script>
+    <script src="lluvia_live.js" defer></script>
+    <script src="eeaoc_live.js?v=1"></script>
+    <script src="panel_live.js?v=2" defer></script>
+    <script src="riego_live.js?v=3" defer></script>
+    <script src="pronostico_live.js?v=2" defer></script>
+    <script src="cambio_clave.js"></script>
+</body>
+</html>
                 { val: "IEMBAR5|-23.20|-64.21|Zanja del Tigre|WU", txt: "Zanja del Tigre" },
                 { val: "IROSARIO12|-24.91|-65.64|Campo Quijano|WU", txt: "Campo Quijano" },
                 { val: "IROSAR120|-25.78|-64.97|Rosario de la Frontera|WU", txt: "Rosario de la Frontera" }
