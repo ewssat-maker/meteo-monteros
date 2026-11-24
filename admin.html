@@ -163,6 +163,24 @@
       <label class="text-[11px] text-slate-400">CUIT (opcional)<input id="c-cuit" class="campo mt-1" maxlength="40"></label>
       <label class="col-span-2 text-[11px] text-slate-400">Notas internas (el cliente no las ve)<textarea id="c-notas" rows="2" class="campo mt-1" maxlength="1000"></textarea></label>
     </div>
+    <div class="border-t border-slate-700 pt-2">
+      <p class="text-[11px] font-bold mb-1"><i class="fa-solid fa-key mr-1"></i>Acceso de esta cuenta</p>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="text-[11px] text-slate-400">Tipo de usuario
+          <select id="c-perfil" class="campo mt-1"><option value="">Sin definir</option><option value="particular">Particular</option><option value="campo">Productor / campo</option><option value="organismo">Organismo (estatal o privado)</option></select></label>
+        <div class="text-[11px] text-slate-400">Módulos habilitados
+          <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-slate-200">
+            <label class="flex items-center gap-1"><input type="checkbox" id="m-pron" class="accent-sky-500"> Pronóstico</label>
+            <label class="flex items-center gap-1"><input type="checkbox" id="m-rieg" class="accent-sky-500"> Riego</label>
+            <label class="flex items-center gap-1"><input type="checkbox" id="m-suite" class="accent-sky-500"> Suite</label>
+          </div>
+          <label id="w-todos" class="hidden flex items-center gap-1 mt-1 text-amber-300"><input type="checkbox" id="m-todos" class="accent-amber-500"> Todos (cuenta anterior)</label></div>
+        <label class="text-[11px] text-slate-400">Máx. de sitios (Pronóstico)<input id="c-maxs" type="number" min="0" max="200" class="campo mt-1" placeholder="automático"></label>
+        <label class="text-[11px] text-slate-400">Máx. de lotes (Riego)<input id="c-maxl" type="number" min="0" max="200" class="campo mt-1" placeholder="automático"></label>
+      </div>
+      <p class="text-[10px] text-slate-500 mt-1">Topes vacíos: se calculan solos (particular 0; el resto, los campos pedidos o 3). La Suite se habilita solo cuando lo decidas.</p>
+      <div id="c-ficha" class="hidden mt-2 rounded-lg border border-slate-700 bg-slate-950/60 p-2 text-[11px] text-slate-300"></div>
+    </div>
     <div>
       <p class="text-[11px] text-slate-400 mb-1">Punto de referencia <span class="text-slate-500">(clic en el mapa, o pegá «lat, lon»)</span></p>
       <div class="grid grid-cols-3 gap-2 mb-2">
@@ -282,6 +300,7 @@ function pintarCuentas() {
           <p class="text-[11px] text-slate-400 truncate">${esc(c.email)}${c.telefono ? ' · ' + esc(c.telefono) : ''}</p></div>
         <span class="text-[10px] font-black rounded px-2 py-0.5 h-fit whitespace-nowrap" style="background:${col}22;color:${col}">${et}</span></div>
       <p class="text-[11px] mt-1 ${urg ? 'text-amber-300 font-bold' : 'text-slate-300'}">${diasTxt(c)}</p>
+      <p class="text-[10px] mt-1 flex flex-wrap gap-1">${c.perfil ? `<span class="rounded px-1.5 py-0.5 bg-slate-800 text-slate-200">${esc(PERFIL_TXT[c.perfil] || c.perfil)}</span>` : ''}${c.modulos === null ? '<span class="rounded px-1.5 py-0.5 bg-amber-500/20 text-amber-300">Todos los módulos</span>' : (c.modulos || []).map(m => `<span class="rounded px-1.5 py-0.5 bg-sky-500/20 text-sky-300">${esc(NOMBRE_MOD[m] || m)}</span>`).join('')}${c.max_sitios != null ? `<span class="rounded px-1.5 py-0.5 bg-slate-800 text-slate-300">Sitios ${c.sitios || 0}/${c.max_sitios}</span>` : ''}${c.max_lotes != null && (c.modulos === null || (c.modulos || []).includes('riego')) ? `<span class="rounded px-1.5 py-0.5 bg-slate-800 text-slate-300">Lotes ${c.lotes || 0}/${c.max_lotes}</span>` : ''}</p>
       <p class="text-[10px] text-slate-500 mt-0.5">Último ingreso: ${hace(c.ultimo_ingreso)} · ${c.lotes} lote${c.lotes === 1 ? '' : 's'}${c.cultivo ? ' · ' + esc(c.cultivo) : ''}${c.lat != null ? ' · <i class="fa-solid fa-location-dot"></i> ' + c.lat.toFixed(3) + ', ' + c.lon.toFixed(3) : ''}${c.debe_cambiar_clave ? ' · <span class="text-amber-400">aún no cambió la clave temporal</span>' : ''}</p>
       ${c.notas ? `<p class="text-[10px] text-slate-400 italic mt-1">${esc(c.notas)}</p>` : ''}
       <div class="flex flex-wrap gap-1.5 mt-2">
@@ -297,9 +316,24 @@ function pintarCuentas() {
 }
 $('buscar').oninput = pintarCuentas; $('filtro').onchange = pintarCuentas;
 
-function mensajeCliente(nombre, email, clave, dias, vence) {
-  return `Hola ${nombre}! Te creamos tu acceso a MetricPoint${dias ? ' (prueba de ' + dias + ' días)' : ''}.\n\nIngresá en: ${SUITE_URL}\nUsuario: ${email}\nClave temporal: ${clave}\n\nAl entrar te va a pedir que elijas tu propia clave. La clave temporal sirve hasta el ${fecha(vence)}.`;
+const PAGINAS = { pronostico: 'https://ewssat-maker.github.io/meteo-monteros/pronostico.html', riego: 'https://ewssat-maker.github.io/meteo-monteros/riego.html' };
+const NOMBRE_MOD = { pronostico: 'Pronóstico inteligente', riego: 'Riego inteligente', suite: 'la Suite MetricPoint' };
+function mensajeCliente(nombre, email, clave, dias, vence, mods) {
+  const m = (mods && mods.length) ? mods : null;
+  const donde = m ? m.filter(k => k !== 'suite').map(k => `${NOMBRE_MOD[k]}: ${PAGINAS[k]}`).join('\n') + (m.includes('suite') ? `\nSuite: ${SUITE_URL}` : '') : SUITE_URL;
+  return `Hola ${nombre}! Te creamos tu acceso a MetricPoint${dias ? ' (prueba de ' + dias + ' días)' : ''}.\n\nIngresá en:\n${donde}\n\nUsuario: ${email}\nClave temporal: ${clave}\n\nAl entrar te va a pedir que elijas tu propia clave. La clave temporal sirve hasta el ${fecha(vence)}.`;
 }
+function fichaHtml(f) {
+  if (!f) return '';
+  const mapa = (s) => `https://www.google.com/maps?q=${s.lat},${s.lon}`;
+  const filas = (f.sitios || []).map((s, i) => `<li>${i + 1}. <b>${esc(s.nombre)}</b>${s.tipo === 'mina' ? ' (mina)' : ''}${s.cultivo ? ' · ' + esc(s.cultivo) : ''}${s.ha ? ' · ' + esc(s.ha) + ' ha' : ''}${s.sistema ? ' · ' + esc(s.sistema) : ''}${s.fecha_siembra ? ' · siembra ' + esc(s.fecha_siembra) : ''} · <a class="underline text-sky-300" target="_blank" rel="noopener" href="${mapa(s)}">${(+s.lat).toFixed(4)}, ${(+s.lon).toFixed(4)}</a></li>`).join('');
+  return `<p class="font-bold text-slate-100 mb-1">Datos del formulario</p>
+    <p>${esc(PERFIL_TXT[f.perfil] || f.perfil || '')} · pidió ${esc(NOMBRE_MOD[f.modulo] || f.modulo || '')}</p>
+    ${f.empresa ? `<p>${esc(f.empresa)}${f.tipo_organismo ? ' (' + esc(f.tipo_organismo) + ')' : ''}${f.cuit ? ' · CUIT ' + esc(f.cuit) : ''}${f.cargo ? ' · ' + esc(f.cargo) : ''}</p>` : ''}
+    ${(f.intereses || []).length ? `<p>Le interesa: ${(f.intereses || []).map(esc).join(', ')}</p>` : ''}
+    ${filas ? `<ul class="mt-1 space-y-0.5">${filas}</ul>` : ''}`;
+}
+const PERFIL_TXT = { particular: 'Particular', campo: 'Productor / campo', organismo: 'Organismo' };
 function mostrarClave(titulo, texto) {
   $('k-titulo').textContent = titulo; $('k-texto').value = texto; $('m-clave').classList.remove('hidden'); $('k-texto').focus(); $('k-texto').select();
 }
@@ -337,7 +371,7 @@ async function accion(a, id) {
 }
 
 // ---- alta / edición con mapa
-let mapa = null, marca = null, editando = null, desdeSol = null;
+let mapa = null, marca = null, editando = null, desdeSol = null, PEDIDO = null;
 function fijarPunto(lat, lon, centrar) {
   if (!isFinite(lat) || !isFinite(lon)) return;
   $('c-lat').value = (+lat).toFixed(6); $('c-lon').value = (+lon).toFixed(6);
@@ -365,6 +399,17 @@ function abrirCuenta(c, pre) {
   $('c-email').value = v.email || ''; $('c-cultivo').value = v.cultivo || ''; $('c-ha').value = v.hectareas != null ? v.hectareas : '';
   $('c-cuit').value = v.cuit || ''; $('c-notas').value = v.notas || ''; $('c-dias').value = 15;
   $('c-lat').value = v.lat != null ? v.lat : ''; $('c-lon').value = v.lon != null ? v.lon : ''; $('c-pegar').value = ''; $('c-msg').textContent = '';
+  // acceso: perfil, módulos y topes
+  const mods = c ? c.modulos : (pre && pre.modulos) || ['pronostico', 'riego'];
+  const todos = !!c && c.modulos === null;
+  $('w-todos').classList.toggle('hidden', !todos); $('m-todos').checked = todos;
+  $('m-pron').checked = todos || (mods || []).includes('pronostico'); $('m-rieg').checked = todos || (mods || []).includes('riego'); $('m-suite').checked = todos || (mods || []).includes('suite');
+  $('c-perfil').value = (c ? c.perfil : pre && pre.perfil) || '';
+  $('c-maxs').value = c && c.max_sitios != null ? c.max_sitios : (pre && pre.max_sitios != null ? pre.max_sitios : '');
+  $('c-maxl').value = c && c.max_lotes != null ? c.max_lotes : (pre && pre.max_lotes != null ? pre.max_lotes : '');
+  PEDIDO = pre && pre.ficha ? pre : null;
+  const fb = $('c-ficha'); const fi = (c && c.ficha) || (pre && pre.ficha);
+  fb.classList.toggle('hidden', !fi); fb.innerHTML = fi ? fichaHtml(fi) : '';
   $('m-cuenta').classList.remove('hidden'); iniciarMapa();
   if (marca && mapa) { mapa.removeLayer(marca); marca = null; }
   if (v.lat != null && v.lon != null) { fijarPunto(v.lat, v.lon, true); } else if (mapa) mapa.setView([-26.9, -65.3], 7);
@@ -383,13 +428,21 @@ $('f-cuenta').onsubmit = async e => {
     cultivo: $('c-cultivo').value, hectareas: $('c-ha').value, cuit: $('c-cuit').value, notas: $('c-notas').value,
     lat: $('c-lat').value, lon: $('c-lon').value
   };
+  const modulos = [$('m-pron').checked && 'pronostico', $('m-rieg').checked && 'riego', $('m-suite').checked && 'suite'].filter(Boolean);
+  const acceso = { perfil: $('c-perfil').value, modulos, max_sitios: $('c-maxs').value, max_lotes: $('c-maxl').value };
   try {
-    if (editando) { await api('/api/admin/cuentas/' + editando, { accion: 'editar', ...cuerpo }); cerrarCuenta(); }
+    if (editando) {
+      await api('/api/admin/cuentas/' + editando, { accion: 'editar', ...cuerpo });
+      await api('/api/admin/cuentas/' + editando, { accion: 'permisos', ...acceso, modulos_todos: $('m-todos').checked });
+      cerrarCuenta();
+    }
     else {
+      Object.assign(cuerpo, acceso);
+      if (PEDIDO) { cuerpo.sitios = PEDIDO.sitios || []; cuerpo.ficha = PEDIDO.ficha; if (PEDIDO.modulo === 'riego') cuerpo.lotes_pedidos = PEDIDO.sitios || []; }
       cuerpo.dias = $('c-dias').value;
       const d = await api('/api/admin/cuentas', cuerpo);
       cerrarCuenta();
-      mostrarClave('Cuenta creada', mensajeCliente(cuerpo.contacto || cuerpo.razon_social, d.email, d.clave_temporal, cuerpo.dias, d.clave_vence));
+      mostrarClave('Cuenta creada', mensajeCliente(cuerpo.contacto || cuerpo.razon_social, d.email, d.clave_temporal, cuerpo.dias, d.clave_vence, d.modulos));
       if (desdeSol) { try { await api('/api/admin/solicitudes/' + desdeSol, { estado: 'atendida' }); } catch (x) { } desdeSol = null; }
     }
     await cargarCuentas(); cargarSol(true).catch(() => { });
@@ -408,12 +461,18 @@ async function cargarSol(silencioso) {
     <div class="flex justify-between gap-2"><p class="text-sm font-black">${esc(s.nombre || s.email)}${s.empresa ? ' · ' + esc(s.empresa) : ''}</p>
       <span class="text-[10px] text-slate-400">${hace(s.creado).replace('nunca ingresó', '—')}</span></div>
     <p class="text-[11px] text-slate-300">${esc(s.email)}${s.telefono ? ' · ' + esc(s.telefono) : ''}${s.localidad ? ' · ' + esc(s.localidad) : ''}${s.cultivo ? ' · ' + esc(s.cultivo) : ''}</p>
+    ${s.perfil ? `<p class="text-[10px] mt-1 flex gap-1"><span class="rounded px-1.5 py-0.5 bg-slate-800 text-slate-200">${esc(PERFIL_TXT[s.perfil] || s.perfil)}</span><span class="rounded px-1.5 py-0.5 bg-sky-500/20 text-sky-300">${esc(NOMBRE_MOD[s.modulo] || s.modulo || '')}</span></p>` : ''}
+    ${s.datos ? `<div class="mt-1 text-[11px] text-slate-300">${fichaHtml(s.datos)}</div>` : ''}
     ${s.mensaje ? `<p class="text-[11px] text-slate-400 italic mt-1">${esc(s.mensaje)}</p>` : ''}
     <div class="flex gap-1.5 mt-2">${s.estado === 'nueva' ? `<button class="btn btn-p" data-s="crear" data-id="${s.id}">Crear cuenta</button><button class="btn" data-s="atendida" data-id="${s.id}">Marcar atendida</button><button class="btn" data-s="descartada" data-id="${s.id}">Descartar</button>` : `<span class="text-[10px] text-slate-500">${esc(s.estado)}</span><button class="btn" data-s="nueva" data-id="${s.id}">Reabrir</button>`}</div></article>`).join('')
     || '<p class="text-[11px] text-slate-500 text-center py-6">No hay pedidos todavía.</p>';
   $('lista-sol').querySelectorAll('button[data-s]').forEach(b => b.onclick = async () => {
     const s = SOL.find(x => x.id === +b.dataset.id); if (!s) return;
-    if (b.dataset.s === 'crear') { irA('cuentas'); abrirCuenta(null, { razon_social: s.empresa || s.nombre || '', contacto: s.nombre || '', email: s.email, telefono: s.telefono, cultivo: s.cultivo, notas: [s.localidad, s.mensaje].filter(Boolean).join(' · '), sol: s.id }); return; }
+    if (b.dataset.s === 'crear') { irA('cuentas'); const dt = s.datos || null, sit = (dt && dt.sitios) || [];
+      abrirCuenta(null, { razon_social: s.empresa || s.nombre || '', contacto: s.nombre || '', email: s.email, telefono: s.telefono, cultivo: s.cultivo,
+        notas: [s.localidad, s.mensaje].filter(Boolean).join(' · '), sol: s.id, perfil: s.perfil || '', modulos: s.modulo ? [s.modulo] : ['pronostico', 'riego'],
+        max_sitios: s.modulo === 'riego' ? '' : (s.perfil === 'particular' ? 0 : sit.length || ''), max_lotes: s.modulo === 'riego' ? (sit.length || '') : (s.modulo === 'pronostico' ? 0 : ''),
+        sitios: sit, ficha: dt && Object.assign({}, dt) , modulo: s.modulo }); return; }
     try { await api('/api/admin/solicitudes/' + s.id, { estado: b.dataset.s }); await cargarSol(); } catch (e) { alert(e.message); }
   });
 }
