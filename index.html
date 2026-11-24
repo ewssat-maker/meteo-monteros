@@ -206,6 +206,7 @@
             <div class="flex bg-slate-800/90 p-1.5 rounded-xl border border-emerald-500/30 shadow-lg">
                 <button id="tab-tucuman" onclick="cambiarProvincia('tucuman')" class="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all">Tucumán</button>
                 <button id="tab-salta" onclick="cambiarProvincia('salta')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Salta</button>
+                <button id="tab-catamarca" onclick="cambiarProvincia('catamarca')" class="flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all">Catamarca</button>
             </div>
 
             <div class="relative w-full h-[40vh] min-h-[250px] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-lg glass-panel z-0">
@@ -525,6 +526,14 @@
                 { val: "IEMBAR5|-23.20|-64.21|Zanja del Tigre|WU", txt: "Zanja del Tigre" },
                 { val: "IROSARIO12|-24.91|-65.64|Campo Quijano|WU", txt: "Campo Quijano" },
                 { val: "IROSAR120|-25.78|-64.97|Rosario de la Frontera|WU", txt: "Rosario de la Frontera" }
+            ],
+            catamarca: [
+                { val: "IANDAL8|-27.59|-66.32|Andalgalá 8 (ubic. aprox.)|WU", txt: "Andalgalá 8" },
+                { val: "IANDAL5|-27.59|-66.32|Andalgalá 5 (ubic. aprox.)|WU", txt: "Andalgalá 5" },
+                { val: "IHUALF2|-27.22|-66.83|Hualfín (ubic. aprox.)|WU", txt: "Hualfín" },
+                { val: "IELROD3|-27.91|-65.88|El Bolsón|WU", txt: "El Bolsón" },
+                { val: "IAMBATOD3|-28.17|-65.89|Bella Vista (El Rodeo)|WU", txt: "Bella Vista (El Rodeo)" },
+                { val: "ISANFE161|-28.45|-65.77|San José (Catamarca)|WU", txt: "San José (Catamarca)" }
             ]
         };
 
@@ -618,16 +627,12 @@
         // LÓGICA DE TELEMETRÍA (Sin Cambios)
         // ==========================================
         function cambiarProvincia(prov) {
-            const btnTuc = document.getElementById('tab-tucuman');
-            const btnSal = document.getElementById('tab-salta');
-            
-            if(prov === 'tucuman') {
-                btnTuc.className = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
-                btnSal.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
-            } else {
-                btnSal.className = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
-                btnTuc.className = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
-            }
+            const on = "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-slate-900 shadow transition-all";
+            const off = "flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-white transition-all";
+            ['tucuman', 'salta', 'catamarca'].forEach(p => {
+                const b = document.getElementById('tab-' + p);
+                if (b) b.className = (p === prov) ? on : off;
+            });
 
             telemetriaMarkers.forEach(item => mapTelemetria.removeLayer(item.marker));
             telemetriaMarkers = [];
@@ -1586,8 +1591,8 @@
     })();
     </script>
     <script src="lluvia_live.js" defer></script>
-    <script src="eeaoc_live.js?v=1"></script>
-    <script src="panel_live.js?v=2" defer></script>
+    <script src="eeaoc_live.js?v=2"></script>
+    <script src="panel_live.js?v=3" defer></script>
     <script src="riego_live.js?v=3" defer></script>
     <script src="pronostico_live.js?v=2" defer></script>
     <script src="cambio_clave.js"></script>
