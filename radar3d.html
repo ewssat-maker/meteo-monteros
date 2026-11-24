@@ -78,6 +78,7 @@
     <select id="sel-base" style="flex:1"><option value="sat">Satélite</option><option value="rel">Relieve (colores)</option></select></div>
   <div class="fila"><span>Anillos</span><input id="chk-anillos" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Nombres</span><input id="chk-etq" type="checkbox" checked style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Límites provinciales</span><input id="chk-lim" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Lluvia acumulada</span>
     <select id="sel-lluvia" style="flex:1"><option value="0">Apagada</option><option value="3">Últimas 3 h</option><option value="6">Últimas 6 h</option><option value="12">Últimas 12 h</option><option value="24">Últimas 24 h</option></select></div>
 </div>
@@ -269,7 +270,7 @@ const S = {
   trabajo: 0, reg: null, region: null,
   malla: null, lineas: null, texBase: null, texRadar: null, texUlt: null,
   frames: [], fi: 0, clas: false, filtro: 'todo', seguir: true, segData: null, segLineas: [], playing: false, timer: null,
-  exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true,
+  exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true, limites: true, contornos: null, lineasLim: null,
   lluvia: { horas: 0, tex: null, datos: null, img: null, aviso: '' },
   cam: { yaw: 0, pitch: 0.9, dist: 400, tx: 0, tz: 0 },
   sucio: false
@@ -445,6 +446,40 @@ function construirLineas(reg, rg) {
   S.lineas = { anillos: crear(anillos), pin: crear(pin), centro: c };
 }
 
+// Límites provinciales (los mismos contornos que dibuja el radar del index), apoyados sobre el relieve.
+// Si no hay contornos o falla algo, simplemente no se dibujan: el resto de la vista no cambia.
+function construirLimites(rg) {
+  try {
+    if (S.lineasLim) { gl.deleteVertexArray(S.lineasLim.vao); gl.deleteBuffer(S.lineasLim.vb); S.lineasLim = null; }
+    if (!S.contornos || !rg) return;
+    const v = [], PASO_KM = 1.5, ALTO = 0.1;
+    const dentro = (lat, lon) => { const q = aKm(rg, lat, lon); return q.px > -50 && q.py > -50 && q.px < rg.W + 50 && q.py < rg.H + 50; };
+    const desv = [[0, 0], [0.12, 0], [0, 0.12]];                       // tres pasadas apenas corridas: la línea se ve más gruesa al acercarse
+    Object.keys(S.contornos).forEach(k => {
+      const poli = (S.contornos[k] && S.contornos[k].poli) || [];      // [[lat, lon], …]
+      for (let i = 0; i < poli.length; i++) {
+        const a = poli[i], b = poli[(i + 1) % poli.length];
+        if (!a || !b || !(dentro(a[0], a[1]) || dentro(b[0], b[1]))) continue;
+        const A = aKm(rg, a[0], a[1]), B = aKm(rg, b[0], b[1]);
+        const n = Math.max(1, Math.ceil(Math.hypot(B.x - A.x, B.z - A.z) / PASO_KM));
+        let prev = null;
+        for (let j = 0; j <= n; j++) {
+          const f = j / n, px = A.px + (B.px - A.px) * f, py = A.py + (B.py - A.py) * f;
+          const hh = altura(rg, px, py);
+          const x = A.x + (B.x - A.x) * f, z = A.z + (B.z - A.z) * f;
+          const p = hh === null ? null : [x, hh / 1000 + ALTO, z];
+          if (prev && p) desv.forEach(d => v.push(prev[0] + d[0], prev[1], prev[2] + d[1], p[0] + d[0], p[1], p[2] + d[1]));
+          prev = p;
+        }
+      }
+    });
+    if (v.length) S.lineasLim = crearLineas(v);
+  } catch (e) { console.error('Límites provinciales:', e); S.lineasLim = null; }
+}
+fetch(`${LLUVIA_API}/provincias`).then(r => r.ok ? r.json() : null).then(j => {
+  if (j && !j.error && j.tucuman) { S.contornos = j; if (S.region) { construirLimites(S.region); pedirDibujo(); } }
+}).catch(() => {});
+
 function construirEtiquetas(reg, rg) {
   const cont = $('etiquetas'); cont.innerHTML = ''; S.etq = [];
   const lista = CIUDADES.map(([n, la, lo, pr]) => [n, la, lo, pr]);
@@ -486,6 +521,10 @@ function dibujar() {
     gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
     if (S.anillos) { gl.uniform4f(uL.col, 1, 1, 1, 1); gl.bindVertexArray(S.lineas.anillos.vao); gl.drawArrays(gl.LINES, 0, S.lineas.anillos.n); }
     gl.uniform4f(uL.col, 0.99, 0.9, 0.54, 1); gl.bindVertexArray(S.lineas.pin.vao); gl.drawArrays(gl.LINES, 0, S.lineas.pin.n);
+  }
+  if (S.limites && S.lineasLim) {
+    gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
+    gl.uniform4f(uL.col, 0.97, 0.98, 0.99, 1); gl.bindVertexArray(S.lineasLim.vao); gl.drawArrays(gl.LINES, 0, S.lineasLim.n);
   }
   if (S.seguir && S.segLineas.length) {
     gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
@@ -594,7 +633,7 @@ async function cargarTodo(completo) {
     if (!rad || trabajo !== S.trabajo) return;
     S.texUlt = subirTextura(1, rad.cnv, false, S.texUlt); S.texRadar = S.texUlt;
     if (S.lluvia.horas) { pintarLluvia(); cargarLluvia(); }      // la capa de lluvia acompaña a la región y se renueva con cada carga
-    S.reg = reg; construirLineas(reg, rg); construirEtiquetas(reg, rg);
+    S.reg = reg; construirLineas(reg, rg); construirLimites(rg); construirEtiquetas(reg, rg);
     const e = textoEdad(reg.observation_time);
     $('estado').textContent = `${code} · ${NOMBRE_CAMPO[campo] || campo} · ${e.t}` + (rad.total && !rad.ok ? ' · sin imagen de radar en esta zona' : '');
     $('estado').style.color = e.atras ? '#fbbf24' : '';
@@ -821,6 +860,7 @@ $('sel-base').addEventListener('change', e => { S.usaBase = e.target.value === '
 $('chk-anillos').addEventListener('change', e => { S.anillos = e.target.checked; pedirDibujo(); });
 $('sel-lluvia').addEventListener('change', e => elegirLluvia(+e.target.value));
 $('chk-etq').addEventListener('change', e => { S.etiquetas = e.target.checked; pedirDibujo(); });
+$('chk-lim').addEventListener('change', e => { S.limites = e.target.checked; pedirDibujo(); });
 const params = new URLSearchParams(location.search);
 if (RADAR_OK(params.get('radar'))) $('sel-radar').value = params.get('radar');
 function RADAR_OK(c) { return ['RMA11', 'RMA20', 'RMA7'].includes(c); }
