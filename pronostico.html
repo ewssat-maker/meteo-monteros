@@ -57,7 +57,7 @@ button:focus-visible,a:focus-visible,.sit:focus-visible{outline:2px solid var(--
 <header><h1><i class="fa-solid fa-cloud-sun-rain"></i>Pronóstico inteligente</h1><div><span id="usr" class="mu"></span> <button class="sec" id="salir">Salir</button></div></header>
 <main>
 <section id="login" class="panel hid"><h2 style="margin-top:0">Ingresar</h2><div class="g"><label>Correo<input id="em" type="email"></label><label>Contraseña<input id="pw" type="password"></label></div>
-<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Solicitar acceso</button> <span id="lerr" class="mu"></span></p><p class="mu">El acceso es por invitación. ¿Todavía no tenés cuenta? Escribí tu correo y tocá «Solicitar acceso»: te contactamos para dártela. La cuenta es la misma de MetricPoint.</p></section>
+<p><button id="ing">Ingresar</button> <button class="sec" id="crear">Solicitar acceso</button> <span id="lerr" class="mu"></span></p><p class="mu">El acceso es por invitación. ¿Todavía no tenés cuenta? Tocá «Solicitar acceso», completá el formulario y te la creamos. La cuenta es la misma de MetricPoint.</p></section>
 <div id="app" class="hid" style="display:grid;gap:14px">
  <section class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h3 style="margin:0">Mis sitios: lotes de Riego, fincas y minas</h3><button id="nuevo">Agregar sitio</button></div><div id="sitios" class="sitios"></div><p id="vacio" class="mu hid">Todavía no tenés sitios. Los lotes que cargues en Riego aparecen acá solos; también podés agregar una finca o una mina con el botón.</p></section>
  <section id="form" class="panel hid"><h3>Nuevo sitio</h3><div class="busq"><input id="bus" placeholder="Buscar localidad o camino (ej. Las Lajitas, Salta)"><button class="sec" id="busb">Buscar</button></div><div id="map"></div><p class="mu" id="pos">Tocá el mapa para marcar el punto.</p>
@@ -81,11 +81,11 @@ async function api(p,o={}){try{return await api0(p,o)}catch(e){if(e instanceof T
 async function api0(p,o={}){o.headers=Object.assign({"Content-Type":"application/json","Authorization":"Bearer "+TOK},o.headers||{});
  const r=await fetch(API+p,o);let j={};try{j=await r.json()}catch(e){}
  if(r.status==401){TOK=null;try{localStorage.removeItem("metric_token")}catch(e){};mostrar();throw new Error("Sesión vencida")}
+ if(r.status==403&&j.error=="MODULO_NO_HABILITADO")throw new Error("Tu cuenta no tiene habilitado este módulo. Pedile el acceso a MetricPoint.");
  if(r.status==403&&j.error=="TRIAL_EXPIRED")throw new Error("Tu prueba terminó. Contactanos para activar tu plan.");
  if(!r.ok)throw new Error(j.error||("Error "+r.status));return j}
 $("ing").onclick=async()=>{$("lerr").textContent="";try{const r=await fetch(API+"/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value,password:$("pw").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo ingresar");TOK=j.token;try{localStorage.setItem("metric_token",TOK);localStorage.setItem("metric_email",$("em").value)}catch(e){}mostrar()}catch(e){$("lerr").textContent=e.message}};
-$("crear").onclick=async()=>{$("lerr").textContent="";const em=($("em").value||"").trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){$("lerr").textContent="Escribí tu correo en el campo de arriba y volvé a tocar «Solicitar acceso».";$("em").focus();return}
- $("crear").disabled=true;try{const r=await fetch(API+"/api/solicitar_prueba",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo enviar el pedido");$("lerr").textContent="¡Listo! Recibimos tu pedido. Te escribimos a "+em+" para darte acceso."}catch(e){$("lerr").textContent=e.message}$("crear").disabled=false};
+$("crear").onclick=()=>{if(window.PedidoAcceso)PedidoAcceso.abrir({modulo:"pronostico",api:API,correo:($("em").value||"").trim()});else $("lerr").textContent="No se pudo abrir el formulario. Recargá la página."};
 $("salir").onclick=()=>{try{localStorage.removeItem("metric_token")}catch(e){};TOK=null;location.reload()};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const f1=x=>x==null?"—":(Math.round(x*10)/10).toFixed(1),f0=x=>x==null?"—":Math.round(x);
@@ -96,7 +96,33 @@ const ICO={helada:"fa-snowflake",calor:"fa-temperature-arrow-up",lluvia:"fa-clou
 const PUL=["No conviene","Regular","Buena"];
 function mostrar(){$("login").classList.toggle("hid",!!TOK);$("app").classList.toggle("hid",!TOK);if(TOK)iniciar()}
 function esperando(){$("sitios").innerHTML='<div class="cargando"><div class="rueda"></div><span>Cargando tus sitios y el pronóstico…</span></div>';$("vista").classList.add("hid")}
-async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}cargar()}
+let CUENTA=null;
+async function iniciar(){try{$("usr").textContent=localStorage.getItem("metric_email")||""}catch(e){}
+ try{CUENTA=await api("/api/pronostico/mi_cuenta")}catch(e){CUENTA=null;if(/habilitado/i.test(e.message)){$("nuevo").classList.add("hid");$("vacio").classList.add("hid");$("sitios").innerHTML='<p class="mu" style="color:var(--am)">'+esc(e.message)+'</p>';return}}
+ if(CUENTA&&CUENTA.perfil==="particular"){modoParticular();return}
+ if(CUENTA&&CUENTA.max_sitios!=null&&CUENTA.sitios_usados!=null&&CUENTA.sitios_usados>=CUENTA.max_sitios)$("nuevo").title="Tu cuenta tiene habilitados "+CUENTA.max_sitios+" sitio(s). Para más, pedile a MetricPoint que amplíe el cupo.";
+ cargar()}
+// ---- usuario particular: pronóstico de la estación más cercana a la ubicación del celular (la ubicación no se guarda en el servidor)
+function geo(){return new Promise((ok,no)=>{if(!navigator.geolocation)return no(new Error("Este dispositivo no informa su ubicación."));
+ navigator.geolocation.getCurrentPosition(p=>ok([p.coords.latitude,p.coords.longitude]),e=>no(new Error(e&&e.code==1?"Permitile al navegador ver tu ubicación para mostrarte la estación más cercana.":"No pudimos obtener tu ubicación.")),{timeout:15000,maximumAge:600000})})}
+function buscaLocalidad(msg){$("vista").classList.add("hid");$("sitios").innerHTML='<p class="mu" style="color:var(--am)">'+esc(msg||"")+'</p><div class="busq"><input id="pbus" placeholder="Escribí tu localidad (ej. Monteros, Tucumán)"><button id="pbusb">Ver pronóstico</button> <button class="sec" id="pgeo">Usar mi ubicación</button></div><p class="mu" id="pmsg"></p>';
+ $("pgeo").onclick=()=>modoParticular();
+ const ir=async()=>{const q=$("pbus").value.trim();if(!q)return;$("pmsg").textContent="Buscando…";try{const r=await (await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+encodeURIComponent(q))).json();if(!r[0]){$("pmsg").textContent="No encontré ese lugar.";return}particularCon(+r[0].lat,+r[0].lon)}catch(e){$("pmsg").textContent="La búsqueda no está disponible ahora."}};
+ $("pbusb").onclick=ir;$("pbus").onkeydown=e=>{if(e.key==="Enter")ir()}}
+async function modoParticular(){
+ $("nuevo").classList.add("hid");$("form").classList.add("hid");$("vacio").classList.add("hid");const h=document.querySelector("#app h3");if(h)h.textContent="Mi ubicación";
+ $("sitios").innerHTML='<div class="cargando"><div class="rueda"></div><span>Buscando la estación más cercana a tu celular…</span></div>';$("vista").classList.add("hid");
+ let pos=null,msg="";try{pos=await geo();try{localStorage.setItem("pron_pos",JSON.stringify(pos))}catch(e){}}catch(e){msg=e.message;try{pos=JSON.parse(localStorage.getItem("pron_pos")||"null")}catch(x){}}
+ if(!pos){buscaLocalidad(msg);return}
+ particularCon(pos[0],pos[1])}
+async function particularCon(lat,lon){
+ $("sitios").innerHTML='<div class="cargando"><div class="rueda"></div><span>Armando el pronóstico…</span></div>';
+ try{const r=await api("/api/pronostico/cercana?lat="+lat+"&lon="+lon);DATA=r.pronostico;const e=r.estacion;
+  const s={id:"GPS",origen:"gps",nombre:e?e.nombre:"Tu ubicación",tipo:"campo",lat:DATA.lat,lon:DATA.lon,semaforo:DATA.semaforo,dias:DATA.dias,alertas:DATA.alertas};SIT=[s];SEL="GPS";pintarSitios();
+  const v=$("vista");v.classList.remove("hid");vista(s);
+  v.insertAdjacentHTML("afterbegin",'<div class="panel"><p style="margin:0"><i class="fa-solid fa-location-dot" style="color:var(--ac)"></i> '+(e?'Estación más cercana a tu ubicación: <b>'+esc(e.nombre)+'</b>'+(e.provincia?' ('+esc(e.provincia)+')':'')+', a '+e.dist_km+' km.':esc(r.aviso||"Pronóstico para tu ubicación."))+'</p><p style="margin:8px 0 0"><button class="sec" id="reub">Actualizar mi ubicación</button> <button class="sec" id="otra">Elegir otra localidad</button></p></div>');
+  $("reub").onclick=()=>modoParticular();$("otra").onclick=()=>buscaLocalidad("")}
+ catch(e){buscaLocalidad(e.message)}}
 async function cargar(){esperando();
  try{const r=await api("/api/pronostico/resumen");SIT=r.sitios||[];pintarSitios();
   if(!SIT.length){$("vacio").classList.remove("hid");$("vista").classList.add("hid");return}
@@ -106,7 +132,7 @@ function pintarSitios(){$("sitios").innerHTML=SIT.map(s=>{if(s.error)return`<but
  const d=s.dias[0],ll=s.dias.slice(0,3).reduce((a,x)=>a+(x.lluvia||0),0),n=s.alertas.length;
  return`<button class="sit ${s.id==SEL?"on":""}" data-id="${s.id}"><span class="pt ${s.semaforo}"></span><b>${esc(s.nombre)}</b><div class="tt">${f0(d.tmax)}°<small> / ${f0(d.tmin)}°</small></div><div class="lz"><span><i class="fa-solid fa-droplet"></i> ${f0(ll)} mm en 3 días</span><span>${n?`<i class="fa-solid fa-triangle-exclamation"></i> ${n}`:"sin alertas"}</span></div></button>`}).join("");
  document.querySelectorAll(".sit").forEach(b=>b.onclick=()=>elegir(b.dataset.id))}
-async function elegir(id){SEL=id;const s0=SIT.find(x=>x.id==id);if(s0&&s0.error){cargar();return}pintarSitios();const s=s0;if(!s)return;
+async function elegir(id){if(id=="GPS")return;SEL=id;const s0=SIT.find(x=>x.id==id);if(s0&&s0.error){cargar();return}pintarSitios();const s=s0;if(!s)return;
  const v=$("vista");v.classList.remove("hid");v.innerHTML='<div class="cargando"><div class="rueda"></div><span>Armando el pronóstico de '+esc(s.nombre)+'…</span></div>';
  try{DATA=await api("/api/pronostico/punto?lat="+s.lat+"&lon="+s.lon+"&tipo="+s.tipo);if(SEL!=id)return;vista(s)}catch(e){v.innerHTML='<p class="mu" style="color:var(--am)">'+esc(e.message)+'</p>'}}
 async function riegoInfo(){try{const r=await api("/api/riego/resumen");(r.lotes||r||[]).forEach?.(l=>{RIEGO["L"+l.id]=l});if(DATA){const s=SIT.find(x=>x.id==SEL);if(s)marcaRiego(s)}}catch(e){}}
@@ -183,5 +209,5 @@ $("cancel").onclick=()=>$("form").classList.add("hid");
 $("busb").onclick=async()=>{const q=$("bus").value.trim();if(!q||!MAP)return;try{const r=await (await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+encodeURIComponent(q))).json();if(r[0])MAP.setView([+r[0].lat,+r[0].lon],13);else $("pos").textContent="No encontré ese lugar."}catch(e){$("pos").textContent="La búsqueda no está disponible ahora."}};
 $("guardar").onclick=async()=>{$("ferr").textContent="";try{if(!POS)throw new Error("Tocá el mapa para marcar el punto");await api("/api/pronostico/sitios",{method:"POST",body:JSON.stringify({nombre:$("f_n").value,tipo:$("f_t").value,lat:POS[0],lon:POS[1]})});$("form").classList.add("hid");$("f_n").value="";cargar()}catch(e){$("ferr").textContent=e.message}};
 mostrar();
-</script><script src="cambio_clave.js"></script>
+</script><script src="pedido_acceso.js"></script><script src="cambio_clave.js"></script>
 </body></html>
