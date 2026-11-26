@@ -74,7 +74,13 @@
 
   /* ---------- 2) Alturas de ríos (SNIH) en Cauces de Ríos ---------- */
   if (typeof caucesData !== "undefined" && typeof window.fetchCauceData === "function") {
-    var fetchOrig = window.fetchCauceData, ficha = {};
+    var fetchOrig = window.fetchCauceData, ficha = {}, alCache = { t: 0, v: {} };
+    async function alertasRio() {                                // /api/alertas_rio, con caché de 60 s
+      if (Date.now() - alCache.t < 60000) return alCache.v;
+      var r = await fetch(BACK + "/api/alertas_rio"), j = await r.json();
+      alCache = { t: Date.now(), v: (j && j.alertas) || {} };
+      return alCache.v;
+    }
 
     window.fetchCauceData = async function (id, fuente) {
       if (fuente !== "HIDRO") return fetchOrig.apply(this, arguments);
@@ -96,7 +102,10 @@
         $("val-cauce-precedente").innerText = var24 === null || var24 === undefined ? "--" : (alt - var24).toFixed(2);
         $("cauce-fecha").innerText = fecha.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" });
         renderGraficoCauce(s.map(function (p) { return [p.ts, p.altura_m]; }), null, null);
-        renderAlertaCauce(null);
+        var al = null;
+        try { al = (await alertasRio())[id] || null; } catch (e) {}      // estaciones con umbrales (p. ej. Coropampa): tarjeta de alerta
+        if (typeof cauceActualVal === "undefined" || !cauceActualVal || String(cauceActualVal.id) !== String(id)) return;
+        renderAlertaCauce(al);
         var viejo = hace > 6;
         sb.className = "text-xs text-center " + (viejo ? "text-amber-300 bg-amber-950/80 border border-amber-500/30" : "text-cyan-300 bg-cyan-950/80 border border-cyan-500/30") + " py-2 px-3 rounded-xl shadow-lg transition";
         sb.innerHTML = '<i class="fa-solid ' + (viejo ? "fa-triangle-exclamation" : "fa-circle-check") + ' mr-1"></i> <b>' + cauceActualVal.txt + "</b> • SNIH sin validar • hace " +
