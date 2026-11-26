@@ -26,6 +26,7 @@
   #brujula svg { width:26px; height:26px; transition:transform .05s linear; }
   .etq { position:fixed; z-index:3; pointer-events:none; font-size:10px; color:#f8fafc; text-shadow:0 0 3px #000, 0 0 6px #000; white-space:nowrap; transform:translate(-50%,-100%); }
   .etq::before { content:""; display:block; width:5px; height:5px; border-radius:50%; background:#fde68a; margin:0 auto 2px; box-shadow:0 0 4px #000; }
+  #pie.plegado > :not(#estado) { display:none !important; }
   #pie { position:fixed; left:8px; right:8px; bottom:max(8px, env(safe-area-inset-bottom)); z-index:5; padding:8px 10px; }
   #estado { font-size:12px; font-weight:600; }
   #nota { font-size:10px; color:var(--mut); margin-top:2px; }
@@ -67,6 +68,7 @@
     </select>
   </label>
   <button id="btn-ajustes" title="Ajustes">⚙ Ajustes</button>
+  <button id="btn-pie" title="Ocultar o mostrar el panel inferior">▾ Panel</button>
   <button id="btn-recargar" title="Buscar imagen nueva">⟳</button>
   <a class="btn" href="index.html" id="lnk-volver">‹ Volver</a>
 </div>
@@ -80,6 +82,7 @@
   <div class="fila"><span>Nombres</span><input id="chk-etq" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Límites provinciales</span><input id="chk-lim" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Estructura 3D completa</span><input id="chk-vol" type="checkbox" checked style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Altura de la tormenta</span><input id="rng-hs" type="range" min="1" max="5" step="0.2" value="2.2"><span id="v-hs" style="width:28px;text-align:right">2.2×</span></div>
   <div class="fila"><span>Eco del radar en el suelo</span><input id="chk-sup" type="checkbox" style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Núcleos del modelo (conos)</span><input id="chk-conos" type="checkbox" style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Lluvia acumulada</span>
@@ -263,13 +266,17 @@ try {
     `#version 300 es
     precision mediump float; uniform vec4 u_col; out vec4 o; void main() { o = u_col; }`);
   progVol = programa(`#version 300 es
-    in vec3 a_p; in vec4 a_c; uniform mat4 u_mvp; uniform float u_exag; out vec4 v_c;
-    void main() { v_c = a_c; gl_Position = u_mvp * vec4(a_p.x, a_p.y * u_exag, a_p.z, 1.0); }`,
+    in vec3 a_p; in vec4 a_c; uniform mat4 u_mvp; uniform float u_exag; uniform float u_hs; out vec4 v_c;
+    void main() { v_c = a_c; gl_Position = u_mvp * vec4(a_p.x, a_p.y * u_exag * u_hs, a_p.z, 1.0); }`,
     `#version 300 es
     precision mediump float; in vec4 v_c; out vec4 o; void main() { o = v_c; }`);
   progEst = programa(`#version 300 es
-    in vec2 a_q; uniform mat4 u_mvp; uniform float u_exag; uniform float u_alt; uniform vec4 u_ext; out vec2 v_uv;
-    void main() { v_uv = a_q; gl_Position = u_mvp * vec4(u_ext.x + a_q.x * u_ext.z, u_alt * u_exag, u_ext.y + a_q.y * u_ext.w, 1.0); }`,
+    in vec2 a_q; uniform mat4 u_mvp; uniform float u_exag; uniform float u_alt; uniform float u_hs; uniform vec4 u_ext; uniform sampler2D u_vol; out vec2 v_uv;
+    void main() {
+      v_uv = a_q; float gr = textureLod(u_vol, a_q, 0.0).b;
+      float y = (gr + (u_alt - gr) * u_hs) * u_exag;
+      gl_Position = u_mvp * vec4(u_ext.x + a_q.x * u_ext.z, y, u_ext.y + a_q.y * u_ext.w, 1.0);
+    }`,
     `#version 300 es
     precision highp float;
     in vec2 v_uv; uniform sampler2D u_vol; uniform sampler2D u_pal; uniform sampler2D u_anv; uniform vec4 u_ext; uniform float u_alt; uniform float u_iso; uniform float u_alpha; out vec4 o;
@@ -309,8 +316,8 @@ const U = {
   l: n => gl.getUniformLocation(progLinea, n)
 };
 const uM = { mvp: U.m('u_mvp'), exag: U.m('u_exag'), base: U.m('u_base'), radar: U.m('u_radar'), op: U.m('u_op'), usaBase: U.m('u_usaBase'), luz: U.m('u_luz') };
-const uV = { mvp: gl.getUniformLocation(progVol, 'u_mvp'), exag: gl.getUniformLocation(progVol, 'u_exag') };
-const uE = { mvp: gl.getUniformLocation(progEst, 'u_mvp'), exag: gl.getUniformLocation(progEst, 'u_exag'), alt: gl.getUniformLocation(progEst, 'u_alt'), ext: gl.getUniformLocation(progEst, 'u_ext'), vol: gl.getUniformLocation(progEst, 'u_vol'), pal: gl.getUniformLocation(progEst, 'u_pal'), iso: gl.getUniformLocation(progEst, 'u_iso'), anv: gl.getUniformLocation(progEst, 'u_anv'), alpha: gl.getUniformLocation(progEst, 'u_alpha') };
+const uV = { hs: gl.getUniformLocation(progVol, 'u_hs'), mvp: gl.getUniformLocation(progVol, 'u_mvp'), exag: gl.getUniformLocation(progVol, 'u_exag') };
+const uE = { mvp: gl.getUniformLocation(progEst, 'u_mvp'), exag: gl.getUniformLocation(progEst, 'u_exag'), alt: gl.getUniformLocation(progEst, 'u_alt'), ext: gl.getUniformLocation(progEst, 'u_ext'), vol: gl.getUniformLocation(progEst, 'u_vol'), pal: gl.getUniformLocation(progEst, 'u_pal'), iso: gl.getUniformLocation(progEst, 'u_iso'), anv: gl.getUniformLocation(progEst, 'u_anv'), hs: gl.getUniformLocation(progEst, 'u_hs'), alpha: gl.getUniformLocation(progEst, 'u_alpha') };
 const uL = { mvp: U.l('u_mvp'), exag: U.l('u_exag'), col: U.l('u_col') };
 
 /* ================= Estado ================= */
@@ -318,7 +325,7 @@ const S = {
   trabajo: 0, reg: null, region: null,
   malla: null, lineas: null, texBase: null, texRadar: null, texUlt: null,
   frames: [], fi: 0, clas: false, filtro: 'todo', seguir: true, segData: null, segLineas: [], playing: false, timer: null,
-  exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true, limites: true, contornos: null, lineasLim: null,
+  exag: 2.5, hs: 2.2, op: 0.85, usaBase: true, anillos: true, etiquetas: true, limites: true, contornos: null, lineasLim: null,
   lluvia: { horas: 0, tex: null, datos: null, img: null, aviso: '' },
   cam: { yaw: 0, pitch: 0.9, dist: 400, tx: 0, tz: 0 },
   vol: null, volOn: true, conosOn: false, supOn: false, modelo: null, est: null, celdasEst: null, radCnv: null, radCampo: null,
@@ -539,6 +546,7 @@ function construirEtiquetas(reg, rg) {
     const el = document.createElement('div'); el.className = 'etq'; el.textContent = n; el.style.display = 'none'; cont.appendChild(el);
     S.etq.push({ el, x: p.x, h: hh / 1000, z: p.z, pr, w: n.length * 5.6 + 10 });
   });
+  etiquetasAltura();
 }
 
 /* ================= Cámara y dibujo ================= */
@@ -581,22 +589,24 @@ function dibujar() {
   }
   if (S.volOn && S.est && !S.lluvia.horas) {        // estructura 3D completa: cortes horizontales apilados (de abajo hacia arriba)
     const e = S.est;
-    gl.useProgram(progEst); gl.uniformMatrix4fv(uE.mvp, false, mvp); gl.uniform1f(uE.exag, S.exag);
-    gl.uniform4f(uE.ext, e.x0, e.z0, e.ancho, e.alto); gl.uniform1f(uE.iso, e.iso); gl.uniform1f(uE.alpha, clamp(11 / e.n, 0.12, 0.6));
+    gl.useProgram(progEst); gl.uniformMatrix4fv(uE.mvp, false, mvp); gl.uniform1f(uE.exag, S.exag); gl.uniform1f(uE.hs, S.hs);
+    gl.uniform4f(uE.ext, e.x0, e.z0, e.ancho, e.alto); gl.uniform1f(uE.iso, e.iso); gl.uniform1f(uE.alpha, clamp(14 / e.n, 0.08, 0.5));
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, e.tex); gl.uniform1i(uE.vol, 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, S.texPal); gl.uniform1i(uE.pal, 3);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, e.anv); gl.uniform1i(uE.anv, 4);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    if (e.box) { gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag); gl.uniform4f(uL.col, 0.78, 0.88, 1, 0.55); gl.bindVertexArray(e.box.vao); gl.drawArrays(gl.LINES, 0, e.box.n); gl.useProgram(progEst); }
+    gl.depthMask(false);
     gl.bindVertexArray(S.estQuad);
-    for (let k = 0; k < e.n; k++) { gl.uniform1f(uE.alt, e.alt0 + (e.alt1 - e.alt0) * (k + 0.5) / e.n); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+    for (let k = 0; k < e.n; k++) { gl.uniform1f(uE.alt, e.alt0 + (e.alt1 - e.alt0) * (k + 0.5) / e.n); gl.drawElements(gl.TRIANGLES, S.estQuadN, gl.UNSIGNED_SHORT, 0); }
     gl.depthMask(true); gl.disable(gl.BLEND); gl.activeTexture(gl.TEXTURE0);
   }
   if (S.conosOn && S.vol && S.vol.length) {         // núcleos de las celdas del modelo: cascarón translúcido + aros
-    gl.useProgram(progVol); gl.uniformMatrix4fv(uV.mvp, false, mvp); gl.uniform1f(uV.exag, S.exag);
+    gl.useProgram(progVol); gl.uniformMatrix4fv(uV.mvp, false, mvp); gl.uniform1f(uV.exag, S.exag); gl.uniform1f(uV.hs, S.hs);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
     S.vol.forEach(o => { gl.bindVertexArray(o.vao); gl.drawArrays(gl.TRIANGLES, 0, o.n); });
     gl.depthMask(true); gl.disable(gl.BLEND);
-    gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
+    gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag * S.hs);
     S.vol.forEach(o => { if (!o.lin) return; gl.uniform4f(uL.col, o.c[0], o.c[1], o.c[2], 1); gl.bindVertexArray(o.lin.vao); gl.drawArrays(gl.LINES, 0, o.lin.n); });
   }
   // Etiquetas: se muestran según la prioridad y la distancia de la cámara, y sin encimarse
@@ -605,8 +615,8 @@ function dibujar() {
   const cand = [];
   (S.etq || []).forEach(e => {
     e.el.style.display = 'none';
-    if (!S.etiquetas || e.pr > maxPr) return;
-    const x = e.x, y = e.h * S.exag, z = e.z;
+    if (e.alt) { if (!(S.volOn && S.est)) return; } else if (!S.etiquetas || e.pr > maxPr) return;
+    const x = e.x, y = (e.alt ? (e.base + (e.h - e.base) * S.hs) : e.h) * S.exag, z = e.z;
     const cx = mvp[0] * x + mvp[4] * y + mvp[8] * z + mvp[12], cy = mvp[1] * x + mvp[5] * y + mvp[9] * z + mvp[13], cw = mvp[3] * x + mvp[7] * y + mvp[11] * z + mvp[15];
     if (cw <= 0) return;
     const nx = cx / cw, ny = cy / cw;
@@ -869,8 +879,40 @@ function construirSeguimiento() {
     (lleg ? `Podría alcanzar: ${lleg}<br>` : '') + `<span style="color:#94a3b8;font-size:11px">Estimación orientativa por extrapolación; no reemplaza los avisos oficiales.</span>`;
 }
 /* ================= Estructura 3D estimada de las celdas (modelo calculado fuera del servidor) ================= */
+let infoPleg = false, piePleg = false;
+try { infoPleg = localStorage.getItem('r3d_info') === '1'; piePleg = localStorage.getItem('r3d_pie') === '1'; } catch (e) {}
+function aplicarPlegadoInfo() {
+  const d = $('m-det'), f = $('m-fl'); if (!d) return;
+  d.style.display = infoPleg ? 'none' : 'block'; if (f) f.textContent = infoPleg ? '▸ mostrar' : '▾ ocultar';
+}
+document.addEventListener('click', ev => {
+  if (ev.target.closest && ev.target.closest('#m-tit')) { infoPleg = !infoPleg; try { localStorage.setItem('r3d_info', infoPleg ? '1' : '0'); } catch (e) {} aplicarPlegadoInfo(); }
+});
+function aplicarPlegadoPie() { $('pie').classList.toggle('plegado', piePleg); $('btn-pie').textContent = piePleg ? '▴ Panel' : '▾ Panel'; }
+$('btn-pie').addEventListener('click', () => { piePleg = !piePleg; try { localStorage.setItem('r3d_pie', piePleg ? '1' : '0'); } catch (e) {} aplicarPlegadoPie(); });
+aplicarPlegadoPie();
 const infoOn = () => S.volOn || S.conosOn;
+function construirCaja() {
+  const e = S.est; if (!e) return; if (e.box) { gl.deleteVertexArray(e.box.vao); gl.deleteBuffer(e.box.vb); e.box = null; }
+  const { X0, X1, Z0, Z1, niv, base, alt1 } = e.caja, yv = a => base + (a - base) * S.hs, L = [];
+  niv.concat([base]).forEach(a => { const y = yv(a); L.push(X0, y, Z0, X1, y, Z0, X1, y, Z0, X1, y, Z1, X1, y, Z1, X0, y, Z1, X0, y, Z1, X0, y, Z0); });
+  [[X0, Z0], [X1, Z0], [X1, Z1], [X0, Z1]].forEach(([x, z]) => L.push(x, base, z, x, yv(alt1), z));
+  e.box = crearLineas(L);
+}
+function reubicarEtqAlt() { construirCaja(); }
+function etiquetasAltura() {                        // niveles de altura en las esquinas de la caja
+  const cont = $('etiquetas'); if (!cont) return;
+  (S.etq || []).filter(q => q.alt).forEach(q => q.el.remove()); S.etq = (S.etq || []).filter(q => !q.alt);
+  const e = S.est; if (!e) return; const c = e.caja;
+  const alts = c.niv.filter(a => a !== c.alt1).concat([c.alt1]);
+  [[c.X0, c.Z1], [c.X1, c.Z0]].forEach(([x, z]) => alts.forEach(a => {
+    const el = document.createElement('div'); el.className = 'etq'; el.textContent = (Math.round(a * 10) / 10).toString().replace('.', ',') + ' km'; el.style.display = 'none'; el.style.opacity = '.85'; cont.appendChild(el);
+    S.etq.push({ el, x, z, h: a, base: c.base, alt: true, pr: 0, w: 48 });
+  }));
+}
 function limpiarEst() {
+  if (S.est && S.est.box) { gl.deleteVertexArray(S.est.box.vao); gl.deleteBuffer(S.est.box.vb); }
+  (S.etq || []).filter(q => q.alt).forEach(q => q.el.remove()); S.etq = (S.etq || []).filter(q => !q.alt);
   if (S.est) { gl.deleteTexture(S.est.tex); gl.deleteTexture(S.est.anv); S.est = null; }
 }
 function construirEstructura() {
@@ -886,10 +928,14 @@ function construirEstructura() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     S.texPal = t;
   }
-  if (!S.estQuad) {
+  if (!S.estQuad) {            // malla de 96×96 por corte: acompaña el relieve para poder estirar la altura sobre el suelo
+    const G = 96, v = [], ix = [];
+    for (let j = 0; j <= G; j++) for (let i = 0; i <= G; i++) v.push(i / G, j / G);
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) { const a = j * (G + 1) + i, b = a + 1, c = a + G + 1, d = c + 1; ix.push(a, b, c, b, d, c); }
     S.estQuad = gl.createVertexArray(); gl.bindVertexArray(S.estQuad); const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
     const l = gl.getAttribLocation(progEst, 'a_q'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0);
+    const e = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, e); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(ix), gl.STATIC_DRAW); S.estQuadN = ix.length;
   }
   const f = 2, w = rg.W / f, h = rg.H / f;
   let src;
@@ -950,7 +996,7 @@ function construirEstructura() {
     }
   });
   maxTop = Math.max(maxTop, ...cel.map(c => c.tope + 0.5));
-  const alt0 = Math.max(0.3, minGr), alt1 = maxTop, n = clamp(Math.ceil((alt1 - alt0) / 0.35), 6, 48);
+  const alt0 = Math.max(0.3, minGr), alt1 = maxTop, n = clamp(Math.ceil((alt1 - alt0) / 0.2), 10, 80);
   gl.activeTexture(gl.TEXTURE2); const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.FLOAT, data);
@@ -961,7 +1007,15 @@ function construirEstructura() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.activeTexture(gl.TEXTURE0);
+  // caja de referencia (como un corte cúbico) alrededor de los ecos, con niveles cada 5 km
+  let bx0 = w, bx1 = -1, by0 = h, by1 = -1;
+  for (let k = 0; k < w * h; k++) if (dbz[k] >= 20) { const y = (k / w) | 0, x = k - y * w; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+  if (bx1 < 0) { bx0 = 0; bx1 = w - 1; by0 = 0; by1 = h - 1; }
+  const mg = 4 / kmpx, X0 = (Math.max(0, bx0 - mg) * f - rg.W / 2) * rg.kmPx, X1 = (Math.min(w, bx1 + mg) * f - rg.W / 2) * rg.kmPx;
+  const Z0 = (Math.max(0, by0 - mg) * f - rg.H / 2) * rg.kmPx, Z1 = (Math.min(h, by1 + mg) * f - rg.H / 2) * rg.kmPx;
+  const base = alt0, niv = [alt1]; for (let a = 5; a < alt1 - 1.5; a += 5) niv.push(a);
   S.est = { tex, anv, n, alt0, alt1, iso, x0: -rg.W / 2 * rg.kmPx, z0: -rg.H / 2 * rg.kmPx, ancho: rg.W * rg.kmPx, alto: rg.H * rg.kmPx };
+  S.est.caja = { X0, X1, Z0, Z1, niv, base, alt1 }; construirCaja(); etiquetasAltura();
   pedirDibujo();
 }
 function limpiarVol() {
@@ -1023,11 +1077,11 @@ async function cargarModelo(code, rg, trabajo) {
     const km = m => (m / 1000).toFixed(1).replace('.', ',');
     const nv = { alto: 'alto', medio: 'medio', bajo: 'bajo' };
     mi.style.display = infoOn() && cs.length ? 'block' : 'none';
-    mi.innerHTML = `<b>Estructura 3D estimada</b> · hace ${Math.round(edad)} min<br>` + cs.slice(0, 4).map(c =>
+    mi.innerHTML = `<div id="m-tit" style="cursor:pointer"><b>Estructura 3D estimada</b> · hace ${Math.round(edad)} min <span id="m-fl" style="float:right;color:#38bdf8">▾ ocultar</span></div><div id="m-det">` + cs.slice(0, 4).map(c =>
       `${Math.round(c.max_dbz)} dBZ · tope ${km(c.tope_m)} km · base ${km(c.base_m)} km · granizo ${nv[c.granizo.nivel] || c.granizo.nivel}` +
       (c.convectiva ? '' : ' · <i>sin convección clara, tope genérico</i>') + ` · confianza ${c.confianza}`).join('<br>') +
-      `<br><span style="color:#94a3b8;font-size:11px">Forma horizontal: eco real del radar (COLMAX). Alturas: satélite y sondeo en las celdas, y una relación típica eco-altura en el resto. No es un barrido vertical medido.</span>`;
-    pedirDibujo();
+      `<br><span style="color:#94a3b8;font-size:11px">Forma horizontal: eco real del radar (COLMAX). Alturas: satélite y sondeo en las celdas, y una relación típica eco-altura en el resto. No es un barrido vertical medido.</span></div>`;
+    aplicarPlegadoInfo(); pedirDibujo();
   } catch (e) {
     console.error('modelo3d:', e);
     if (trabajo === S.trabajo && infoOn()) { mi.style.display = 'block'; mi.textContent = 'Estructura estimada: no se pudo leer el modelo (' + String(e.message || e).slice(0, 80) + ').'; }
@@ -1090,6 +1144,7 @@ $('btn-ajustes').addEventListener('click', () => { ubicarAjustes(); $('ajustes')
 window.addEventListener('resize', ubicarAjustes);
 if (window.ResizeObserver) new ResizeObserver(ubicarAjustes).observe($('pie'));
 ubicarAjustes();
+$('rng-hs').addEventListener('input', e => { S.hs = +e.target.value; $('v-hs').textContent = S.hs.toFixed(1) + '×'; reubicarEtqAlt(); pedirDibujo(); });
 $('rng-exag').addEventListener('input', e => { S.exag = +e.target.value; $('v-exag').textContent = S.exag + '×'; pedirDibujo(); });
 $('rng-op').addEventListener('input', e => { S.op = e.target.value / 100; $('v-op').textContent = e.target.value + '%'; pedirDibujo(); });
 $('sel-base').addEventListener('change', e => { S.usaBase = e.target.value === 'sat'; pedirDibujo(); });
