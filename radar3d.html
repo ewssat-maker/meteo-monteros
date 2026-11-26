@@ -79,7 +79,9 @@
   <div class="fila"><span>Anillos</span><input id="chk-anillos" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Nombres</span><input id="chk-etq" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Límites provinciales</span><input id="chk-lim" type="checkbox" checked style="accent-color:#38bdf8"></div>
-  <div class="fila"><span>Estructura estimada</span><input id="chk-vol" type="checkbox" checked style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Estructura 3D completa</span><input id="chk-vol" type="checkbox" checked style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Eco del radar en el suelo</span><input id="chk-sup" type="checkbox" style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Núcleos del modelo (conos)</span><input id="chk-conos" type="checkbox" style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Lluvia acumulada</span>
     <select id="sel-lluvia" style="flex:1"><option value="0">Apagada</option><option value="3">Últimas 3 h</option><option value="6">Últimas 6 h</option><option value="12">Últimas 12 h</option><option value="24">Últimas 24 h</option></select></div>
 </div>
@@ -222,7 +224,7 @@ function programa(vs, fs) {
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
   return p;
 }
-let progMalla, progLinea, progVol;
+let progMalla, progLinea, progVol, progEst;
 try {
   progMalla = programa(`#version 300 es
     in vec3 a_p; in vec2 a_uv; in vec2 a_s;
@@ -265,6 +267,41 @@ try {
     void main() { v_c = a_c; gl_Position = u_mvp * vec4(a_p.x, a_p.y * u_exag, a_p.z, 1.0); }`,
     `#version 300 es
     precision mediump float; in vec4 v_c; out vec4 o; void main() { o = v_c; }`);
+  progEst = programa(`#version 300 es
+    in vec2 a_q; uniform mat4 u_mvp; uniform float u_exag; uniform float u_alt; uniform vec4 u_ext; out vec2 v_uv;
+    void main() { v_uv = a_q; gl_Position = u_mvp * vec4(u_ext.x + a_q.x * u_ext.z, u_alt * u_exag, u_ext.y + a_q.y * u_ext.w, 1.0); }`,
+    `#version 300 es
+    precision highp float;
+    in vec2 v_uv; uniform sampler2D u_vol; uniform sampler2D u_pal; uniform sampler2D u_anv; uniform vec4 u_ext; uniform float u_alt; uniform float u_iso; uniform float u_alpha; out vec4 o;
+    float hs(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float vn(vec3 x) {
+      vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(hs(i), hs(i + vec3(1,0,0)), f.x), mix(hs(i + vec3(0,1,0)), hs(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(hs(i + vec3(0,0,1)), hs(i + vec3(1,0,1)), f.x), mix(hs(i + vec3(0,1,1)), hs(i + vec3(1,1,1)), f.x), f.y), f.z);
+    }
+    void main() {
+      vec4 v = texture(u_vol, v_uv); vec4 an = texture(u_anv, v_uv);
+      vec2 km = v_uv * u_ext.zw;
+      vec3 p = vec3(km / 7.0, u_alt / 2.2);
+      float n = vn(p) * 0.6 + vn(p * 2.3 + 7.1) * 0.4;                 // textura irregular (turbulencia)
+      float dbz = v.r, top = v.g + (n - 0.5) * 1.4, gr = v.b;
+      float cf = smoothstep(35.0, 52.0, dbz);                            // 0 = lluvia estratiforme, 1 = núcleo convectivo
+      float d = -1.0;
+      if (dbz >= 10.0 && u_alt <= top && u_alt >= gr + 0.15) {
+        float pend = mix(4.2, 1.8, cf);                                  // los núcleos conservan intensidad hasta mucho más arriba
+        d = dbz - pend * max(0.0, u_alt - u_iso) - 6.0 * max(0.0, u_alt - (top - 1.5)) + (n - 0.5) * 16.0 * (0.4 + 0.6 * smoothstep(1.0, 6.0, u_alt - gr));
+      }
+      if (an.r > 0.0) {                                                    // yunque: capa que se abre en el tope, arrastrada por el viento en altura
+        float at = an.g + (n - 0.5) * 0.8;
+        float w = smoothstep(at - 3.2, at - 2.2, u_alt) * (1.0 - smoothstep(at - 0.7, at, u_alt));
+        float da = an.r * w + (n - 0.5) * 12.0 * w;
+        d = max(d, da);
+      }
+      if (d < 11.0) discard;
+      vec3 c = texture(u_pal, vec2(clamp(d / 80.0, 0.0, 1.0), 0.5)).rgb;
+      float k = clamp((d - 11.0) / 42.0, 0.0, 1.0);
+      o = vec4(c, u_alpha * (0.10 + 0.90 * pow(k, 1.3)));
+    }`);
 } catch (e) { mostrarError('Error al preparar los gráficos', String(e.message || e).slice(0, 200)); return; }
 
 const U = {
@@ -273,6 +310,7 @@ const U = {
 };
 const uM = { mvp: U.m('u_mvp'), exag: U.m('u_exag'), base: U.m('u_base'), radar: U.m('u_radar'), op: U.m('u_op'), usaBase: U.m('u_usaBase'), luz: U.m('u_luz') };
 const uV = { mvp: gl.getUniformLocation(progVol, 'u_mvp'), exag: gl.getUniformLocation(progVol, 'u_exag') };
+const uE = { mvp: gl.getUniformLocation(progEst, 'u_mvp'), exag: gl.getUniformLocation(progEst, 'u_exag'), alt: gl.getUniformLocation(progEst, 'u_alt'), ext: gl.getUniformLocation(progEst, 'u_ext'), vol: gl.getUniformLocation(progEst, 'u_vol'), pal: gl.getUniformLocation(progEst, 'u_pal'), iso: gl.getUniformLocation(progEst, 'u_iso'), anv: gl.getUniformLocation(progEst, 'u_anv'), alpha: gl.getUniformLocation(progEst, 'u_alpha') };
 const uL = { mvp: U.l('u_mvp'), exag: U.l('u_exag'), col: U.l('u_col') };
 
 /* ================= Estado ================= */
@@ -283,7 +321,7 @@ const S = {
   exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true, limites: true, contornos: null, lineasLim: null,
   lluvia: { horas: 0, tex: null, datos: null, img: null, aviso: '' },
   cam: { yaw: 0, pitch: 0.9, dist: 400, tx: 0, tz: 0 },
-  vol: null, volOn: true, modelo: null,
+  vol: null, volOn: true, conosOn: false, supOn: false, modelo: null, est: null, celdasEst: null, radCnv: null, radCampo: null,
   sucio: false
 };
 
@@ -522,7 +560,7 @@ function dibujar() {
   const mvp = matrizVista();
 
   gl.useProgram(progMalla);
-  gl.uniformMatrix4fv(uM.mvp, false, mvp); gl.uniform1f(uM.exag, S.exag); gl.uniform1f(uM.op, S.op);
+  gl.uniformMatrix4fv(uM.mvp, false, mvp); gl.uniform1f(uM.exag, S.exag); gl.uniform1f(uM.op, (S.supOn || !(S.volOn && S.est) || S.lluvia.horas) ? S.op : 0);
   gl.uniform1f(uM.usaBase, S.usaBase && S.region && S.region.baseOk ? 1 : 0); gl.uniform3f(uM.luz, -0.5, 0.75, -0.35);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.texBase); gl.uniform1i(uM.base, 0);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.lluvia.horas && S.lluvia.tex ? S.lluvia.tex : S.texRadar); gl.uniform1i(uM.radar, 1);
@@ -541,7 +579,19 @@ function dibujar() {
     gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
     S.segLineas.forEach(o => { gl.uniform4f(uL.col, o.c[0], o.c[1], o.c[2], 1); gl.bindVertexArray(o.vao); gl.drawArrays(gl.LINES, 0, o.n); });
   }
-  if (S.volOn && S.vol && S.vol.length) {         // estructura estimada de las celdas: cascarón translúcido + aros
+  if (S.volOn && S.est && !S.lluvia.horas) {        // estructura 3D completa: cortes horizontales apilados (de abajo hacia arriba)
+    const e = S.est;
+    gl.useProgram(progEst); gl.uniformMatrix4fv(uE.mvp, false, mvp); gl.uniform1f(uE.exag, S.exag);
+    gl.uniform4f(uE.ext, e.x0, e.z0, e.ancho, e.alto); gl.uniform1f(uE.iso, e.iso); gl.uniform1f(uE.alpha, clamp(11 / e.n, 0.12, 0.6));
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, e.tex); gl.uniform1i(uE.vol, 2);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, S.texPal); gl.uniform1i(uE.pal, 3);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, e.anv); gl.uniform1i(uE.anv, 4);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    gl.bindVertexArray(S.estQuad);
+    for (let k = 0; k < e.n; k++) { gl.uniform1f(uE.alt, e.alt0 + (e.alt1 - e.alt0) * (k + 0.5) / e.n); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+    gl.depthMask(true); gl.disable(gl.BLEND); gl.activeTexture(gl.TEXTURE0);
+  }
+  if (S.conosOn && S.vol && S.vol.length) {         // núcleos de las celdas del modelo: cascarón translúcido + aros
     gl.useProgram(progVol); gl.uniformMatrix4fv(uV.mvp, false, mvp); gl.uniform1f(uV.exag, S.exag);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
     S.vol.forEach(o => { gl.bindVertexArray(o.vao); gl.drawArrays(gl.TRIANGLES, 0, o.n); });
@@ -642,7 +692,7 @@ async function cargarTodo(completo) {
       rg = await construirRegion(caja, solapa ? preset.z : 8, trabajo);
       if (!rg || trabajo !== S.trabajo) return;
       S.region = rg; S.claveRegion = claveRegion;
-      borrarFrames(); limpiarSeg(); limpiarVol(); S.segData = null; $('anim').style.display = 'none';
+      borrarFrames(); limpiarSeg(); limpiarVol(); limpiarEst(); S.celdasEst = null; S.segData = null; $('anim').style.display = 'none';
       construirMalla(rg);
       S.texBase = subirTextura(0, rg.canvasBase, true, S.texBase);
       ajustarCamara(rg, solapa ? zona : 'radar');
@@ -651,6 +701,7 @@ async function cargarTodo(completo) {
     const rad = await cargarTeselasRadar(reg, rg, trabajo);
     if (!rad || trabajo !== S.trabajo) return;
     S.texUlt = subirTextura(1, rad.cnv, false, S.texUlt); S.texRadar = S.texUlt;
+    S.radCnv = rad.cnv; S.radCampo = campo; construirEstructura();
     if (S.lluvia.horas) { pintarLluvia(); cargarLluvia(); }      // la capa de lluvia acompaña a la región y se renueva con cada carga
     S.reg = reg; construirLineas(reg, rg); construirLimites(rg); construirEtiquetas(reg, rg);
     const e = textoEdad(reg.observation_time);
@@ -818,6 +869,101 @@ function construirSeguimiento() {
     (lleg ? `Podría alcanzar: ${lleg}<br>` : '') + `<span style="color:#94a3b8;font-size:11px">Estimación orientativa por extrapolación; no reemplaza los avisos oficiales.</span>`;
 }
 /* ================= Estructura 3D estimada de las celdas (modelo calculado fuera del servidor) ================= */
+const infoOn = () => S.volOn || S.conosOn;
+function limpiarEst() {
+  if (S.est) { gl.deleteTexture(S.est.tex); gl.deleteTexture(S.est.anv); S.est = null; }
+}
+function construirEstructura() {
+  limpiarEst();
+  const rg = S.region, cnv = S.radCnv;
+  if (!rg || !cnv || !esDbz(S.radCampo)) return;
+  if (!S.texPal) {                              // paleta del radar como textura 1D (0–80 dBZ)
+    const d = new Uint8Array(256 * 4);
+    for (let i = 0; i < 256; i++) { const c = colDbz(i / 255 * 80); d[i * 4] = c[0] * 255; d[i * 4 + 1] = c[1] * 255; d[i * 4 + 2] = c[2] * 255; d[i * 4 + 3] = 255; }
+    gl.activeTexture(gl.TEXTURE3); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, d);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    S.texPal = t;
+  }
+  if (!S.estQuad) {
+    S.estQuad = gl.createVertexArray(); gl.bindVertexArray(S.estQuad); const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+    const l = gl.getAttribLocation(progEst, 'a_q'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0);
+  }
+  const f = 2, w = rg.W / f, h = rg.H / f;
+  let src;
+  try { src = cnv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, rg.W, rg.H).data; } catch (e) { return; }
+  const dbz = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let m = 0;
+    for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) {
+      const i = ((y * f + dy) * rg.W + x * f + dx) * 4; if (src[i + 3] < 40) continue;
+      const v = dbzDe(src[i], src[i + 1], src[i + 2]); if (v !== null && v > m) m = v;
+    }
+    dbz[y * w + x] = m;
+  }
+  // altura del tope: relación típica eco-altura (km sobre el nivel del mar) y, cerca de cada celda del modelo, el tope calculado con el satélite
+  const top = new Float32Array(w * h), gr = new Float32Array(w * h);
+  for (let k = 0; k < w * h; k++) {
+    const y = (k / w) | 0, x = k - y * w;
+    gr[k] = rg.h[(y * f) * rg.W + x * f] / 1000;
+    top[k] = dbz[k] >= 10 ? clamp(3.0 + 0.16 * (dbz[k] - 15), 2.5, 13) : 6;
+  }
+  const cel = S.celdasEst || [];
+  cel.forEach(c => {
+    const p = aKm(rg, c.lat, c.lon), cx = p.px / f, cy = p.py / f, rr = Math.max(c.r / rg.kmPx / f * 1.7, 3), R = Math.ceil(rr * 2.5);
+    for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(h - 1, Math.ceil(cy + R)); y++) for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(w - 1, Math.ceil(cx + R)); x++) {
+      const k = y * w + x; if (dbz[k] < 25) continue;
+      const wgt = Math.exp(-(((x - cx) ** 2 + (y - cy) ** 2) / (rr * rr))) * c.conf;
+      top[k] += wgt * (c.tope - top[k]);
+    }
+  });
+  const tmp = new Float32Array(w * h);                      // suavizado (2 pasadas de promedio 3×3)
+  for (let it = 0; it < 2; it++) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let a = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= h) continue; for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx < 0 || xx >= w) continue; a += top[yy * w + xx]; n++; } }
+      tmp[y * w + x] = a / n;
+    }
+    top.set(tmp);
+  }
+  const data = new Float32Array(w * h * 4); let maxTop = 0, minGr = 99, hay = 0;
+  for (let k = 0; k < w * h; k++) {
+    if (dbz[k] >= 12) { hay++; if (top[k] > maxTop) maxTop = top[k]; if (gr[k] < minGr) minGr = gr[k]; }
+    data[k * 4] = dbz[k]; data[k * 4 + 1] = Math.max(top[k], gr[k] + 1.0); data[k * 4 + 2] = gr[k]; data[k * 4 + 3] = 1;
+  }
+  if (!hay) return;
+  const isos = cel.filter(c => c.iso0 > 1).map(c => c.iso0).sort((a, b) => a - b);
+  const iso = isos.length ? isos[isos.length >> 1] : 4.6;
+  // yunque: por celda, una mancha alargada a favor del viento en altura (dBZ del yunque y su altura)
+  const adat = new Float32Array(w * h * 4), kmpx = rg.kmPx * f;
+  cel.filter(c => c.tope >= 7.5 && c.max >= 40).forEach(c => {
+    const p = aKm(rg, c.lat, c.lon), cx = p.px / f, cy = p.py / f, m = Math.hypot(c.vx, c.vy) || 1, ux = c.vx / m, uy = -c.vy / m;   // en pantalla: +y = sur
+    const L = (40 + 2.5 * c.r) / kmpx, A = (c.r * 1.6 + 14) / kmpx, off = L * 0.45, ox = cx + ux * off, oy = cy + uy * off, R = Math.ceil(L * 1.7);
+    const dA = clamp(c.max - 18, 24, 40) * c.conf;
+    for (let y = Math.max(0, Math.floor(oy - R)); y <= Math.min(h - 1, Math.ceil(oy + R)); y++) for (let x = Math.max(0, Math.floor(ox - R)); x <= Math.min(w - 1, Math.ceil(ox + R)); x++) {
+      const dx = x - ox, dy = y - oy, a = dx * ux + dy * uy, b = -dx * uy + dy * ux, q = (a / L) ** 2 + (b / A) ** 2;
+      if (q > 1.6) continue;
+      const g = Math.exp(-q * 1.4) * dA, k = (y * w + x) * 4;
+      if (g > adat[k]) { adat[k] = g; adat[k + 1] = c.tope + 0.3; }
+    }
+  });
+  maxTop = Math.max(maxTop, ...cel.map(c => c.tope + 0.5));
+  const alt0 = Math.max(0.3, minGr), alt1 = maxTop, n = clamp(Math.ceil((alt1 - alt0) / 0.35), 6, 48);
+  gl.activeTexture(gl.TEXTURE2); const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.FLOAT, data);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.activeTexture(gl.TEXTURE4); const anv = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, anv);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.FLOAT, adat);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.activeTexture(gl.TEXTURE0);
+  S.est = { tex, anv, n, alt0, alt1, iso, x0: -rg.W / 2 * rg.kmPx, z0: -rg.H / 2 * rg.kmPx, ancho: rg.W * rg.kmPx, alto: rg.H * rg.kmPx };
+  pedirDibujo();
+}
 function limpiarVol() {
   (S.vol || []).forEach(o => { gl.deleteVertexArray(o.vao); gl.deleteBuffer(o.vb); if (o.lin) { gl.deleteVertexArray(o.lin.vao); gl.deleteBuffer(o.lin.vb); } });
   S.vol = null; const mi = $('m-info'); if (mi) mi.style.display = 'none';
@@ -864,7 +1010,7 @@ async function cargarModelo(code, rg, trabajo) {
     limpiarVol(); S.modelo = j;
     const rd = j.radares && j.radares[code], act = j.actualizado ? new Date(j.actualizado) : null;
     const edad = act ? (Date.now() - act.getTime()) / 60000 : null;
-    const aviso = t => { mi.style.display = S.volOn ? 'block' : 'none'; mi.textContent = t; pedirDibujo(); };
+    const aviso = t => { mi.style.display = infoOn() ? 'block' : 'none'; mi.textContent = t; pedirDibujo(); };
     if (!rd) return aviso('Estructura estimada: el modelo no tiene datos de ' + code + ' en la última corrida.');
     if (edad === null) return aviso('Estructura estimada: la corrida del modelo no trae hora; no se puede saber si está vigente.');
     if (!(rd.celdas || []).length) return aviso('Estructura estimada: la última corrida (hace ' + Math.round(edad) + ' min) no encontró celdas de 40 dBZ o más en ' + code + '.');
@@ -872,17 +1018,19 @@ async function cargarModelo(code, rg, trabajo) {
     const cs = rd.celdas.filter(c => c.capas && c.capas.length).sort((a, b) => b.max_dbz - a.max_dbz).slice(0, 12);
     if (!cs.length) return aviso('Estructura estimada: la corrida trae ' + rd.celdas.length + ' celdas pero ninguna con estructura calculada' + (rd.celdas[0] && rd.celdas[0].error ? ' (' + String(rd.celdas[0].error).slice(0, 80) + ')' : '') + '.');
     S.vol = cs.map(c => construirVolumen(c, rg)).filter(Boolean);
+    S.celdasEst = cs.filter(c => c.lat != null && c.tope_m).map(c => ({ lat: c.lat, lon: c.lon, tope: c.tope_m / 1000, iso0: (c.iso0_m || 0) / 1000, r: clamp(Math.max(...c.capas.map(k => k[2])), 4, 22), conf: c.confianza === 'media' ? 1 : 0.6, max: c.max_dbz, vx: (c.inclinacion && (c.inclinacion.dx_km || c.inclinacion.dy_km)) ? c.inclinacion.dx_km : ((c.ambiente && c.ambiente.shear_u) || 8), vy: (c.inclinacion && (c.inclinacion.dx_km || c.inclinacion.dy_km)) ? c.inclinacion.dy_km : ((c.ambiente && c.ambiente.shear_v) || 2) }));
+    construirEstructura();
     const km = m => (m / 1000).toFixed(1).replace('.', ',');
     const nv = { alto: 'alto', medio: 'medio', bajo: 'bajo' };
-    mi.style.display = S.volOn && cs.length ? 'block' : 'none';
-    mi.innerHTML = `<b>Estructura estimada (modelo)</b> · hace ${Math.round(edad)} min<br>` + cs.slice(0, 4).map(c =>
+    mi.style.display = infoOn() && cs.length ? 'block' : 'none';
+    mi.innerHTML = `<b>Estructura 3D estimada</b> · hace ${Math.round(edad)} min<br>` + cs.slice(0, 4).map(c =>
       `${Math.round(c.max_dbz)} dBZ · tope ${km(c.tope_m)} km · base ${km(c.base_m)} km · granizo ${nv[c.granizo.nivel] || c.granizo.nivel}` +
       (c.convectiva ? '' : ' · <i>sin convección clara, tope genérico</i>') + ` · confianza ${c.confianza}`).join('<br>') +
-      `<br><span style="color:#94a3b8;font-size:11px">Se calcula con el ambiente (sondeo) y el satélite; no es una medición del barrido vertical del radar.</span>`;
+      `<br><span style="color:#94a3b8;font-size:11px">Forma horizontal: eco real del radar (COLMAX). Alturas: satélite y sondeo en las celdas, y una relación típica eco-altura en el resto. No es un barrido vertical medido.</span>`;
     pedirDibujo();
   } catch (e) {
     console.error('modelo3d:', e);
-    if (trabajo === S.trabajo && S.volOn) { mi.style.display = 'block'; mi.textContent = 'Estructura estimada: no se pudo leer el modelo (' + String(e.message || e).slice(0, 80) + ').'; }
+    if (trabajo === S.trabajo && infoOn()) { mi.style.display = 'block'; mi.textContent = 'Estructura estimada: no se pudo leer el modelo (' + String(e.message || e).slice(0, 80) + ').'; }
   }
 }
 async function cargarAnimacion(code, campo, rg, trabajo) {
@@ -948,7 +1096,10 @@ $('sel-base').addEventListener('change', e => { S.usaBase = e.target.value === '
 $('chk-anillos').addEventListener('change', e => { S.anillos = e.target.checked; pedirDibujo(); });
 $('sel-lluvia').addEventListener('change', e => elegirLluvia(+e.target.value));
 $('chk-etq').addEventListener('change', e => { S.etiquetas = e.target.checked; pedirDibujo(); });
-$('chk-vol').addEventListener('change', e => { S.volOn = e.target.checked; const mi = $('m-info'); if (mi && S.vol && S.vol.length) mi.style.display = S.volOn ? 'block' : 'none'; pedirDibujo(); });
+const refInfo = () => { const mi = $('m-info'); if (mi && S.modelo && (S.vol || S.est)) mi.style.display = infoOn() ? 'block' : 'none'; pedirDibujo(); };
+$('chk-vol').addEventListener('change', e => { S.volOn = e.target.checked; refInfo(); });
+$('chk-sup').addEventListener('change', e => { S.supOn = e.target.checked; pedirDibujo(); });
+$('chk-conos').addEventListener('change', e => { S.conosOn = e.target.checked; refInfo(); });
 $('chk-lim').addEventListener('change', e => { S.limites = e.target.checked; pedirDibujo(); });
 const params = new URLSearchParams(location.search);
 if (RADAR_OK(params.get('radar'))) $('sel-radar').value = params.get('radar');
