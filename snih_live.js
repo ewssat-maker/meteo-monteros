@@ -95,15 +95,21 @@
         var f = ficha[id] || {}, s = d.serie, ult = s[s.length - 1];
         var alt = ult.altura_m, fecha = new Date(ult.ts);
         var hace = (Date.now() - fecha.getTime()) / 3600000;
-        // Variación a 24 h calculada con la propia serie (punto más cercano a "hace 24 h", tolerancia ±4 h); si no hay, se usa la de la ficha
-        var var24 = null, objetivo = fecha.getTime() - 24 * 3600000, mejor = null, md = 4 * 3600000 + 1;
-        s.forEach(function (p) { var dt = Math.abs(new Date(p.ts).getTime() - objetivo); if (p.altura_m !== null && p.altura_m !== undefined && dt < md) { md = dt; mejor = p; } });
-        if (mejor) var24 = alt - mejor.altura_m;
+        // Variación calculada con la propia serie: punto más cercano a "hace 24 h". Si la estación informa pocos datos por día
+        // (p. ej. Gastona), se acepta el punto más cercano entre 6 h y 72 h atrás y se escala a 24 h indicando el intervalo real.
+        var var24 = null, hRef = 24, objetivo = fecha.getTime() - 24 * 3600000, mejor = null, md = Infinity;
+        s.forEach(function (p) {
+          var t = new Date(p.ts).getTime(), atras = fecha.getTime() - t;
+          if (p.altura_m === null || p.altura_m === undefined || atras < 6 * 3600000 || atras > 72 * 3600000) return;
+          var dt = Math.abs(t - objetivo); if (dt < md) { md = dt; mejor = p; }
+        });
+        if (mejor) { hRef = (fecha.getTime() - new Date(mejor.ts).getTime()) / 3600000; var24 = (alt - mejor.altura_m) * 24 / hRef; }
         else if (f.var_24h_m !== null && f.var_24h_m !== undefined) var24 = f.var_24h_m;
+        var precede = mejor ? mejor.altura_m : (var24 === null ? null : alt - var24);
         $("val-cauce-nivel").innerText = alt.toFixed(2);
         $("val-cauce-tendencia").innerText = var24 === null || var24 === undefined ? "--" :
-          (var24 > 0.05 ? "▲ Creciente" : (var24 < -0.05 ? "▼ Descendente" : "■ Estable")) + " (" + (var24 > 0 ? "+" : "") + var24.toFixed(2) + " m/24 h)";
-        $("val-cauce-precedente").innerText = var24 === null || var24 === undefined ? "--" : (alt - var24).toFixed(2);
+          (var24 > 0.05 ? "▲ Creciente" : (var24 < -0.05 ? "▼ Descendente" : "■ Estable")) + " (" + (var24 > 0 ? "+" : "") + var24.toFixed(2) + " m/24 h" + (Math.abs(hRef - 24) > 3 ? ", medido en " + Math.round(hRef) + " h" : "") + ")";
+        $("val-cauce-precedente").innerText = precede === null || precede === undefined ? "--" : precede.toFixed(2);
         $("cauce-fecha").innerText = fecha.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" });
         renderGraficoCauce(s.map(function (p) { return [p.ts, p.altura_m]; }), null, null);
         var al = null;
