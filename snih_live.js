@@ -118,7 +118,11 @@
       }
     };
 
-    fetch(BACK + "/api/lluvia/rios").then(function (r) { return r.json(); }).then(function (j) {
+    Promise.all([
+      fetch(BACK + "/api/lluvia/rios").then(function (r) { return r.json(); }),
+      alertasRio().catch(function () { return {}; })
+    ]).then(function (res) {
+      var j = res[0], conUmbrales = res[1] || {};
       var lista = (j && j.estaciones) || [], cambios = 0;
       lista.forEach(function (e) {
         var p = prov(e.provincia);
@@ -128,7 +132,8 @@
         arr.forEach(function (x) { if (String(x.id) === String(e.id)) ex = x; });
         if (ex) { if (ex.lat !== e.lat || ex.lon !== e.lon) { ex.lat = e.lat; ex.lon = e.lon; cambios++; } return; }   // ya estaba: solo coordenadas oficiales
         var nombre = (e.rio && e.nombre.toLowerCase().indexOf(String(e.rio).toLowerCase()) === -1) ? e.rio + " - " + e.nombre : e.nombre;
-        arr.push({ id: e.id, fuente: "HIDRO", lat: e.lat, lon: e.lon, txt: nombre });
+        // Las estaciones con umbrales de alerta (p. ej. Coropampa) usan el mismo camino que La Punilla: historial oficial, tendencia, gráfico y tarjeta de alerta.
+        arr.push({ id: e.id, fuente: conUmbrales[String(e.id)] ? "SNIH" : "HIDRO", lat: e.lat, lon: e.lon, txt: nombre });
         cambios++;
       });
       if (!cambios) return;
