@@ -79,6 +79,7 @@
   <div class="fila"><span>Anillos</span><input id="chk-anillos" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Nombres</span><input id="chk-etq" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Límites provinciales</span><input id="chk-lim" type="checkbox" checked style="accent-color:#38bdf8"></div>
+  <div class="fila"><span>Estructura estimada</span><input id="chk-vol" type="checkbox" checked style="accent-color:#38bdf8"></div>
   <div class="fila"><span>Lluvia acumulada</span>
     <select id="sel-lluvia" style="flex:1"><option value="0">Apagada</option><option value="3">Últimas 3 h</option><option value="6">Últimas 6 h</option><option value="12">Últimas 12 h</option><option value="24">Últimas 24 h</option></select></div>
 </div>
@@ -103,6 +104,7 @@
     <div id="a-cl" style="display:none;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:11px"></div>
     <div id="a-info" style="display:none;margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(15,23,42,.7);border:1px solid rgba(245,158,11,.45);font-size:12px;line-height:1.4"></div>
   </div>
+  <div id="m-info" style="display:none;margin:6px 0;padding:6px 8px;border-radius:8px;background:rgba(15,23,42,.7);border:1px solid rgba(56,189,248,.45);font-size:12px;line-height:1.4"></div>
   <div id="leyenda">
     <div id="titulo-leyenda"></div>
     <div id="leg-nota" style="display:none;font-size:11px;line-height:1.35;color:#cbd5e1;max-width:260px"></div>
@@ -123,6 +125,8 @@ const RADAR_WEBMET = 'https://webmet.ohmc.ar';
 const RADAR_PROXY  = 'https://metricmoisture-backend.onrender.com/api/radar';
 const DEM_URL  = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';   // relieve abierto (AWS Terrain Tiles)
 const BASE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const MODELO_API = 'https://metricmoisture-backend.onrender.com/api/modelo3d/ultimo';
+const MODELO_VENCE_MIN = 90;      // el modelo se actualiza cada ~15 min; pasada la hora y media deja de mostrarse
 const LLUVIA_API = 'https://metricmoisture-backend.onrender.com/api/lluvia';
 const REFRESCO_MS = 5 * 60 * 1000;
 const ATRASO_MIN = 30;
@@ -218,7 +222,7 @@ function programa(vs, fs) {
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
   return p;
 }
-let progMalla, progLinea;
+let progMalla, progLinea, progVol;
 try {
   progMalla = programa(`#version 300 es
     in vec3 a_p; in vec2 a_uv; in vec2 a_s;
@@ -256,6 +260,11 @@ try {
     void main() { gl_Position = u_mvp * vec4(a_p.x, a_p.y * u_exag, a_p.z, 1.0); }`,
     `#version 300 es
     precision mediump float; uniform vec4 u_col; out vec4 o; void main() { o = u_col; }`);
+  progVol = programa(`#version 300 es
+    in vec3 a_p; in vec4 a_c; uniform mat4 u_mvp; uniform float u_exag; out vec4 v_c;
+    void main() { v_c = a_c; gl_Position = u_mvp * vec4(a_p.x, a_p.y * u_exag, a_p.z, 1.0); }`,
+    `#version 300 es
+    precision mediump float; in vec4 v_c; out vec4 o; void main() { o = v_c; }`);
 } catch (e) { mostrarError('Error al preparar los gráficos', String(e.message || e).slice(0, 200)); return; }
 
 const U = {
@@ -263,6 +272,7 @@ const U = {
   l: n => gl.getUniformLocation(progLinea, n)
 };
 const uM = { mvp: U.m('u_mvp'), exag: U.m('u_exag'), base: U.m('u_base'), radar: U.m('u_radar'), op: U.m('u_op'), usaBase: U.m('u_usaBase'), luz: U.m('u_luz') };
+const uV = { mvp: gl.getUniformLocation(progVol, 'u_mvp'), exag: gl.getUniformLocation(progVol, 'u_exag') };
 const uL = { mvp: U.l('u_mvp'), exag: U.l('u_exag'), col: U.l('u_col') };
 
 /* ================= Estado ================= */
@@ -273,6 +283,7 @@ const S = {
   exag: 2.5, op: 0.85, usaBase: true, anillos: true, etiquetas: true, limites: true, contornos: null, lineasLim: null,
   lluvia: { horas: 0, tex: null, datos: null, img: null, aviso: '' },
   cam: { yaw: 0, pitch: 0.9, dist: 400, tx: 0, tz: 0 },
+  vol: null, volOn: true, modelo: null,
   sucio: false
 };
 
@@ -530,6 +541,14 @@ function dibujar() {
     gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
     S.segLineas.forEach(o => { gl.uniform4f(uL.col, o.c[0], o.c[1], o.c[2], 1); gl.bindVertexArray(o.vao); gl.drawArrays(gl.LINES, 0, o.n); });
   }
+  if (S.volOn && S.vol && S.vol.length) {         // estructura estimada de las celdas: cascarón translúcido + aros
+    gl.useProgram(progVol); gl.uniformMatrix4fv(uV.mvp, false, mvp); gl.uniform1f(uV.exag, S.exag);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    S.vol.forEach(o => { gl.bindVertexArray(o.vao); gl.drawArrays(gl.TRIANGLES, 0, o.n); });
+    gl.depthMask(true); gl.disable(gl.BLEND);
+    gl.useProgram(progLinea); gl.uniformMatrix4fv(uL.mvp, false, mvp); gl.uniform1f(uL.exag, S.exag);
+    S.vol.forEach(o => { if (!o.lin) return; gl.uniform4f(uL.col, o.c[0], o.c[1], o.c[2], 1); gl.bindVertexArray(o.lin.vao); gl.drawArrays(gl.LINES, 0, o.lin.n); });
+  }
   // Etiquetas: se muestran según la prioridad y la distancia de la cámara, y sin encimarse
   const cw0 = canvas.clientWidth, ch0 = canvas.clientHeight, dist = S.cam.dist;
   const maxPr = dist > 450 ? 1 : (dist > 220 ? 2 : 3);
@@ -623,7 +642,7 @@ async function cargarTodo(completo) {
       rg = await construirRegion(caja, solapa ? preset.z : 8, trabajo);
       if (!rg || trabajo !== S.trabajo) return;
       S.region = rg; S.claveRegion = claveRegion;
-      borrarFrames(); limpiarSeg(); S.segData = null; $('anim').style.display = 'none';
+      borrarFrames(); limpiarSeg(); limpiarVol(); S.segData = null; $('anim').style.display = 'none';
       construirMalla(rg);
       S.texBase = subirTextura(0, rg.canvasBase, true, S.texBase);
       ajustarCamara(rg, solapa ? zona : 'radar');
@@ -640,6 +659,7 @@ async function cargarTodo(completo) {
     if (!rg.baseOk) $('estado').textContent += ' · sin imagen satelital (se usa el relieve)';
     actualizarLeyenda(); pedirDibujo();
     cargarAnimacion(code, campo, rg, trabajo);      // segundo plano: 6 imágenes + seguimiento
+    cargarModelo(code, rg, trabajo);                // segundo plano: estructura 3D estimada de las celdas
   } catch (err) {
     if (trabajo !== S.trabajo) return;
     console.error(err); $('estado').textContent = 'No se pudo cargar: ' + String(err.message || err).slice(0, 120); $('estado').style.color = '#f87171';
@@ -797,6 +817,67 @@ function construirSeguimiento() {
     (c.velocidad_kmh == null ? 'Movimiento: se necesitan al menos 2 imágenes seguidas.<br>' : `${c.velocidad_kmh} km/h, ${c.rumbo_texto}${c.tendencia ? ' · ' + c.tendencia : ''} · confianza ${c.confianza}<br>`) +
     (lleg ? `Podría alcanzar: ${lleg}<br>` : '') + `<span style="color:#94a3b8;font-size:11px">Estimación orientativa por extrapolación; no reemplaza los avisos oficiales.</span>`;
 }
+/* ================= Estructura 3D estimada de las celdas (modelo calculado fuera del servidor) ================= */
+function limpiarVol() {
+  (S.vol || []).forEach(o => { gl.deleteVertexArray(o.vao); gl.deleteBuffer(o.vb); if (o.lin) { gl.deleteVertexArray(o.lin.vao); gl.deleteBuffer(o.lin.vb); } });
+  S.vol = null; const mi = $('m-info'); if (mi) mi.style.display = 'none';
+}
+function colDbz(d) {                    // color de la paleta del radar para un valor de dBZ
+  let c = PAL_RGB[0]; for (const p of PAL_RGB) { if (p[0] <= d) c = p; else break; }
+  return [c[1] / 255, c[2] / 255, c[3] / 255];
+}
+function construirVolumen(cel, rg) {
+  const caps = (cel.capas || []).filter(c => c[2] > 0.3 && c[1] >= 10);
+  if (caps.length < 2 || cel.lat == null) return null;
+  const c0 = aKm(rg, cel.lat, cel.lon), z0 = cel.capas[0][0], z1 = Math.max(cel.tope_m, z0 + 1), inc = cel.inclinacion || { dx_km: 0, dy_km: 0 };
+  const N = 28, tri = [], lin = [], fa = cel.confianza === 'media' ? 1 : 0.55;
+  const anillo = (cp) => {
+    const f = clamp((cp[0] - z0) / (z1 - z0), 0, 1), cx = c0.x + inc.dx_km * f, cz = c0.z - inc.dy_km * f, y = cp[0] / 1000, r = cp[2], pts = [];
+    for (let i = 0; i <= N; i++) { const a = i / N * 2 * Math.PI; pts.push([cx + r * Math.sin(a), y, cz - r * Math.cos(a)]); }
+    return { pts, d: cp[1], y, cx, cz, r };
+  };
+  const A = caps.map(anillo);
+  for (let k = 0; k + 1 < A.length; k++) {
+    const a = A[k], b = A[k + 1];
+    const col = (d) => { const c = colDbz(d); return [c[0], c[1], c[2], fa * (0.10 + 0.38 * clamp((d - 10) / 45, 0, 1))]; };
+    const ca = col(a.d), cb = col(b.d);
+    for (let i = 0; i < N; i++) {
+      tri.push(...a.pts[i], ...ca, ...a.pts[i + 1], ...ca, ...b.pts[i], ...cb,  ...a.pts[i + 1], ...ca, ...b.pts[i + 1], ...cb, ...b.pts[i], ...cb);
+    }
+  }
+  const top = A[A.length - 1], ct = colDbz(top.d);                           // tapa superior
+  for (let i = 0; i < N; i++) tri.push(top.cx, top.y, top.cz, ct[0], ct[1], ct[2], fa * 0.35, ...top.pts[i], ct[0], ct[1], ct[2], fa * 0.35, ...top.pts[i + 1], ct[0], ct[1], ct[2], fa * 0.35);
+  A.forEach((a, k) => { if (k % 2 === 0 || k === A.length - 1) for (let i = 0; i < N; i++) lin.push(...a.pts[i], ...a.pts[i + 1]); });
+  for (let i = 0; i < N; i += N / 4) for (let k = 0; k + 1 < A.length; k++) lin.push(...A[k].pts[i], ...A[k + 1].pts[i]);
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao); const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tri), gl.STATIC_DRAW);
+  const lp = gl.getAttribLocation(progVol, 'a_p'), lc = gl.getAttribLocation(progVol, 'a_c');
+  gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp, 3, gl.FLOAT, false, 28, 0); gl.enableVertexAttribArray(lc); gl.vertexAttribPointer(lc, 4, gl.FLOAT, false, 28, 12);
+  const col = COL_CLASE[cel.max_dbz >= UMB.severa ? 'tormenta_severa' : (cel.max_dbz >= UMB.tormenta ? 'tormenta' : 'lluvia')];
+  return { vao, vb, n: tri.length / 7, c: col, lin: lin.length ? crearLineas(lin) : null };
+}
+async function cargarModelo(code, rg, trabajo) {
+  const mi = $('m-info');
+  try {
+    const r = await fetch(`${MODELO_API}?radar=${code}`); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(); if (trabajo !== S.trabajo) return;
+    limpiarVol(); S.modelo = j;
+    const rd = j.radares && j.radares[code], act = j.actualizado ? new Date(j.actualizado) : null;
+    const edad = act ? (Date.now() - act.getTime()) / 60000 : null;
+    if (!rd || !(rd.celdas || []).length || edad === null) { pedirDibujo(); return; }
+    if (edad > MODELO_VENCE_MIN) { mi.style.display = 'block'; mi.textContent = `La estructura estimada está desactualizada (hace ${Math.round(edad)} min); no se muestra.`; pedirDibujo(); return; }
+    const cs = rd.celdas.filter(c => c.capas && c.capas.length).sort((a, b) => b.max_dbz - a.max_dbz).slice(0, 12);
+    S.vol = cs.map(c => construirVolumen(c, rg)).filter(Boolean);
+    const km = m => (m / 1000).toFixed(1).replace('.', ',');
+    const nv = { alto: 'alto', medio: 'medio', bajo: 'bajo' };
+    mi.style.display = S.volOn && cs.length ? 'block' : 'none';
+    mi.innerHTML = `<b>Estructura estimada (modelo)</b> · hace ${Math.round(edad)} min<br>` + cs.slice(0, 4).map(c =>
+      `${Math.round(c.max_dbz)} dBZ · tope ${km(c.tope_m)} km · base ${km(c.base_m)} km · granizo ${nv[c.granizo.nivel] || c.granizo.nivel}` +
+      (c.convectiva ? '' : ' · <i>sin convección clara, tope genérico</i>') + ` · confianza ${c.confianza}`).join('<br>') +
+      `<br><span style="color:#94a3b8;font-size:11px">Se calcula con el ambiente (sondeo) y el satélite; no es una medición del barrido vertical del radar.</span>`;
+    pedirDibujo();
+  } catch (e) { /* sin modelo: la vista queda como antes */ }
+}
 async function cargarAnimacion(code, campo, rg, trabajo) {
   let h, sd = null;
   try {
@@ -860,13 +941,25 @@ $('sel-base').addEventListener('change', e => { S.usaBase = e.target.value === '
 $('chk-anillos').addEventListener('change', e => { S.anillos = e.target.checked; pedirDibujo(); });
 $('sel-lluvia').addEventListener('change', e => elegirLluvia(+e.target.value));
 $('chk-etq').addEventListener('change', e => { S.etiquetas = e.target.checked; pedirDibujo(); });
+$('chk-vol').addEventListener('change', e => { S.volOn = e.target.checked; const mi = $('m-info'); if (mi && S.vol && S.vol.length) mi.style.display = S.volOn ? 'block' : 'none'; pedirDibujo(); });
 $('chk-lim').addEventListener('change', e => { S.limites = e.target.checked; pedirDibujo(); });
 const params = new URLSearchParams(location.search);
 if (RADAR_OK(params.get('radar'))) $('sel-radar').value = params.get('radar');
 function RADAR_OK(c) { return ['RMA11', 'RMA20', 'RMA7'].includes(c); }
 if (params.get('zona') === 'aconquija') $('sel-zona').value = 'aconquija';
 
-setInterval(() => { if (!document.hidden) cargarTodo(false); }, REFRESCO_MS);
+setInterval(() => { if (!document.hidden) cargarTodo(false); }, 2 * REFRESCO_MS);     // renovación completa (modelo, lluvia) cada 10 min
+// Chequeo liviano cada 60 s: si WebMet publicó una imagen nueva se carga en el momento, sin esperar al ciclo de 5 min.
+let chequeando = false;
+setInterval(async () => {
+  if (document.hidden || chequeando || !S.reg) return;
+  chequeando = true;
+  try {
+    const reg = await pedirUltimo($('sel-radar').value, $('sel-campo').value);
+    if (reg && S.reg && reg.radar_code === S.reg.radar_code && reg.product_key === S.reg.product_key && reg.observation_time !== S.reg.observation_time) cargarTodo(false);
+  } catch (e) { /* sin red o WebMet no responde: se reintenta en el próximo minuto */ }
+  finally { chequeando = false; }
+}, 60000);
 // Texturas vacías (transparentes) para que nada se vea negro mientras llegan los datos
 (() => { const v = document.createElement('canvas'); v.width = v.height = 1;
   S.texBase = subirTextura(0, v, false, null); S.texRadar = subirTextura(1, v, false, null); })();
