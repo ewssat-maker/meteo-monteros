@@ -95,7 +95,11 @@
         var f = ficha[id] || {}, s = d.serie, ult = s[s.length - 1];
         var alt = ult.altura_m, fecha = new Date(ult.ts);
         var hace = (Date.now() - fecha.getTime()) / 3600000;
-        var var24 = f.var_24h_m;
+        // Variación a 24 h calculada con la propia serie (punto más cercano a "hace 24 h", tolerancia ±4 h); si no hay, se usa la de la ficha
+        var var24 = null, objetivo = fecha.getTime() - 24 * 3600000, mejor = null, md = 4 * 3600000 + 1;
+        s.forEach(function (p) { var dt = Math.abs(new Date(p.ts).getTime() - objetivo); if (p.altura_m !== null && p.altura_m !== undefined && dt < md) { md = dt; mejor = p; } });
+        if (mejor) var24 = alt - mejor.altura_m;
+        else if (f.var_24h_m !== null && f.var_24h_m !== undefined) var24 = f.var_24h_m;
         $("val-cauce-nivel").innerText = alt.toFixed(2);
         $("val-cauce-tendencia").innerText = var24 === null || var24 === undefined ? "--" :
           (var24 > 0.05 ? "▲ Creciente" : (var24 < -0.05 ? "▼ Descendente" : "■ Estable")) + " (" + (var24 > 0 ? "+" : "") + var24.toFixed(2) + " m/24 h)";
