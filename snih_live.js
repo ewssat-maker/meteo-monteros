@@ -4,13 +4,20 @@
   "use strict";
   var BACK = (window.METRIC_BACKEND || "https://metricmoisture-backend.onrender.com");
   var PROV = { "tucumán": "tucuman", "tucuman": "tucuman", "salta": "salta", "catamarca": "catamarca" };
+  var EXCLUIR = ["280486", "10471", "10475"];   // Toma Los Reales (sin datos desde 1900), Seco y Simoca (no devuelven nada): fuera del Live
+  function excluida(id) { return EXCLUIR.indexOf(String(id)) > -1; }
   function $(id) { return document.getElementById(id); }
   function prov(p) { return PROV[String(p || "").toLowerCase()] || null; }
   function num(v, d) { return (v === null || v === undefined || isNaN(v)) ? "--" : Number(v).toFixed(d); }
 
   /* ---------- 1) Estaciones meteorológicas SNIH en Tiempo Real ---------- */
   if (typeof estacionesData !== "undefined" && typeof window.cargarDatosActuales === "function" && typeof window.cambiarProvincia === "function") {
-    var cargarOrig = window.cargarDatosActuales;
+    var cargarOrig = window.cargarDatosActuales, quitadas = 0;
+    Object.keys(estacionesData).forEach(function (p) {          // saca las que estaban cargadas a mano en el index
+      var antes = estacionesData[p].length;
+      estacionesData[p] = estacionesData[p].filter(function (x) { return !excluida(x.val.split("|")[0]); });
+      quitadas += antes - estacionesData[p].length;
+    });
 
     window.cargarDatosActuales = async function (id, fuente, nombre) {
       if (fuente !== "SNIH") return cargarOrig.apply(this, arguments);
@@ -37,8 +44,9 @@
     };
 
     fetch(BACK + "/api/lluvia/estaciones").then(function (r) { return r.json(); }).then(function (j) {
-      var lista = (j && j.estaciones) || [], cambios = 0;
+      var lista = (j && j.estaciones) || [], cambios = quitadas;
       lista.forEach(function (e) {
+        if (excluida(e.id)) return;
         if (e.fuente !== "SNIH" || e.lat == null || e.lon == null) return;
         var p = prov(e.provincia);
         if (!p || !estacionesData[p]) return;
@@ -102,7 +110,7 @@
       var lista = (j && j.estaciones) || [], cambios = 0;
       lista.forEach(function (e) {
         var p = prov(e.provincia);
-        if (!p || !caucesData[p] || e.altura_m === null || e.altura_m === undefined) return;
+        if (excluida(e.id) || !p || !caucesData[p] || e.altura_m === null || e.altura_m === undefined) return;
         ficha[e.id] = e;
         var arr = caucesData[p], ex = null;
         arr.forEach(function (x) { if (String(x.id) === String(e.id)) ex = x; });
