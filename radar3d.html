@@ -864,9 +864,13 @@ async function cargarModelo(code, rg, trabajo) {
     limpiarVol(); S.modelo = j;
     const rd = j.radares && j.radares[code], act = j.actualizado ? new Date(j.actualizado) : null;
     const edad = act ? (Date.now() - act.getTime()) / 60000 : null;
-    if (!rd || !(rd.celdas || []).length || edad === null) { pedirDibujo(); return; }
+    const aviso = t => { mi.style.display = S.volOn ? 'block' : 'none'; mi.textContent = t; pedirDibujo(); };
+    if (!rd) return aviso('Estructura estimada: el modelo no tiene datos de ' + code + ' en la última corrida.');
+    if (edad === null) return aviso('Estructura estimada: la corrida del modelo no trae hora; no se puede saber si está vigente.');
+    if (!(rd.celdas || []).length) return aviso('Estructura estimada: la última corrida (hace ' + Math.round(edad) + ' min) no encontró celdas de 40 dBZ o más en ' + code + '.');
     if (edad > MODELO_VENCE_MIN) { mi.style.display = 'block'; mi.textContent = `La estructura estimada está desactualizada (hace ${Math.round(edad)} min); no se muestra.`; pedirDibujo(); return; }
     const cs = rd.celdas.filter(c => c.capas && c.capas.length).sort((a, b) => b.max_dbz - a.max_dbz).slice(0, 12);
+    if (!cs.length) return aviso('Estructura estimada: la corrida trae ' + rd.celdas.length + ' celdas pero ninguna con estructura calculada' + (rd.celdas[0] && rd.celdas[0].error ? ' (' + String(rd.celdas[0].error).slice(0, 80) + ')' : '') + '.');
     S.vol = cs.map(c => construirVolumen(c, rg)).filter(Boolean);
     const km = m => (m / 1000).toFixed(1).replace('.', ',');
     const nv = { alto: 'alto', medio: 'medio', bajo: 'bajo' };
@@ -876,7 +880,10 @@ async function cargarModelo(code, rg, trabajo) {
       (c.convectiva ? '' : ' · <i>sin convección clara, tope genérico</i>') + ` · confianza ${c.confianza}`).join('<br>') +
       `<br><span style="color:#94a3b8;font-size:11px">Se calcula con el ambiente (sondeo) y el satélite; no es una medición del barrido vertical del radar.</span>`;
     pedirDibujo();
-  } catch (e) { /* sin modelo: la vista queda como antes */ }
+  } catch (e) {
+    console.error('modelo3d:', e);
+    if (trabajo === S.trabajo && S.volOn) { mi.style.display = 'block'; mi.textContent = 'Estructura estimada: no se pudo leer el modelo (' + String(e.message || e).slice(0, 80) + ').'; }
+  }
 }
 async function cargarAnimacion(code, campo, rg, trabajo) {
   let h, sd = null;
