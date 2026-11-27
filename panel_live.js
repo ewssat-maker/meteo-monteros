@@ -131,7 +131,9 @@
   // ---------- gráfico de 24 h de la estación elegida
   function cargarSerie(id, nombre) {
     S.est = { id: id, nombre: nombre }; S.serie = null; pintarGrafico();
-    fetch(BACK + "/api/lluvia/estacion/" + encodeURIComponent(id) + "?horas=24").then(function (r) { return r.json(); }).then(function (j) {
+    // 10474 "Marapa - RP 157 - Lamadrid" mide solo el nivel del río: su temperatura, humedad y lluvia salen de la estación meteorológica 220274
+    var idHist = ({ "10474": "220274" })[String(id)] || id;
+    fetch(BACK + "/api/lluvia/estacion/" + encodeURIComponent(idHist) + "?horas=24").then(function (r) { return r.json(); }).then(function (j) {
       if (S.est && S.est.id === id) { S.serie = (j && j.serie) || []; pintarGrafico(); }
     }).catch(function () { if (S.est && S.est.id === id) { S.serie = []; pintarGrafico(); } });
   }
