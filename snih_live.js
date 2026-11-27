@@ -8,6 +8,9 @@
   var EXCLUIR = ["280486", "10471", "10475", "10611", "10622", "10701", "10646"];
   // Fuera de Cauces de Ríos: Seco y Simoca. La Punilla, Cabra Corral, El Encón y Cachi siguen en Cauces.
   var EXCLUIR_RIO = ["10471", "10475"];
+  // Estaciones del catálogo que miden solo el nivel del río: sus datos meteorológicos salen de la estación meteorológica vecina del SNIH.
+  // 10474 "Marapa - RP 157 - Lamadrid" -> 220274 "Lamadrid" (la que muestra temperatura, humedad y presión en el SNIH).
+  var ALIAS_MET = { "10474": "220274" };
   function excluida(id) { return EXCLUIR.indexOf(String(id)) > -1; }
   function $(id) { return document.getElementById(id); }
   function prov(p) { return PROV[String(p || "").toLowerCase()] || null; }
@@ -27,7 +30,7 @@
       var sb = $("status-box");
       try {
         if (sb) { sb.className = "text-xs text-center text-amber-300 bg-amber-950/80 border border-amber-500/30 py-2 px-3 rounded-xl shadow-lg"; sb.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Sincronizando...'; }
-        var r = await fetch(BACK + "/api/lluvia/snih/actual/" + encodeURIComponent(id));
+        var r = await fetch(BACK + "/api/lluvia/snih/actual/" + encodeURIComponent(ALIAS_MET[String(id)] || id));
         var d = await r.json();
         if (!r.ok || d.status !== "online") throw new Error("offline");
         $("val-temp").innerText = num(d.temp, 1);
